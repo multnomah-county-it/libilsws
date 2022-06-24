@@ -1,0 +1,12 @@
+ilsws:
+  username: ADMIN
+  password: MCL@DM1N
+  hostname: sdws06.sirsidynix.net
+  port: 443
+  webapp: multcolibtest_ilsws
+  app_id: libilsws
+  client_id: QUIPU
+  user_privilege_override: SUPER
+  timeout: 20
+  max_retries: 3
+  max_search_count: 20

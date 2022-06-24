@@ -1,0 +1,25 @@
+{
+    "name": "multnomah-county-it/libilsws",
+    "description": "PHP package to support use of the SirsiDynix Symphony Web Services API (ILSWS)",
+    "type": "library",
+    "require": {
+        "php": ">=5.6.0",
+        "curl/curl": "^2.3",
+        "symfony/yaml": "^6.0"
+    },
+    "require-dev": {
+        "symfony/var-dumper": "^6.0"
+    },
+    "license": "GPL-3.0-or-later",
+    "autoload": {
+        "psr-4": {
+            "Libilsws\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "John Houser",
+            "email": "90853393+john-c-houser@users.noreply.github.com"
+        }
+    ]
+}

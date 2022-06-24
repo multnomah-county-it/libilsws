@@ -1,6 +1,6 @@
 # libilsws
 
-# PHP package to support use of the SirsiDynix Symphony Web Services API (ILSWS)
+PHP package to support use of the SirsiDynix Symphony Web Services API (ILSWS)
 
 John Houser
 john.houser@multco.us

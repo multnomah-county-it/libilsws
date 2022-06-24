@@ -1,0 +1,12 @@
+ilsws:
+  username: USERNAME
+  password: PASSWORD
+  hostname: HOST
+  port: PORT
+  webapp: WEBAPP
+  app_id: APP_ID
+  client_id: CLIENT_ID
+  user_privilege_override: OVERRIDE
+  timeout: 20
+  max_retries: 3
+  max_search_count: 20

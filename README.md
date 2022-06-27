@@ -29,7 +29,11 @@ john.houser@multco.us
 ~~~
 require_once 'vendor/autoload.php';
 
+// Initialize and load configuration from libilsws.yaml
 $ilsws = new Libilsws\Libilsws();
 
-$response = $ilsws->authenticate_patron($username, $password);
+// All connection parameters supplied from configuration loaded from YAML file
+$token = $ilsws->connect();
+
+$response = $ilsws->get_patron($token, $username, $password);
 ~~~

@@ -37,3 +37,6 @@ $token = $ilsws->connect();
 
 $response = $ilsws->get_patron($token, $username, $password);
 ~~~
+
+For a complete set of examples see:
+~test.php~

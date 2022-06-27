@@ -26,7 +26,7 @@ john.houser@multco.us
 - get_patron ($token, $username, $password)
 
 # Example
-~~~
+```
 require_once 'vendor/autoload.php';
 
 // Initialize and load configuration from libilsws.yaml
@@ -36,7 +36,7 @@ $ilsws = new Libilsws\Libilsws();
 $token = $ilsws->connect();
 
 $response = $ilsws->get_patron($token, $username, $password);
-~~~
+```
 
 For a complete set of examples see:
-~test.php~
+`test.php`

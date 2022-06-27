@@ -19,6 +19,16 @@ use Curl\Curl;
 class Libilsws
 {
     /**
+     * Public variable to share error information
+     */
+    public $error;
+
+    /**
+     * Public variable to HTML return code
+     */
+    public $code;
+
+    /**
      * Turn this on to see various debug messages
      */
     private $debug = 1;
@@ -69,21 +79,31 @@ class Libilsws
     private $max_search_count;
 
     /**
+     * Default field list to return from patron searches
+     */
+    private $default_include_fields;
+
+    /**
      * Constructor for this class
      */
     public function __construct()
     {
         $config = Yaml::parseFile('libilsws.yaml');
 
-        $this->hostname         = $config['ilsws']['hostname'];
-        $this->port             = $config['ilsws']['port'];
-        $this->username         = $config['ilsws']['username'];
-        $this->password         = $config['ilsws']['password'];
-        $this->webapp           = $config['ilsws']['webapp'];
-        $this->app_id           = $config['ilsws']['app_id'];
-        $this->client_id        = $config['ilsws']['client_id'];
-        $this->timeout          = $config['ilsws']['timeout'];
-        $this->max_search_count = $config['ilsws']['max_search_count'];
+        $this->hostname                = $config['ilsws']['hostname'];
+        $this->port                    = $config['ilsws']['port'];
+        $this->username                = $config['ilsws']['username'];
+        $this->password                = $config['ilsws']['password'];
+        $this->webapp                  = $config['ilsws']['webapp'];
+        $this->app_id                  = $config['ilsws']['app_id'];
+        $this->client_id               = $config['ilsws']['client_id'];
+        $this->timeout                 = $config['ilsws']['timeout'];
+        $this->max_search_count        = $config['ilsws']['max_search_count'];
+        $this->user_privilege_override = $config['ilsws']['user_privilege_override'];
+        $this->default_include_fields  = $config['ilsws']['default_include_fields'];
+
+        //For convenience
+        $this->base_url         = "https://$this->hostname:$this->port/$this->webapp";
     }
 
     /**
@@ -91,10 +111,9 @@ class Libilsws
      *
      * @return x-sirs-sessionToken
      */
-    private function connect()
+    public function connect()
     {
         try {
-            $url = "https://$this->hostname:$this->port/$this->webapp";
             $action = "rest/security/loginUser";
             $params = "client_id=$this->client_id&login=$this->username&password=$this->password";
 
@@ -103,14 +122,18 @@ class Libilsws
                 'Accept: application/json',
                 "SD-Originating-App-ID: $this->app_id",
                 "x-sirs-clientID: $this->client_id"
-            ];
+                ];
+
+            $options = array(
+                CURLOPT_URL              => "$this->base_url/$action?$params",
+                CURLOPT_RETURNTRANSFER   => true,
+                CURLOPT_SSL_VERIFYSTATUS => true,
+                CURLOPT_CONNECTTIMEOUT   => $this->timeout,
+                CURLOPT_HTTPHEADER       => $headers,
+                );
 
             $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, "$url/$action?$params");
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYSTATUS, true);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt_array($ch, $options);
 
             $json = curl_exec($ch);
 
@@ -123,10 +146,141 @@ class Libilsws
             // Obfuscate the password if it's part of the dsn
             $obfuscated_url =  preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$url/$action?$params");
 
-            throw new Exception('mclilsws:' . $this->authId . ': - Could not connect to ILSWS: \'' .  $obfuscated_url . '\': ' . $e->getMessage());
+            throw new Exception('Could not connect to ILSWS: ' .  $obfuscated_url . ': ' . $e->getMessage());
         }
 
         return $token;
+    }
+
+    /**
+     * Create a standard GET request object. Used by most API functions.
+     * 
+     */
+
+    public function send_get ($url, $token, $params) 
+    {
+
+        // Encode the query parameters, as they will be sent in the URL
+        if ( $params ) {
+            $url .= "?";
+            $keys = array('q','rw','ct','j','includeFields');
+            foreach ($keys as $key) {
+                if ( $params->{$key} ) {
+                    $url .= "$key=" . htmlentities($params->{$key}) . '&';
+                }
+            }
+            $url = substr($url, 0, -1);
+            $url = preg_replace('/(.*)\#(.*)/', '$1%23$2', $url);
+        }
+
+        // Define a random request tracker. Can help when talking with SirsiDynix
+        $req_num = rand(1, 1000000000);
+
+        /* Set $error to the URL being submitted so that it can be accessed 
+         * in debug mode, when there is no error
+         */
+        $this->error = $url;
+
+        try {
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                "SD-Originating-App-ID: $this->app_id",
+                "SD-Request-Tracker: $req_num",
+                "x-sirs-clientID: $this->client_id",
+                "x-sirs-sessionToken: $token",
+                ];
+
+            $options = array(
+                CURLOPT_URL              => "$this->base_url/$action?$params",
+                CURLOPT_RETURNTRANSFER   => true,
+                CURLOPT_SSL_VERIFYSTATUS => true,
+                CURLOPT_CONNECTTIMEOUT   => $this->timeout,
+                CURLOPT_HTTPHEADER       => $headers
+                );
+
+            $ch = curl_init();
+            curl_setopt_array($ch, $options);
+
+            $json = curl_exec($ch);
+            $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            if ( $this->debug ) {
+                print "Request number: $req_num\n";
+                print "HTTP$this->code: $json\n";
+            }
+            
+            $response = json_decode($json, true);
+
+            curl_close($ch);
+
+        } catch (\Exception $e) {
+            $this->error = 'ILSWS send_get failed: ' . $e->getMessage();
+        }
+
+        return $response;
+    }
+
+    /* 
+     * Create a standard POST request object. Used by most updates and creates.
+     *
+     */
+
+    public function send_post ($url, $token, $query_json, $query_type)
+    {
+        if ( ! $query_type ) {
+            $query_type = 'POST';
+        }
+
+        // Define a random request tracker
+        $req_num = rand(1, 1000000000);
+
+        try {
+
+            // Define the request headers
+            $headers = array(
+                'Content-Type: application/json',
+                'Accept: application/json',
+                "SD-Originating-App-Id: $this->app_id",
+                "SD-Response-Tracker: $req_num",
+                'SD-Preferred-Role: STAFF',
+                "SD-Prompt-Return: USER_PRIVILEGE_OVRCD/$this->user_privilege_override",
+                "x-sirs-clientID: $this->client_id",
+                "x-sirs-sessionToken: $token"
+                
+                );
+
+            $options = array(
+                CURLOPT_URL              => $url,
+                CURLOPT_CUSTOMREQUEST    => $query_type,
+                CURLOPT_RETURNTRANSFER   => true,
+                CURLOPT_SSL_VERIFYSTATUS => true,
+                CURLOPT_CONNECTTIMEOUT   => $this->timeout,
+                CURLOPT_HTTPHEADER       => $headers,
+                CURLOPT_POSTFIELDS       => $query_json
+                );
+
+             $ch = curl_init();
+             curl_setopt_array($ch, $options);
+           
+             $json = curl_exec($ch);
+             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+             
+             if ( $this->debug ) {
+                 print "Request number: $req_num\n";
+                 print "HTTP$this->code: $json\n";
+             }
+             
+             $response = json_decode($json, true);
+            
+             curl_close($ch);
+        
+        } catch (\Exception $e) {
+            $this->error = 'ILSWS send_post failed: ' .$e->getMessage();
+        }
+
+        return $response;
     }
 
     /**
@@ -145,45 +299,17 @@ class Libilsws
      */
     protected function authenticate_search($token, $index, $search, $password)
     {
-        assert(is_string($token));
-        assert(is_string($index));
-        assert(is_string($search));
-        assert(is_string($password));
+        $params = array(
+                rw            => '1',
+                ct            => $this->max_search_count,
+                j             => 'AND',
+                includeFields => 'barcode'
+                );
 
-        try {
+        $response = $this->patron_search($token, $index, $search, $params);
 
-            $url = "https://$this->hostname:$this->port/$this->webapp";
-            $action = "/user/patron/search";
-            $post_data = array("q=$index:$search", 'rw=1', "ct=$this->max_search_count", 'j=AND', 'includeFields=barcode');
-            $params = implode('&', $post_data);
-
-            $headers = [
-                'Content-Type: application/json',
-                'Accept: application/json',
-                "SD-Originating-App-ID: $this->app_id",
-                "x-sirs-clientID: $this->client_id",
-                "x-sirs-sessionToken: $token",
-            ];
-
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, "$url/$action?$params");
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYSTATUS, true);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-            $json = curl_exec($ch);
-
-            if ( $this->debug ) {
-                print "$json\n";
-            }
-            
-            $response = json_decode($json, true);
-
-            curl_close($ch);
-
-        } catch (\Exception $e) {
-            throw new \Exception('ILSWS search query failed: ' . $e->getMessage());
+        if ( $this->error ) {
+            throw new Exception("ILSWS patron_search failed: $this->error");
         }
 
         /**
@@ -198,7 +324,6 @@ class Libilsws
             for ($i = 0; $i <= $response['totalResults'] - 1; $i++) {
                 if ( isset($response['result'][$i]['fields']['barcode']) ) {
                     $barcode = $response['result'][$i]['fields']['barcode'];
-                    assert(is_string($barcode));
                     $patron_key = $this->authenticate_barcode($token, $barcode, $password);
                     if ( $patron_key ) {
                         $count++;
@@ -229,49 +354,17 @@ class Libilsws
      */
     protected function authenticate_barcode($token, $barcode, $password)
     {
-        assert(is_string($token));
-        assert(is_string($barcode));
-        assert(is_string($password));
-
         $patron_key = 0;
- 
-        try {
 
-            $url = "https://$this->hostname:$this->port/$this->webapp";
-            $action = "/user/patron/authenticate";
-            $post_data = json_encode( array('barcode' => $barcode, 'password' => $password) );
+        $action = "/user/patron/authenticate";
+        $post_data = json_encode( array('barcode' => $barcode, 'password' => $password) );
 
-            $headers = [
-                'Content-Type: application/json',
-                'Accept: application/json',
-                "SD-Originating-App-ID: $this->app_id",
-                "x-sirs-clientID: $this->client_id",
-                "x-sirs-sessionToken: $token",
-            ];
+        $response = $this->send_post("$this->base_url/$action", $token, $post_data);
 
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, "$url/$action");
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYSTATUS, true);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
-
-            $json = curl_exec($ch);
-
-            if ( $this->debug ) {
-                print "$json\n";
-            }
-
-            $response = json_decode($json, true);
-            
-            curl_close($ch);
-
-        } catch (\Exception $e) {
-            throw new \Exception('ILSWS barcode authentication query failed: ' . $e->getMessage());
+        if ( $this->error ) {
+            throw new Exception("ILSWS send_post failed: $this->error");
         }
-
+                
         if ( isset($response['patronKey']) ) {
             $patron_key = $response['patronKey'];
         }
@@ -292,43 +385,39 @@ class Libilsws
      * @param string $password  The password the user wrote.
      * @return array @attributes Associative array with the users attributes.
      */
-    public function authenticate_patron ($username, $password)
+    public function get_patron ($username, $password, $token)
     {
-        assert(is_string($username));
-        assert(is_string($password));
-
-        $token = $this->connect();
-        assert(is_string($token));
+        if ( ! $token ) {
+            $token = $this->connect();
+        }
  
         // We support authentication by barcode and pin, telephone and pin, or email address and pin
         $patron_key = 0;
 
         if ( filter_var($username, FILTER_VALIDATE_EMAIL) ) {
 
-            # The username looks like an email
+            // The username looks like an email
             $patron_key = $this->authenticate_search($token, 'EMAIL', $username, $password);
 
         } elseif ( preg_match("/^\d{6,}$/", $username) ) {
 
-            # Assume the username is a barcode
+            // Assume the username is a barcode
             $patron_key = $this->authenticate_barcode($token, $username, $password);
 
             if ( ! $patron_key ) {
 
-                # Maybe the username is a telephone number without hyphens?
+                // Maybe the username is a telephone number without hyphens?
                 $patron_key = $this->authenticate_search($token, 'PHONE', $username, $password);
             }
 
         } elseif ( preg_match("/^\d{3}\-\d{3}\-\d{4}$/", $username) ) {
 
-            # This looks like a telephone number
+            // This looks like a telephone number
             $patron_key = $this->authenticate_search($token, 'PHONE', $username, $password);
         }
 
         $attributes = [];
         if ( $patron_key ) {
-
-            assert(is_string($patron_key));
 
             // Patron is authenticated. Now try to retrieve patron attributes.
             if ( $this->debug ) {
@@ -349,43 +438,11 @@ class Libilsws
                 'category02',
                 'category03',
                 'standing'
-            ];
+                ];
 
             $include_str = implode(',', $include_fields);
 
-            try {
-
-                $url = "https://$this->hostname:$this->port/$this->webapp";
-                $action = "/user/patron/key";
-
-                $headers = [
-                    'Content-Type: application/json',
-                    'Accept: application/json',
-                    "SD-Originating-App-ID: $this->app_id",
-                    "x-sirs-clientID: $this->client_id",
-                    "x-sirs-sessionToken: $token",
-                ];
-
-                $ch = curl_init();
-                curl_setopt($ch, CURLOPT_URL, "$url/$action/$patron_key?includeFields=$include_str");
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYSTATUS, true);
-                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout);
-                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-                $json = curl_exec($ch);
-
-                if ( $this->debug ) {
-                    print "$json\n";
-                }
-
-                $response = json_decode($json, true);
-
-                curl_close($ch);
-
-            } catch (\Exception $e) {
-                throw new \Exception('Could not retrieve attributes from ILSWS: ' . $e->getMessage());
-            }
+            $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, [includeFields => $include_str]);
 
             // Extract patron attributes from the ILSWS response and assign to $attributes.
             if ( isset($response['key']) ) {
@@ -444,5 +501,100 @@ class Libilsws
         }
 
         return $attributes;
+    }
+
+    /*
+     * Authenticate a patron via ID (Barcode) and pin
+     */
+
+    public function patron_authenticate ($token, $id, $pin)
+    {
+        $json = "{ \"barcode\": \"$id\", \"password\": \"$pin\" }";
+
+        return $this->send_post("$this->base_url/user/patron/authenticate", $token, $json, 'POST');
+    }
+
+    /*
+     * Describe the patron resource
+     */
+
+    public function patron_describe ($token) 
+    {
+        return $this->send_get("$this->base_url/user/patron/describe", $token);
+    }
+
+    /* 
+     * Search for patron by any valid single field
+     */
+
+    public function patron_search ($token, $index, $value, $params)
+    {
+        /* Valid params are: 
+         * search index and value, 
+         * number of results to return,
+         * row to start on (so you can page through results),
+         * boolean AND or OR to use with multiple search terms, and
+         * fields to return in result.
+         */
+        $params = array(
+            q => "$index:$value",
+            ct => $params->ct ?: '1000',
+            rw => $params->rw ?: '1',
+            j => $params->j ?: 'AND',
+            include_fields => $params->include_fields ?: $this->default_include_fields
+            );
+
+        return $this->send_get("$base_url/user/patron/search", $token, $params);
+    }
+
+    /*
+     * Search by alternate ID number
+     */
+
+    public function patron_alt_id_search ($token, $value, $count)
+    {
+        return $this->patron_search($token, 'ALT_ID', $value, $count);
+    }
+
+    /*
+     * Search by barcode number
+     */
+
+    public function patron_barcode_search ($token, $value, $count) 
+    {
+        return $this->patron_search($token, 'ID', $value, $count);
+    }
+
+    /*
+     * Create a new patron record
+     */
+
+    public function patron_create ($token, $json) 
+    {
+        $res = $this->send_post("$base_url/user/patron", $token, $json);
+
+        if ( $code == 404 ) {
+            $this->error = "404: Invalid access point (resource)";
+        }
+
+        return $res;
+    }
+
+    /*
+     * Update existing patron record
+     */
+
+    public function patron_update ($token, $json, $key) 
+    {
+        return $this->send_post("$base_url/user/patron/key/$key", $token, $json, 'PUT');
+    }
+
+    /*
+     * Update the patron lastActivityDate
+     */
+
+    public function activity_update ($token, $json)
+    {
+        return $this->send_post("$base_url/user/patron/updateActivityDate", $token, $json, 'POST');
     }
 }

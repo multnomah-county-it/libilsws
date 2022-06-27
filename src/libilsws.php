@@ -385,15 +385,11 @@ class Libilsws
      * @param string $password  The password the user wrote.
      * @return array @attributes Associative array with the users attributes.
      */
-    public function get_patron ($username, $password, $token)
+    public function get_patron ($token, $username, $password)
     {
-        if ( ! $token ) {
-            $token = $this->connect();
-        }
- 
-        // We support authentication by barcode and pin, telephone and pin, or email address and pin
         $patron_key = 0;
 
+        // We support authentication by barcode and pin, telephone and pin, or email address and pin
         if ( filter_var($username, FILTER_VALIDATE_EMAIL) ) {
 
             // The username looks like an email

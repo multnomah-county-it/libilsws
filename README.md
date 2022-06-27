@@ -13,14 +13,14 @@ john.houser@multco.us
 - send_post ($url, $token, $query_json, $query_type)
 
 ## Convenience functions
-- patron_activity_update ($token, $json)
+- patron_activity_update ($token, $patron_id)
 - patron_alt_id_search ($token, $value, $count)
-- patron_authenticate ($token, $id, $pin)
+- patron_authenticate ($token, $id, $patron_id)
 - patron_barcode_search ($token, $value, $count) 
 - patron_create ($token, $json) 
 - patron_describe ($token) 
 - patron_search ($token, $index, $value, $params)
-- patron_update ($token, $json, $key) 
+- patron_update ($token, $json, $patron_key) 
 
 ## High level
 - get_patron ($token, $username, $password)

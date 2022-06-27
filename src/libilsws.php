@@ -389,7 +389,7 @@ class Libilsws
     {
         $patron_key = 0;
 
-        // We support authentication by barcode and pin, telephone and pin, or email address and pin
+        // We support authentication by barcode and password, telephone and password, or email address and password
         if ( filter_var($username, FILTER_VALIDATE_EMAIL) ) {
 
             // The username looks like an email
@@ -500,12 +500,12 @@ class Libilsws
     }
 
     /*
-     * Authenticate a patron via ID (Barcode) and pin
+     * Authenticate a patron via ID (Barcode) and password
      */
 
-    public function patron_authenticate ($token, $id, $pin)
+    public function patron_authenticate ($token, $patron_id, $password)
     {
-        $json = "{ \"barcode\": \"$id\", \"password\": \"$pin\" }";
+        $json = "{ \"barcode\": \"$patron_id\", \"password\": \"$password\" }";
 
         return $this->send_post("$this->base_url/user/patron/authenticate", $token, $json, 'POST');
     }
@@ -547,18 +547,18 @@ class Libilsws
      * Search by alternate ID number
      */
 
-    public function patron_alt_id_search ($token, $value, $count)
+    public function patron_alt_id_search ($token, $alt_id, $count)
     {
-        return $this->patron_search($token, 'ALT_ID', $value, $count);
+        return $this->patron_search($token, 'ALT_ID', $alt_id, $count);
     }
 
     /*
      * Search by barcode number
      */
 
-    public function patron_barcode_search ($token, $value, $count) 
+    public function patron_barcode_search ($token, $patron_id, $count) 
     {
-        return $this->patron_search($token, 'ID', $value, $count);
+        return $this->patron_search($token, 'ID', $patron_id, $count);
     }
 
     /*
@@ -580,17 +580,18 @@ class Libilsws
      * Update existing patron record
      */
 
-    public function patron_update ($token, $json, $key) 
+    public function patron_update ($token, $json, $patron_key) 
     {
-        return $this->send_post("$base_url/user/patron/key/$key", $token, $json, 'PUT');
+        return $this->send_post("$base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
     }
 
     /*
      * Update the patron lastActivityDate
      */
 
-    public function activity_update ($token, $json)
+    public function patron_activity_update ($token, $patron_id)
     {
+        $json = "{\"patronBarcode\": \"$patron_id\"}";
         return $this->send_post("$base_url/user/patron/updateActivityDate", $token, $json, 'POST');
     }
 }

@@ -121,7 +121,7 @@ class Libilsws
                 'Content-Type: application/json',
                 'Accept: application/json',
                 "SD-Originating-App-ID: $this->app_id",
-                "x-sirs-clientID: $this->client_id"
+                "x-sirs-clientID: $this->client_id",
                 ];
 
             $options = array(
@@ -142,7 +142,7 @@ class Libilsws
 
             curl_close($ch);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Obfuscate the password if it's part of the dsn
             $obfuscated_url =  preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$url/$action?$params");
 
@@ -161,17 +161,15 @@ class Libilsws
     {
 
         // Encode the query parameters, as they will be sent in the URL
-        if ( $params ) {
-            $url .= "?";
-            $keys = array('q','rw','ct','j','includeFields');
-            foreach ($keys as $key) {
-                if ( $params->{$key} ) {
-                    $url .= "$key=" . htmlentities($params->{$key}) . '&';
-                }
+        $url .= "?";
+        $keys = array('q','rw','ct','j','includeFields');
+        foreach ($keys as $key) {
+            if ( isset($params[$key]) ) {
+                $url .= "$key=" . htmlentities($params[$key]) . '&';
             }
-            $url = substr($url, 0, -1);
-            $url = preg_replace('/(.*)\#(.*)/', '$1%23$2', $url);
         }
+        $url = substr($url, 0, -1);
+        $url = preg_replace('/(.*)\#(.*)/', '$1%23$2', $url);
 
         // Define a random request tracker. Can help when talking with SirsiDynix
         $req_num = rand(1, 1000000000);
@@ -193,11 +191,11 @@ class Libilsws
                 ];
 
             $options = array(
-                CURLOPT_URL              => "$this->base_url/$action?$params",
+                CURLOPT_URL              => $url,
                 CURLOPT_RETURNTRANSFER   => true,
                 CURLOPT_SSL_VERIFYSTATUS => true,
                 CURLOPT_CONNECTTIMEOUT   => $this->timeout,
-                CURLOPT_HTTPHEADER       => $headers
+                CURLOPT_HTTPHEADER       => $headers,
                 );
 
             $ch = curl_init();
@@ -208,14 +206,14 @@ class Libilsws
 
             if ( $this->debug ) {
                 print "Request number: $req_num\n";
-                print "HTTP$this->code: $json\n";
+                print "HTTP $this->code: $json\n";
             }
             
             $response = json_decode($json, true);
 
             curl_close($ch);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->error = 'ILSWS send_get failed: ' . $e->getMessage();
         }
 
@@ -229,10 +227,6 @@ class Libilsws
 
     public function send_post ($url, $token, $query_json, $query_type)
     {
-        if ( ! $query_type ) {
-            $query_type = 'POST';
-        }
-
         // Define a random request tracker
         $req_num = rand(1, 1000000000);
 
@@ -247,8 +241,7 @@ class Libilsws
                 'SD-Preferred-Role: STAFF',
                 "SD-Prompt-Return: USER_PRIVILEGE_OVRCD/$this->user_privilege_override",
                 "x-sirs-clientID: $this->client_id",
-                "x-sirs-sessionToken: $token"
-                
+                "x-sirs-sessionToken: $token",
                 );
 
             $options = array(
@@ -258,7 +251,7 @@ class Libilsws
                 CURLOPT_SSL_VERIFYSTATUS => true,
                 CURLOPT_CONNECTTIMEOUT   => $this->timeout,
                 CURLOPT_HTTPHEADER       => $headers,
-                CURLOPT_POSTFIELDS       => $query_json
+                CURLOPT_POSTFIELDS       => $query_json,
                 );
 
              $ch = curl_init();
@@ -269,14 +262,14 @@ class Libilsws
              
              if ( $this->debug ) {
                  print "Request number: $req_num\n";
-                 print "HTTP$this->code: $json\n";
+                 print "HTTP $this->code: $json\n";
              }
              
              $response = json_decode($json, true);
             
              curl_close($ch);
         
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->error = 'ILSWS send_post failed: ' .$e->getMessage();
         }
 
@@ -300,16 +293,16 @@ class Libilsws
     protected function authenticate_search($token, $index, $search, $password)
     {
         $params = array(
-                rw            => '1',
-                ct            => $this->max_search_count,
-                j             => 'AND',
-                includeFields => 'barcode'
+                'rw'            => '1',
+                'ct'            => $this->max_search_count,
+                'j'             => 'AND',
+                'includeFields' => 'barcode',
                 );
 
         $response = $this->patron_search($token, $index, $search, $params);
 
         if ( $this->error ) {
-            throw new Exception("ILSWS patron_search failed: $this->error");
+            return 0;
         }
 
         /**
@@ -357,9 +350,9 @@ class Libilsws
         $patron_key = 0;
 
         $action = "/user/patron/authenticate";
-        $post_data = json_encode( array('barcode' => $barcode, 'password' => $password) );
+        $json = json_encode( array('barcode' => $barcode, 'password' => $password) );
 
-        $response = $this->send_post("$this->base_url/$action", $token, $post_data);
+        $response = $this->send_post("$this->base_url/$action", $token, $json, 'POST');
 
         if ( $this->error ) {
             throw new Exception("ILSWS send_post failed: $this->error");
@@ -438,7 +431,7 @@ class Libilsws
 
             $include_str = implode(',', $include_fields);
 
-            $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, [includeFields => $include_str]);
+            $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, array(includeFields => $include_str));
 
             // Extract patron attributes from the ILSWS response and assign to $attributes.
             if ( isset($response['key']) ) {
@@ -516,7 +509,7 @@ class Libilsws
 
     public function patron_describe ($token) 
     {
-        return $this->send_get("$this->base_url/user/patron/describe", $token);
+        return $this->send_get("$this->base_url/user/patron/describe", $token, []);
     }
 
     /* 
@@ -533,14 +526,14 @@ class Libilsws
          * fields to return in result.
          */
         $params = array(
-            q => "$index:$value",
-            ct => $params->ct ?: '1000',
-            rw => $params->rw ?: '1',
-            j => $params->j ?: 'AND',
-            include_fields => $params->include_fields ?: $this->default_include_fields
+            'q'             => "$index:$value",
+            'ct'            => $params['ct'] ?? '1000',
+            'rw'            => $params['rw'] ?? '1',
+            'j'             => $params['j'] ?? 'AND',
+            'includeFields' => $params['includeFields'] ?? $this->default_include_fields,
             );
 
-        return $this->send_get("$base_url/user/patron/search", $token, $params);
+        return $this->send_get("$this->base_url/user/patron/search", $token, $params);
     }
 
     /*
@@ -549,7 +542,7 @@ class Libilsws
 
     public function patron_alt_id_search ($token, $alt_id, $count)
     {
-        return $this->patron_search($token, 'ALT_ID', $alt_id, $count);
+        return $this->patron_search($token, 'ALT_ID', $alt_id, array('ct' =>$count));
     }
 
     /*
@@ -558,7 +551,7 @@ class Libilsws
 
     public function patron_barcode_search ($token, $patron_id, $count) 
     {
-        return $this->patron_search($token, 'ID', $patron_id, $count);
+        return $this->patron_search($token, 'ID', $patron_id, array('ct' => $count));
     }
 
     /*
@@ -567,9 +560,9 @@ class Libilsws
 
     public function patron_create ($token, $json) 
     {
-        $res = $this->send_post("$base_url/user/patron", $token, $json);
+        $res = $this->send_post("$this->base_url/user/patron", $token, $json, 'POST');
 
-        if ( $code == 404 ) {
+        if ( $this->code == 404 ) {
             $this->error = "404: Invalid access point (resource)";
         }
 
@@ -582,7 +575,7 @@ class Libilsws
 
     public function patron_update ($token, $json, $patron_key) 
     {
-        return $this->send_post("$base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
+        return $this->send_post("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
     }
 
     /*
@@ -592,6 +585,6 @@ class Libilsws
     public function patron_activity_update ($token, $patron_id)
     {
         $json = "{\"patronBarcode\": \"$patron_id\"}";
-        return $this->send_post("$base_url/user/patron/updateActivityDate", $token, $json, 'POST');
+        return $this->send_post("$this->base_url/user/patron/updateActivityDate", $token, $json, 'POST');
     }
 }

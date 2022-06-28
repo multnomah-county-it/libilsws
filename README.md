@@ -16,7 +16,7 @@ john.houser@multco.us
 - patron_activity_update ($token, $patron_id)
 - patron_alt_id_search ($token, $value, $count)
 - patron_authenticate ($token, $id, $patron_id)
-- patron_barcode_search ($token, $value, $count) 
+- patron_id_search ($token, $patro_id, $count) 
 - patron_create ($token, $json) 
 - patron_describe ($token) 
 - patron_search ($token, $index, $value, $params)

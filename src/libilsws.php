@@ -119,6 +119,7 @@ class Libilsws
      */
     public function __construct()
     {
+        // Read the YAML configuration file and assign private varaibles
         $config = Yaml::parseFile('libilsws.yaml');
 
         $this->hostname                = $config['ilsws']['hostname'];
@@ -140,7 +141,7 @@ class Libilsws
     /**
      * Connect to ILSWS
      *
-     * @return x-sirs-sessionToken
+     * @return string $token The x-sirs-sessionToken to be used in all subsequent headers
      */
     public function connect()
     {
@@ -185,7 +186,11 @@ class Libilsws
 
     /**
      * Create a standard GET request object. Used by most API functions.
-     * 
+     *
+     * @param  string $url      The URL to connect with
+     * @param  string $token    The session token returned by ILSWS
+     * @param  object $params   Associative array of optional parameters
+     * @return object $response Associative array containing response from ILSWS
      */
 
     public function send_get ($url, $token, $params) 
@@ -205,7 +210,7 @@ class Libilsws
         // Define a random request tracker. Can help when talking with SirsiDynix
         $req_num = rand(1, 1000000000);
 
-        /* Set $error to the URL being submitted so that it can be accessed 
+        /** Set $error to the URL being submitted so that it can be accessed 
          * in debug mode, when there is no error
          */
         if ( $this->debug ) {
@@ -253,9 +258,14 @@ class Libilsws
         return $response;
     }
 
-    /* 
+    /** 
      * Create a standard POST request object. Used by most updates and creates.
-     *
+     * 
+     * @param  string $url        The URL to connect with
+     * @param  string $token      The session token returned by ILSWS
+     * @param  string $query_json JSON containing the required query elements
+     * @param  string $query_type The query type: POST or PUT
+     * @return object $response   Associative array containing the response from ILSWS 
      */
 
     public function send_query ($url, $token, $query_json, $query_type)
@@ -317,11 +327,11 @@ class Libilsws
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @param string $token  The session token returned by ILSWS.
-     * @param string $index  The Symphony index to search in for the user.
-     * @param string $search  The username the user entered.
-     * @param string $password  The password the user entered.
-     * @return string $barcode The user's barcode (ID).
+     * @param string  $token      The session token returned by ILSWS
+     * @param string  $index      The Symphony index to search
+     * @param string  $search     The value to search for
+     * @param string  $password   The patron password
+     * @return string $patron_key The patron ID (barcode)
      */
     public function authenticate_search ($token, $index, $search, $password)
     {
@@ -350,7 +360,10 @@ class Libilsws
             for ($i = 0; $i <= $response['totalResults'] - 1; $i++) {
                 if ( isset($response['result'][$i]['fields']['barcode']) ) {
                     $patron_id = $response['result'][$i]['fields']['barcode'];
+
+                    // Get the patron key from ILSWS via the patron ID and password
                     $patron_key = $this->authenticate_patron_id($token, $patron_id, $password);
+
                     if ( $patron_key ) {
                         $count++;
                     }
@@ -374,9 +387,10 @@ class Libilsws
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @param string $patron_id  The username the user wrote.
-     * @param string $password  The password the user wrote.
-     * @return string $patron_key The user's patron key.
+     * @param  string $token      The session token returned by ILSWS
+     * @param  string $patron_id  The patron ID (barcode)
+     * @param  string $password   The patron password
+     * @return string $patron_key The patron key (internal ID)
      */
     public function authenticate_patron_id($token, $patron_id, $password)
     {
@@ -407,8 +421,9 @@ class Libilsws
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @param string $patron_key
-     * @return array @attributes Associative array with the users attributes.
+     * @param  string $token      The session token returned by ILSWS
+     * @param  string $patron_key The user's internal ID number
+     * @return object $attributes Associative array with the user's attributes
      */
     public function get_patron_attributes ($token, $patron_key)
     {
@@ -489,8 +504,12 @@ class Libilsws
         return $attributes;
     }
 
-    /*
+    /**
      * Authenticate a patron via ID (Barcode) and password
+     *
+     * @param  string $token     The session token returned by ILSWS
+     * @param  string $patron_id The patron's ID (barcode)
+     * @return object Associative array contain the response from ILSWS
      */
 
     public function patron_authenticate ($token, $patron_id, $password)
@@ -500,7 +519,7 @@ class Libilsws
         return $this->send_query("$this->base_url/user/patron/authenticate", $token, $json, 'POST');
     }
 
-    /*
+    /**
      * Describe the patron resource
      */
 
@@ -509,18 +528,25 @@ class Libilsws
         return $this->send_get("$this->base_url/user/patron/describe", $token, []);
     }
 
-    /* 
+    /** 
      * Search for patron by any valid single field
+     *
+     * @param  string $token    The session token returned by ILSWS
+     * @param  string $index    The index to search
+     * @param  string $value    The value to search for
+     * @param  object $params   Associative array of optional parameters
+     * @return object $response Associative array containing search results
      */
 
     public function patron_search ($token, $index, $value, $params)
     {
-        /* Valid params are: 
-         * search index and value, 
-         * number of results to return,
-         * row to start on (so you can page through results),
-         * boolean AND or OR to use with multiple search terms, and
-         * fields to return in result.
+        /** 
+         * Valid params are: 
+         * q             = search index and value, 
+         * ct            = number of results to return,
+         * rw            = row to start on (so you can page through results),
+         * j             = boolean AND or OR to use with multiple search terms, and
+         * includeFields = fields to return in result.
          */
         $params = array(
             'q'             => "$index:$value",
@@ -539,8 +565,13 @@ class Libilsws
         return $response;
     }
 
-    /*
+    /**
      * Search by alternate ID number
+     * 
+     * @param  string $token  The session token returned by ILSWS
+     * @param  string $alt_id The user's alternate ID number
+     * @param  string $count  How many records to return per page
+     * @return object         Associative array containing search results
      */
 
     public function patron_alt_id_search ($token, $alt_id, $count)
@@ -548,32 +579,45 @@ class Libilsws
         $response = $this->patron_search($token, 'ALT_ID', $alt_id, array('ct' => $count));
     }
 
-    /*
-     * Search by barcode number
+    /**
+     * Search for patron by id (barcode)
+     *
+     * @param  string $token     The session token returned by ILSWS
+     * @param  string $patron_id The user's alternate ID number
+     * @param  string $count     How many records to return per page
+     * @return object            Associative array containing search results
      */
 
-    public function patron_barcode_search ($token, $patron_id, $count) 
+    public function patron_id_search ($token, $patron_id, $count) 
     {
         return $this->patron_search($token, 'ID', $patron_id, array('ct' => $count));
     }
 
-    /*
+    /**
      * Create a new patron record
+     *
+     * @param  string $token     The session token returned by ILSWS
+     * @param  string $json      Complete JSON of patron record
+     * @return object            Associative array containing result
      */
 
     public function patron_create ($token, $json) 
     {
-        $res = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
+        $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
 
         if ( $this->code == 404 ) {
             $this->error = "404: Invalid access point (resource)";
         }
 
-        return $res;
+        return $response;
     }
 
-    /*
+    /**
      * Update existing patron record
+     *
+     * @param  string $token     The session token returned by ILSWS
+     * @param  string $json      Complete JSON of patron record
+     * @return object            Associative array containing result
      */
 
     public function patron_update ($token, $json, $patron_key) 
@@ -581,8 +625,12 @@ class Libilsws
         return $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
     }
 
-    /*
+    /**
      * Update the patron lastActivityDate
+     *
+     * @param  string $token     The session token returned by ILSWS
+     * @param  string $patron_id The patron ID (barcode)
+     * @return object            Associative array containing result
      */
 
     public function patron_activity_update ($token, $patron_id)

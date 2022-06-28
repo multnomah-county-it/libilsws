@@ -22,7 +22,11 @@ $ilsws = new Libilsws\Libilsws();
 print "Connecting\n\n";
 $token = $ilsws->connect();
 
-// Authenitcate patro
+/**
+ * Authenticate via patron ID (barcode)
+ *
+ * Note: the ILSWS function this calls expects a full-sized barcode (14 digits)
+ */
 print "authenticate_patron_id\n";
 $patron_key = $ilsws->authenticate_patron_id($token, $patron_id, $password);
 print "patron_id: $patron_id\n\n";
@@ -45,8 +49,11 @@ $response = $ilsws->patron_activity_update($token, $patron_id);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-// Search for patron by Alt ID
-// Count is records per page, max 1000
+/**
+ * Search for patron by Alt ID
+ *
+ * Note: count is records per page, max 1000
+ */
 print "patron_alt_id_search\n";
 $count = 1000;
 $response = $ilsws->patron_alt_id_search($token, $alt_id, $count);
@@ -59,14 +66,14 @@ $response = $ilsws->patron_authenticate($token, $patron_id, $password);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-// Search for patron by barcode
-print "patron_barcode_search\n";
+// Search for patron by ID (barcode)
+print "patron_id_search\n";
 $count = 1000;
-$response = $ilsws->patron_barcode_search($token, $patron_id, $count);
+$response = $ilsws->patron_id_search($token, $patron_id, $count);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-// Structure of new patron record
+// Typical new patron record. For complete description see the output from patron_describe
 $json = 
 "{
   resource: '/user/patron',
@@ -131,13 +138,12 @@ $json =
   }
 }";
 
-/*
+/**
  * Code example to create new patron record
  *
  * $response = $ilsws->patron_create($token, $json);
  * $json = json_encode($response, JSON_PRETTY_PRINT);
  * print "$json\n\n";
- *
  */
 
 // Describe the patron record
@@ -146,7 +152,7 @@ $response = $ilsws->patron_describe($token);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-/*
+/**
  * Search for a patron. If the $params array is empty or any item is omitted,
  * default values will be supplied as shown, with the exception of the 
  * includeFields, which is configured in the libilsws.yaml file.
@@ -163,7 +169,8 @@ $response = $ilsws->patron_search($token, $index, $email, $params);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-/* Code example to update a patron record. Note that the data structure is the same
+/** 
+ * Code example to update a patron record. Note that the data structure is the same
  * as for updating a patron. So to update, you generally have to retrieve
  * the entire structure for a given patron, modify it, then update.
  * 
@@ -176,6 +183,5 @@ print "$json\n\n";
  * $response = $ilsws->patron_update($token, $json, $patron_key);
  * $json = json_encode($response, JSON_PRETTY_PRINT);
  * print "$json\n\n";
- * 
  */
 

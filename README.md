@@ -13,8 +13,6 @@ john.houser@multco.us
 - send_query ($url, $token, $query_json, $query_type)
 
 ## Convenience functions
-- authenticate_search($token, $index, $search, $password)
-- authenticate_id($token, $patron_id, $password)
 - patron_activity_update ($token, $patron_id)
 - patron_alt_id_search ($token, $value, $count)
 - patron_authenticate ($token, $id, $patron_id)
@@ -25,7 +23,9 @@ john.houser@multco.us
 - patron_update ($token, $json, $patron_key) 
 
 ## High level
-- get_patron ($token, $patron_key)
+- authenticate_search($token, $index, $search, $password)
+- authenticate_id($token, $patron_id, $password)
+- get_patron_attributes ($token, $patron_key)
 
 # Example
 ```
@@ -37,7 +37,7 @@ $ilsws = new Libilsws\Libilsws();
 // All connection parameters supplied from configuration loaded from YAML file
 $token = $ilsws->connect();
 
-$response = $ilsws->get_patron($token, $username, $password);
+$response = $ilsws->get_patron($token, $patron_key);
 ```
 
 For a complete set of examples see:

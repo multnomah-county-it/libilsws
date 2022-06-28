@@ -15,6 +15,37 @@ namespace Libilsws;
 
 use Symfony\Component\Yaml\Yaml;
 use Curl\Curl;
+use \Exception;
+
+/**
+ * Custom API exception.
+ *
+ * @package Libilsws
+ */
+class APIException extends Exception 
+{
+
+  /**
+   * Handles API errors that should be logged
+   */
+  public function __construct($message = "", $code = 0, Exception $previous = NULL) 
+  {
+
+    // Construct message from JSON if required.
+    if (substr($message, 0, 1) == '{') {
+      $message_obj = json_decode($message);
+      $message = $message_obj->status . ': ' . $message_obj->title;
+      if (!empty($message_obj->detail)) {
+        $message .= ' - ' . $message_obj->detail;
+      }
+      if (!empty($message_obj->errors)) {
+        $message .= ' ' . serialize($message_obj->errors);
+      }
+    }
+
+    parent::__construct($message, $code, $previous);
+  }
+}
 
 class Libilsws
 {
@@ -177,7 +208,9 @@ class Libilsws
         /* Set $error to the URL being submitted so that it can be accessed 
          * in debug mode, when there is no error
          */
-        $this->error = $url;
+        if ( $this->debug ) {
+            print "$url\n";
+        }
 
         try {
 
@@ -206,14 +239,14 @@ class Libilsws
 
             if ( $this->debug ) {
                 print "Request number: $req_num\n";
-                print "HTTP $this->code: $json\n";
+                print "HTTP $this->code: " . json_decode($json, JSON_PRETTY_PRINT) . "\n";
             }
             
             $response = json_decode($json, true);
 
             curl_close($ch);
 
-        } catch (Exception $e) {
+        } catch (RequestException $e) {
             $this->error = 'ILSWS send_get failed: ' . $e->getMessage();
         }
 
@@ -225,7 +258,7 @@ class Libilsws
      *
      */
 
-    public function send_post ($url, $token, $query_json, $query_type)
+    public function send_query ($url, $token, $query_json, $query_type)
     {
         // Define a random request tracker
         $req_num = rand(1, 1000000000);
@@ -270,7 +303,7 @@ class Libilsws
              curl_close($ch);
         
         } catch (Exception $e) {
-            $this->error = 'ILSWS send_post failed: ' .$e->getMessage();
+            $this->error = 'ILSWS send_query failed: ' .$e->getMessage();
         }
 
         return $response;
@@ -290,7 +323,7 @@ class Libilsws
      * @param string $password  The password the user entered.
      * @return string $barcode The user's barcode (ID).
      */
-    protected function authenticate_search($token, $index, $search, $password)
+    public function authenticate_search ($token, $index, $search, $password)
     {
         $params = array(
                 'rw'            => '1',
@@ -316,8 +349,8 @@ class Libilsws
         if ( $response['totalResults'] > 0 && $response['totalResults'] <= $this->max_search_count ) {
             for ($i = 0; $i <= $response['totalResults'] - 1; $i++) {
                 if ( isset($response['result'][$i]['fields']['barcode']) ) {
-                    $barcode = $response['result'][$i]['fields']['barcode'];
-                    $patron_key = $this->authenticate_barcode($token, $barcode, $password);
+                    $patron_id = $response['result'][$i]['fields']['barcode'];
+                    $patron_key = $this->authenticate_patron_id($token, $patron_id, $password);
                     if ( $patron_key ) {
                         $count++;
                     }
@@ -333,7 +366,7 @@ class Libilsws
     }
 
     /**
-     * Authenticate via barcode and password.
+     * Authenticate via patron_id (barcode) and password.
      *
      * On a successful login, this function should return the user's patron key. On failure,
      * it should throw an exception. If the error was caused by the user entering the wrong
@@ -341,21 +374,21 @@ class Libilsws
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @param string $username  The username the user wrote.
+     * @param string $patron_id  The username the user wrote.
      * @param string $password  The password the user wrote.
      * @return string $patron_key The user's patron key.
      */
-    protected function authenticate_barcode($token, $barcode, $password)
+    public function authenticate_patron_id($token, $patron_id, $password)
     {
         $patron_key = 0;
 
         $action = "/user/patron/authenticate";
-        $json = json_encode( array('barcode' => $barcode, 'password' => $password) );
+        $json = json_encode( array('barcode' => $patron_id, 'password' => $password) );
 
-        $response = $this->send_post("$this->base_url/$action", $token, $json, 'POST');
+        $response = $this->send_query("$this->base_url/$action", $token, $json, 'POST');
 
         if ( $this->error ) {
-            throw new Exception("ILSWS send_post failed: $this->error");
+            throw new Exception("ILSWS send_query failed: $this->error");
         }
                 
         if ( isset($response['patronKey']) ) {
@@ -374,119 +407,83 @@ class Libilsws
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @param string $username  The username the user wrote.
-     * @param string $password  The password the user wrote.
+     * @param string $patron_key
      * @return array @attributes Associative array with the users attributes.
      */
-    public function get_patron ($token, $username, $password)
+    public function get_patron ($token, $patron_key)
     {
-        $patron_key = 0;
-
-        // We support authentication by barcode and password, telephone and password, or email address and password
-        if ( filter_var($username, FILTER_VALIDATE_EMAIL) ) {
-
-            // The username looks like an email
-            $patron_key = $this->authenticate_search($token, 'EMAIL', $username, $password);
-
-        } elseif ( preg_match("/^\d{6,}$/", $username) ) {
-
-            // Assume the username is a barcode
-            $patron_key = $this->authenticate_barcode($token, $username, $password);
-
-            if ( ! $patron_key ) {
-
-                // Maybe the username is a telephone number without hyphens?
-                $patron_key = $this->authenticate_search($token, 'PHONE', $username, $password);
-            }
-
-        } elseif ( preg_match("/^\d{3}\-\d{3}\-\d{4}$/", $username) ) {
-
-            // This looks like a telephone number
-            $patron_key = $this->authenticate_search($token, 'PHONE', $username, $password);
-        }
-
         $attributes = [];
-        if ( $patron_key ) {
 
-            // Patron is authenticated. Now try to retrieve patron attributes.
-            if ( $this->debug ) {
-                print "ILSWS authenticated patron: $patron_key";
-            }
+        $include_fields = [
+            'lastName',
+            'firstName',
+            'middleName',
+            'barcode',
+            'library',
+            'profile',
+            'language',
+            'lastActivityDate',
+            'address1',
+            'category01',
+            'category02',
+            'category03',
+            'standing',
+            ];
 
-            $include_fields = [
-                'lastName',
-                'firstName',
-                'middleName',
-                'barcode',
-                'library',
-                'profile',
-                'language',
-                'lastActivityDate',
-                'address1',
-                'category01',
-                'category02',
-                'category03',
-                'standing'
-                ];
+        $include_str = implode(',', $include_fields);
 
-            $include_str = implode(',', $include_fields);
+        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, array('includeFields' => $include_str));
 
-            $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, array(includeFields => $include_str));
+        // Extract patron attributes from the ILSWS response and assign to $attributes.
+        if ( isset($response['key']) ) {
+            foreach ( $include_fields as &$field ) {
 
-            // Extract patron attributes from the ILSWS response and assign to $attributes.
-            if ( isset($response['key']) ) {
-                foreach ( $include_fields as &$field ) {
-
-                    if ( $field == 'address1' ) {
-                        if ( isset($response['fields']['address1']) ) {
-                            foreach ($response['fields']['address1'] as &$i) {
-                                if ( $i['fields']['code']['key'] == 'EMAIL' ) {
-                                    $attributes['email'][] = $i['fields']['data'];
-                                } elseif ( $i['fields']['code']['key'] == 'CITY/STATE' ) {
-                                    $parts = preg_split("/,\s*/", $i['fields']['data']);
-                                    $attributes['city'][] = $parts[0];
-                                    $attributes['state'][] = $parts[1];
-                                } elseif ( $i['fields']['code']['key'] == 'ZIP' ) {
-                                    $attributes['zip'][] = $i['fields']['data'];
-                                } elseif ( $i['fields']['code']['key'] == 'PHONE' ) {
-                                    $attributes['telephone'][] = $i['fields']['data'];
-                                }
+                if ( $field == 'address1' ) {
+                    if ( isset($response['fields']['address1']) ) {
+                        foreach ($response['fields']['address1'] as &$i) {
+                            if ( $i['fields']['code']['key'] == 'EMAIL' ) {
+                                $attributes['email'][] = $i['fields']['data'];
+                            } elseif ( $i['fields']['code']['key'] == 'CITY/STATE' ) {
+                                $parts = preg_split("/,\s*/", $i['fields']['data']);
+                                $attributes['city'][] = $parts[0];
+                                $attributes['state'][] = $parts[1];
+                            } elseif ( $i['fields']['code']['key'] == 'ZIP' ) {
+                                $attributes['zip'][] = $i['fields']['data'];
+                            } elseif ( $i['fields']['code']['key'] == 'PHONE' ) {
+                                $attributes['telephone'][] = $i['fields']['data'];
                             }
                         }
-                    } elseif ( isset($response['fields'][$field]['key']) ) {
-                        $attributes[$field][] = $response['fields'][$field]['key'];
-                    } elseif ( isset($response['fields'][$field]) ) {
-                        $attributes[$field][] = $response['fields'][$field];
-                    } else {
-                        $attributes[$field][] = '';
                     }
-                }
-            }
-            // Generate a displayName
-            if ( isset($response['fields']['lastName']) && isset($response['fields']['firstName']) ) {
-                $attributes['displayName'][] = $response['fields']['firstName'] . ' ' . $response['fields']['lastName'];
-            }
-            // Generate a commonName
-            if ( isset($response['fields']['lastName']) && isset($response['fields']['firstName']) ) {
-                if ( isset($response['fields']['middleName']) ) {
-                    $attributes['commonName'][] = $response['fields']['lastName'] 
-                      . ', ' 
-                      . $response['fields']['firstName'] 
-                      . ' ' 
-                      . $response['fields']['middleName'];
+                } elseif ( isset($response['fields'][$field]['key']) ) {
+                    $attributes[$field][] = $response['fields'][$field]['key'];
+                } elseif ( isset($response['fields'][$field]) ) {
+                    $attributes[$field][] = $response['fields'][$field];
                 } else {
-                    $attributes['commonName'][] = $response['fields']['lastName'] 
-                      . ', ' 
-                      . $response['fields']['firstName'];
+                    $attributes[$field][] = '';
                 }
             }
-
-            if ( $this->debug ) {
-                print 'ILSWS attributes returned: ' . implode(',', array_keys($attributes)) . "\n";
+        }
+        // Generate a displayName
+        if ( isset($response['fields']['lastName']) && isset($response['fields']['firstName']) ) {
+            $attributes['displayName'][] = $response['fields']['firstName'] . ' ' . $response['fields']['lastName'];
+        }
+        // Generate a commonName
+        if ( isset($response['fields']['lastName']) && isset($response['fields']['firstName']) ) {
+            if ( isset($response['fields']['middleName']) ) {
+                $attributes['commonName'][] = $response['fields']['lastName'] 
+                  . ', ' 
+                  . $response['fields']['firstName'] 
+                  . ' ' 
+                  . $response['fields']['middleName'];
+            } else {
+                $attributes['commonName'][] = $response['fields']['lastName'] 
+                  . ', ' 
+                  . $response['fields']['firstName'];
             }
+        }
 
-        } else if ( $this->debug ) {
-            print "Invalid username or password\n";
+        if ( $this->debug ) {
+            print 'ILSWS attributes returned: ' . implode(',', array_keys($attributes)) . "\n";
         }
 
         return $attributes;
@@ -500,7 +497,7 @@ class Libilsws
     {
         $json = "{ \"barcode\": \"$patron_id\", \"password\": \"$password\" }";
 
-        return $this->send_post("$this->base_url/user/patron/authenticate", $token, $json, 'POST');
+        return $this->send_query("$this->base_url/user/patron/authenticate", $token, $json, 'POST');
     }
 
     /*
@@ -533,7 +530,13 @@ class Libilsws
             'includeFields' => $params['includeFields'] ?? $this->default_include_fields,
             );
 
-        return $this->send_get("$this->base_url/user/patron/search", $token, $params);
+        $response = $this->send_get("$this->base_url/user/patron/search", $token, $params);
+
+        if ( $this->code == 401 ) {
+            $this->error = $response;
+        }
+
+        return $response;
     }
 
     /*
@@ -542,7 +545,7 @@ class Libilsws
 
     public function patron_alt_id_search ($token, $alt_id, $count)
     {
-        return $this->patron_search($token, 'ALT_ID', $alt_id, array('ct' =>$count));
+        $response = $this->patron_search($token, 'ALT_ID', $alt_id, array('ct' => $count));
     }
 
     /*
@@ -560,7 +563,7 @@ class Libilsws
 
     public function patron_create ($token, $json) 
     {
-        $res = $this->send_post("$this->base_url/user/patron", $token, $json, 'POST');
+        $res = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
 
         if ( $this->code == 404 ) {
             $this->error = "404: Invalid access point (resource)";
@@ -575,7 +578,7 @@ class Libilsws
 
     public function patron_update ($token, $json, $patron_key) 
     {
-        return $this->send_post("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
+        return $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
     }
 
     /*
@@ -585,6 +588,6 @@ class Libilsws
     public function patron_activity_update ($token, $patron_id)
     {
         $json = "{\"patronBarcode\": \"$patron_id\"}";
-        return $this->send_post("$this->base_url/user/patron/updateActivityDate", $token, $json, 'POST');
+        return $this->send_query("$this->base_url/user/patron/updateActivityDate", $token, $json, 'POST');
     }
 }

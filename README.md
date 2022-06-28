@@ -10,9 +10,11 @@ john.houser@multco.us
 ## Low level (can be used with any ILSWS access point)
 - connect()
 - send_get ($url, $token, $params) 
-- send_post ($url, $token, $query_json, $query_type)
+- send_query ($url, $token, $query_json, $query_type)
 
 ## Convenience functions
+- authenticate_search($token, $index, $search, $password)
+- authenticate_id($token, $patron_id, $password)
 - patron_activity_update ($token, $patron_id)
 - patron_alt_id_search ($token, $value, $count)
 - patron_authenticate ($token, $id, $patron_id)
@@ -23,7 +25,7 @@ john.houser@multco.us
 - patron_update ($token, $json, $patron_key) 
 
 ## High level
-- get_patron ($token, $username, $password)
+- get_patron ($token, $patron_key)
 
 # Example
 ```

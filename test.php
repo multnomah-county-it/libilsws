@@ -1,52 +1,73 @@
 <?php
 
 require_once 'vendor/autoload.php';
+error_reporting(E_ALL ^ E_WARNING);
 
-if ( ! $argv[1] || ! $argv[2] ) {
+if ( ! $argv ) {
     print "Syntax: php $argv[0] EMAIL TELEPHONE BARCODE ALT_ID PASSWORD\n";
     exit;
 }
 
 $email = $argv[1];
 $telephone = $argv[2];
-$barcode = $argv[3];
+$patron_id = $argv[3];
 $alt_id = $argv[4];
 $password = $argv[5];
 
-// Remove dashes from telephone
-$telephone = str_replace('-', '', $telephone);
-
 // Initialize
+print "Initializing\n\n";
 $ilsws = new Libilsws\Libilsws();
 
 // Connect and get token
+print "Connecting\n\n";
 $token = $ilsws->connect();
 
+// Authenitcate patro
+print "authenticate_patron_id\n";
+$patron_key = $ilsws->authenticate_patron_id($token, $patron_id, $password);
+print "patron_id: $patron_id\n\n";
+
 // Get patron attributes
-$attributes = $ilsws->get_patron($token, $telephone, $password);
-print "$attributes\n";
+print "authenticate_search\n";
+$patron_key = $ilsws->authenticate_search($token, 'PHONE', $telephone, $password);
+print "patron_id: $patron_key\n\n";
+
+print "get_patron\n";
+if ( $patron_key ) {
+    $attributes = $ilsws->get_patron($token, $patron_key);
+    $json = json_encode($attributes, JSON_PRETTY_PRINT);
+    print "$json\n\n";
+}
 
 // Update patron last activity date
-$patron_id = $barcode;
+print "patron_activity_update\n";
 $response = $ilsws->patron_activity_update($token, $patron_id);
-print "$response\n";
+$json = json_encode($response, JSON_PRETTY_PRINT);
+print "$json\n\n";
 
 // Search for patron by Alt ID
 // Count is records per page, max 1000
-$count = '1000';
-$response = $ilsws->patron_alt_id_search($token, $alt_id, array('ct' => $count));
-print "$response\n";
+print "patron_alt_id_search\n";
+$count = 1000;
+$response = $ilsws->patron_alt_id_search($token, $alt_id, $count);
+$json = json_encode($response, JSON_PRETTY_PRINT);
+print "$json\n\n";
 
 // Patron authenticate
+print "patron_authenticate\n";
 $response = $ilsws->patron_authenticate($token, $patron_id, $password);
-print "$response\n";
+$json = json_encode($response, JSON_PRETTY_PRINT);
+print "$json\n\n";
 
 // Search for patron by barcode
-$count = '1000';
-$response = $ilsws->patron_barcode_search($token, $patron_id, array('ct' =>$count));
-print "$response\n";
+print "patron_barcode_search\n";
+$count = 1000;
+$response = $ilsws->patron_barcode_search($token, $patron_id, $count);
+$json = json_encode($response, JSON_PRETTY_PRINT);
+print "$json\n\n";
 
 // Create a new patron record. Have fun with this one.
+// print "Create new record\n";
 $json = 
 "{
   resource: '/user/patron',
@@ -110,34 +131,38 @@ $json =
     ]
   }
 }";
-$response = $ilsws->patron_create($token, $json);
-print "$response\n";
+// $response = $ilsws->patron_create($token, $json);
+// $json = json_encode($response, JSON_PRETTY_PRINT);
+// print "$json\n\n";
 
 // Describe the patron record
+print "patron_describe\n";
 $response = $ilsws->patron_describe($token);
-print "$response\n";
+$json = json_encode($response, JSON_PRETTY_PRINT);
+print "$json\n\n";
 
 /*
  * Search for a patron. If the $params array is empty or any item is omitted,
  * default values will be supplied.
  */
+print "patron_search\n";
 $index = 'EMAIL';
-$value = $email;
 $params = array(
-    'q'             => "$index:$value",
     'ct'            => '1000',
     'rw'            => '1',
     'j'             => 'AND',
-    'includeFields' => 'key,firstName,lastName',
+    'includeFields' => 'key,firstName,middleName,lastName',
     );
-$response = $ilsws->patron_search($token, $index, $value, $params);
-print "$response\n";
+$response = $ilsws->patron_search($token, $index, $email, $params);
+$json = json_encode($response, JSON_PRETTY_PRINT);
+print "$json\n\n";
 
 /* Update a patron record. Note that the data structure is the same
  * as for updating a patron. So to update, you generally have to retrieve
  * the entire structure, modify it, then update.
  */
-$patron_key = '591418';
+// print "patron_update\n";
+// $patron_key = '591418';
 $json = "{
   resource: '/user/patron',
   fields: {
@@ -199,6 +224,7 @@ $json = "{
     ]
   }
 }";
-$response = $ilsws->patron_update($token, $json, $patron_key);
-print "$response\n";
+// $response = $ilsws->patron_update($token, $json, $patron_key);
+// $json = json_encode($response, JSON_PRETTY_PRINT);
+// print "$json\n\n";
 

@@ -410,7 +410,7 @@ class Libilsws
      * @param string $patron_key
      * @return array @attributes Associative array with the users attributes.
      */
-    public function get_patron ($token, $patron_key)
+    public function get_patron_attributes ($token, $patron_key)
     {
         $attributes = [];
 

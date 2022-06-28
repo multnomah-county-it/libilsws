@@ -34,7 +34,7 @@ print "patron_id: $patron_key\n\n";
 
 print "get_patron\n";
 if ( $patron_key ) {
-    $attributes = $ilsws->get_patron($token, $patron_key);
+    $attributes = $ilsws->get_patron_attributes($token, $patron_key);
     $json = json_encode($attributes, JSON_PRETTY_PRINT);
     print "$json\n\n";
 }
@@ -66,8 +66,7 @@ $response = $ilsws->patron_barcode_search($token, $patron_id, $count);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-// Create a new patron record. Have fun with this one.
-// print "Create new record\n";
+// Structure of new patron record
 $json = 
 "{
   resource: '/user/patron',
@@ -131,9 +130,15 @@ $json =
     ]
   }
 }";
-// $response = $ilsws->patron_create($token, $json);
-// $json = json_encode($response, JSON_PRETTY_PRINT);
-// print "$json\n\n";
+
+/*
+ * Code example to create new patron record
+ *
+ * $response = $ilsws->patron_create($token, $json);
+ * $json = json_encode($response, JSON_PRETTY_PRINT);
+ * print "$json\n\n";
+ *
+ */
 
 // Describe the patron record
 print "patron_describe\n";
@@ -143,7 +148,8 @@ print "$json\n\n";
 
 /*
  * Search for a patron. If the $params array is empty or any item is omitted,
- * default values will be supplied.
+ * default values will be supplied as shown, with the exception of the 
+ * includeFields, which is configured in the libilsws.yaml file.
  */
 print "patron_search\n";
 $index = 'EMAIL';
@@ -157,74 +163,19 @@ $response = $ilsws->patron_search($token, $index, $email, $params);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-/* Update a patron record. Note that the data structure is the same
+/* Code example to update a patron record. Note that the data structure is the same
  * as for updating a patron. So to update, you generally have to retrieve
- * the entire structure, modify it, then update.
+ * the entire structure for a given patron, modify it, then update.
+ * 
+ * $patron_key = '591418';
+ * $includeFields = "barcode,birthDate,firstName,language,lastName,library,middleName,privilegeExpiresDate,profile,category01,category02,category05,category06,category11,address1";
+ * $patron = $ilsws->send_get("$this->base_url/user/patron/key/$patron_key", $token, array('includeFields' => $include_str));
+ * 
+ * [Modify the data structure]
+ * 
+ * $response = $ilsws->patron_update($token, $json, $patron_key);
+ * $json = json_encode($response, JSON_PRETTY_PRINT);
+ * print "$json\n\n";
+ * 
  */
-// print "patron_update\n";
-// $patron_key = '591418';
-$json = "{
-  resource: '/user/patron',
-  fields: {
-    barcode: '21168045918653',
-    birthDate: '1962-03-07',
-    firstName: 'John',
-    language: { resource: '/policy/language', key: 'ENGLISH' },
-    lastName: 'Houser',
-    library: { resource: '/policy/library', key: 'CEN' },
-    middleName: 'Clark',
-    privilegeExpiresDate: null,
-    profile: { resource: '/policy/userProfile', key: '0_MULT' },
-    category01: { resource: '/policy/patronCategory01', key: '0_MULT' },
-    category02: { resource: '/policy/patronCategory02', key: 'PHONE' },
-    category05: { resource: '/policy/patronCategory05', key: 'YES' },
-    category06: { resource: '/policy/patronCategory06', key: 'YES' },
-    category11: { resource: '/policy/patronCategory11', key: 'YES' },
-    address1: [
-      {
-        resource: '/user/patron/address1',
-        key: '13',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'STREET' },
-          data: '925 NW Hoyt St Apt 406'
-        }
-      },
-      {
-        resource: '/user/patron/address1',
-        key: '2',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'CITY/STATE' },
-          data: 'Portland, OR'
-        }
-      },
-      {
-        resource: '/user/patron/address1',
-        key: '12',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'ZIP' },
-          data: '97209'
-        }
-      },
-      {
-        resource: '/user/patron/address1',
-        key: '11',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'EMAIL' },
-          data: 'johnchouser@gmail.com'
-        }
-      },
-      {
-        resource: '/user/patron/address1',
-        key: '7',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'PHONE' },
-          data: '215-534-6820'
-        }
-      }
-    ]
-  }
-}";
-// $response = $ilsws->patron_update($token, $json, $patron_key);
-// $json = json_encode($response, JSON_PRETTY_PRINT);
-// print "$json\n\n";
 

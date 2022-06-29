@@ -21,12 +21,12 @@ they valididate all inputs and will throw exceptions
 if presented with inappropriate inputs.
 
 - patron_activity_update ($token, $patron_id)
-- patron_alt_id_search ($token, $value, $count)
-- patron_authenticate ($token, $id, $patron_id)
+- patron_alt_id_search ($token, $alt_id, $count)
+- patron_authenticate ($token, $patron_id, $password)
 - patron_id_search ($token, $patro_id, $count) 
 - patron_create ($token, $json) 
 - patron_describe ($token) 
-- patron_search ($token, $index, $value, $params)
+- patron_search ($token, $index, $search, $params)
 - patron_update ($token, $json, $patron_key) 
 
 ## High level
@@ -52,4 +52,4 @@ $response = $ilsws->get_patron($token, $patron_key);
 ```
 
 For a complete set of examples see:
-`test.php`
+`test/test.php`

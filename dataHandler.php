@@ -98,7 +98,7 @@ class validate
 				    foreach ( $params as &$test ) {	
 					    if ( $test === $value ) {
 						    $retval = 1;
-						    endforeach;
+						    break 1;
 					    }
 				    }
 			    }
@@ -138,18 +138,18 @@ class validate
 		        break;
 		    case preg_match('/^(MM)([\-\/]{1})(DD)([\-\/]{1})(YYYY)$/', $format):
 			    if ( preg_match('/^(\d{2})([\-\/]{1})(\d{2})([\-\/]{1})(\d{4})$/', $date) ) {
-				    list($year, $month, $day) = preg_split('/[\-\/]/', $date;
+				    list($year, $month, $day) = preg_split('/[\-\/]/', $date);
 				    if ( checkdate($month, $day, $year) ) {
 					    $retval = $year . '-' . sprintf("%02d", $month) . '-' . sprintf("%02d", $day);
 				    }
 			    }
 		        break;
 		    case preg_match('YYYYMMDD', $format):
-			    if ( $date =~ /^\d{8}$/ ) {
-				    my $year = substr $format, 0, 4;
-				    my $month = substr $format, 5, 2;
-				    my $day = substr $format, 7, 2;
-				    if ( check_date($year, $month, $day) ) {
+			    if ( preg_match('/^\d{8}$/', $date) ) {
+				    $year = substr($format, 0, 4);
+				    $month = substr($format, 5, 2);
+				    $day = substr($format, 7, 2);
+				    if ( checkdate($month, $day, $year) ) {
 					    $retval = $year . '-' . sprintf("%02d", $month) . '-' . sprintf("%02d", $day);
 				    }
 			    }

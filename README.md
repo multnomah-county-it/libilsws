@@ -7,12 +7,19 @@ john.houser@multco.us
 
 # Public Functions
 
-## Low level (can be used with any ILSWS access point)
+## Low level 
+These functions can be used with any valid ILSWS access point. They will
+throw exceptions on error.
+
 - connect()
 - send_get ($url, $token, $params) 
 - send_query ($url, $token, $query_json, $query_type)
 
 ## Convenience functions
+These functions correspond with ILSWS access points, but
+they valididate all inputs and will throw exceptions
+if presented with inappropriate inputs.
+
 - patron_activity_update ($token, $patron_id)
 - patron_alt_id_search ($token, $value, $count)
 - patron_authenticate ($token, $id, $patron_id)
@@ -23,6 +30,10 @@ john.houser@multco.us
 - patron_update ($token, $json, $patron_key) 
 
 ## High level
+These functions offer functionality not directly supported by
+ILSWS by performing multiple queries and combining, manipulating
+or evaluating data from the Symphony system.
+
 - authenticate_search($token, $index, $search, $password)
 - authenticate_id($token, $patron_id, $password)
 - get_patron_attributes ($token, $patron_key)

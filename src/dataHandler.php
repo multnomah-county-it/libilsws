@@ -1,6 +1,6 @@
 <?php
 
-namespace dataHandler;
+namespace libilsws;
 
 /**
  * Copyright (c) Multnomah County (Oregon)
@@ -14,7 +14,7 @@ namespace dataHandler;
  */
 
 
-class validate
+class dataHandler
 {
 
     // Set to 1 for dubugging messages
@@ -25,18 +25,20 @@ class validate
      * Sample fields hash with validation rules:
      *
      * %fields = (
-     *     Date1                      => 'd:YYYY-MM-DD',
-     *     Date2                      => 'd:YYYY/MM/DD',
-     *     Date3                      => 'd:MM-DD-YYYY',
-     *     Date4                      => 'd:MM/DD/YYYY',
-     *     Email                      => 'e',
-     *     Timestamp1                 => 'd:YYYY/MM/DD HH:MM',
-     *     Timestamp2                 => 'd:YYYY-MM-DD HH:MM',
-     *     Customer_Reference         => 'i:1,999999999',      // int(8)
-     *     Invoice_Memo               => 's:256',              // string(256)
-     *     Posting                    => 'v:01|11',            // list('01', '11')
-     *     Customer_PO_Number         => 'b',                  // must be blank
-     *     Extended_Amount            => 'n:1,999',            // decimal number(000.0)
+     *     blank              => 'b',                  // must be blank
+     *     date1              => 'd:YYYY-MM-DD',
+     *     date2              => 'd:YYYY/MM/DD',
+     *     date3              => 'd:MM-DD-YYYY',
+     *     date4              => 'd:MM/DD/YYYY',
+     *     email              => 'e',
+     *     timestamp1         => 'd:YYYY/MM/DD HH:MM',
+     *     timestamp2         => 'd:YYYY-MM-DD HH:MM',
+     *     integer            => 'i:1,99999999',       // integer between 1 and 99999999
+     *     JSON               => 'j',                  // JSON
+     *     number             => 'n:1,999',            // decimal number between 1 and 999
+     *     string             => 's:256',              // string of length <= 256
+     *     url                => 'u',                  // URL
+     *     list               => 'v:01|11',            // list('01', '11')
      *     );
      *
      * Returns 0 or 1
@@ -73,6 +75,15 @@ class validate
                     $retval = 1;
                 }
                 break;
+            case "j":
+                // Must be valid JSON
+                if ( ! empty($value) ) {
+                    json_decode($value);
+                    if ( json_last_error() == JSON_ERROR_NONE ) {
+                        $retval = 1;
+                    }
+                }
+                break;
             case "n":
                 /**
                  * Number with minimum, maximum and decimal notation. You may
@@ -91,6 +102,13 @@ class validate
                 if ( ! defined($value) || strlen($value) <= $param ) {
                     $retval = 1;
                 }
+                break;
+            case "u":
+                // Check for valid URL
+                if ( filter_var($value, FILTER_VALIDATE_URL) ) {
+                    $retval = 1;
+                }
+                break;
             case "v":
                 // Value must match one of those listed in | delimited form in the parameter.
                 if ( $value ) {

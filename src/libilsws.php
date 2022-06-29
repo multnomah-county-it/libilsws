@@ -106,6 +106,8 @@ class Libilsws
      */
     public function __construct()
     {
+        include_once 'dataHandler.php';
+
         // Read the YAML configuration file and assign private varaibles
         $config = Yaml::parseFile('libilsws.yaml');
 
@@ -123,6 +125,19 @@ class Libilsws
 
         //For convenience
         $this->base_url         = "https://$this->hostname:$this->port/$this->webapp";
+
+        $this->dh = new dataHandler();
+    }
+
+    /**
+     * Validation by rule, using dataHandler/validate class.
+     */
+
+    private function validate ($function, $param, $value, $rule)
+    {
+        if ( ! $this->dh->validate($value, $rule) ) {
+            throw new Exception ("Invalid $param ('$rule') in $function: \"$value\"");
+        }
     }
 
     /**
@@ -185,7 +200,9 @@ class Libilsws
 
     public function send_get ($url, $token, $params) 
     {
-
+        $this->validate('send_get', 'token', $token, 's:40');
+        $this->validate('send_get', 'url', $url, 'u');
+ 
         // Encode the query parameters, as they will be sent in the URL
         $url .= "?";
         $keys = array('q','rw','ct','j','includeFields');
@@ -263,6 +280,11 @@ class Libilsws
 
     public function send_query ($url, $token, $query_json, $query_type)
     {
+        $this->validate('send_query', 'url', $url, 'u');
+        $this->validate('send_query', 'token', $token, 's:40');
+        $this->validate('send_query', 'query_json', $query_json, 'j');
+        $this->validate('send_query', 'query_type', $query_type, 'POST|PUT');
+
         // Define a random request tracker
         $req_num = rand(1, 1000000000);
 
@@ -331,6 +353,13 @@ class Libilsws
      */
     public function authenticate_search ($token, $index, $search, $password)
     {
+        $this->validate('authenticate_search', 'token', $token, 's:40');
+        $this->validate('authenticate_search', 'search', $search, 's:40');
+        $this->validate('authenticate_search', 'password', $password, 's:40');
+
+        // These values are determined by the Symphony configuration 
+        $this->validate('authenticate_search', 'index', $index, 'UKEY|ALIAS|STUD_ID|PREV_ID|PREV_ID2|ALT_NAME|COMMENT|PHONE|EMAIL|STREET|NAME|ID|ALT_ID|GROUP_ID|USERGROUP|BIRTHDATE');
+
         $params = array(
                 'rw'            => '1',
                 'ct'            => $this->max_search_count,
@@ -390,6 +419,10 @@ class Libilsws
      */
     public function authenticate_patron_id($token, $patron_id, $password)
     {
+        $this->validate('authenticate_patron_id', 'token', $token, 's:40');
+        $this->validate('authenticate_patron_id', 'patron_id', $patron_id, 'i:1,99999999999999');
+        $this->validate('authenticate_patron_id', 'password', $password, 's:20');
+
         $patron_key = 0;
 
         $action = "/user/patron/authenticate";
@@ -423,6 +456,9 @@ class Libilsws
      */
     public function get_patron_attributes ($token, $patron_key)
     {
+        $this->validate('get_patron_attributes', 'token', $token, 's:40');
+        $this->validate('get_patron_attributes', 'patron_key', $patron_key, 'i:1,99999999999999');
+        
         $attributes = [];
 
         $include_fields = [
@@ -510,6 +546,9 @@ class Libilsws
 
     public function patron_authenticate ($token, $patron_id, $password)
     {
+        $this->validate('patron_authenticate', 'token', $token, 's:40');
+        $this->validate('patron_authenticate', 'patron_id', $patron_id, 'i:1,99999999999999');
+
         $json = "{ \"barcode\": \"$patron_id\", \"password\": \"$password\" }";
 
         return $this->send_query("$this->base_url/user/patron/authenticate", $token, $json, 'POST');
@@ -521,6 +560,8 @@ class Libilsws
 
     public function patron_describe ($token) 
     {
+        $this->validate('patron_describe', 'token', $token, 's:40');
+
         return $this->send_get("$this->base_url/user/patron/describe", $token, []);
     }
 
@@ -536,6 +577,10 @@ class Libilsws
 
     public function patron_search ($token, $index, $value, $params)
     {
+        $this->validate('patron_search', 'token', $token, 's:40');
+        $this->validate('patron_search', 'index', $index, 'UKEY|ALIAS|STUD_ID|PREV_ID|PREV_ID2|ALT_NAME|COMMENT|PHONE|EMAIL|STREET|NAME|ID|ALT_ID|GROUP_ID|USERGROUP|BIRTHDATE');
+        $this->validate('patron_search', 'value', $value, 's:40');
+
         /** 
          * Valid incoming params are: 
          * ct            = number of results to return,
@@ -574,7 +619,11 @@ class Libilsws
 
     public function patron_alt_id_search ($token, $alt_id, $count)
     {
-        $response = $this->patron_search($token, 'ALT_ID', $alt_id, array('ct' => $count));
+        $this->validate('patron_alt_id_search', 'token', $token, 's:40');
+        $this->validate('patron_alt_id_search', 'alt_id', $alt_id, 'i:1,99999999');
+        $this->validate('patron_alt_id_search', 'count', $token, 'i:1,1000');
+
+        return $this->patron_search($token, 'ALT_ID', $alt_id, array('ct' => $count));
     }
 
     /**
@@ -588,6 +637,10 @@ class Libilsws
 
     public function patron_id_search ($token, $patron_id, $count) 
     {
+        $this->validate('patron_id_search', 'token', $token, 's:40');
+        $this->validate('patron_id_search', 'patron_id', $patron_id, 'i:1,99999999999999');
+        $this->validate('patron_id_search', 'count', $count, 'i:1,1000');
+
         return $this->patron_search($token, 'ID', $patron_id, array('ct' => $count));
     }
 
@@ -601,6 +654,9 @@ class Libilsws
 
     public function patron_create ($token, $json) 
     {
+        $this->validate('patron_update', 'token', $token, 's:40');
+        $this->validate('patron_update', 'json', $json, 'j');
+
         $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
 
         if ( $this->code == 404 ) {
@@ -620,6 +676,10 @@ class Libilsws
 
     public function patron_update ($token, $json, $patron_key) 
     {
+        $this->validate('patron_update', 'token', $token, 's:40');
+        $this->validate('patron_update', 'json', $json, 'j');
+        $this->validate('patron_update', 'patron_key', $patron_key, 'i:1,99999999');
+
         return $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
     }
 
@@ -633,7 +693,11 @@ class Libilsws
 
     public function patron_activity_update ($token, $patron_id)
     {
+        $this->validate('patron_activity_update', 'token', $token, 's:40');
+        $this->validate('patron_activity_update', 'patron_id', $patron_id, 'i:1,99999999');
+
         $json = "{\"patronBarcode\": \"$patron_id\"}";
+
         return $this->send_query("$this->base_url/user/patron/updateActivityDate", $token, $json, 'POST');
     }
 }

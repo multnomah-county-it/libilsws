@@ -28,22 +28,9 @@ class APIException extends Exception
   /**
    * Handles API errors that should be logged
    */
-  public function __construct($message = "", $code = 0, Exception $previous = NULL) 
+  public function __construct ($message = "", $code = 0) 
   {
-
-    // Construct message from JSON if required.
-    if (substr($message, 0, 1) == '{') {
-      $message_obj = json_decode($message);
-      $message = $message_obj->status . ': ' . $message_obj->title;
-      if (!empty($message_obj->detail)) {
-        $message .= ' - ' . $message_obj->detail;
-      }
-      if (!empty($message_obj->errors)) {
-        $message .= ' ' . serialize($message_obj->errors);
-      }
-    }
-
-    parent::__construct($message, $code, $previous);
+    return "$code: $message";
   }
 }
 
@@ -168,17 +155,20 @@ class Libilsws
             curl_setopt_array($ch, $options);
 
             $json = curl_exec($ch);
+            $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
             $response = json_decode($json, true);
             $token = $response['sessionToken'];
 
             curl_close($ch);
 
-        } catch (Exception $e) {
-            // Obfuscate the password if it's part of the dsn
-            $obfuscated_url =  preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$url/$action?$params");
+        } catch (APIException $e) {
 
-            throw new Exception('Could not connect to ILSWS: ' .  $obfuscated_url . ': ' . $e->getMessage());
+            // Obfuscate the password if it's part of the dsn
+            $obfuscated_url =  "$url/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
+            $this->error = "Could not connect to ILSWS: $obfuscated_url: " . $e->getMessage();
+
+            throw new Exception($this->message, $this->code);
         }
 
         return $token;
@@ -251,8 +241,11 @@ class Libilsws
 
             curl_close($ch);
 
-        } catch (RequestException $e) {
+        } catch (APIException $e) {
+
             $this->error = 'ILSWS send_get failed: ' . $e->getMessage();
+
+            throw new APIException($this->error, $this->code);
         }
 
         return $response;
@@ -312,8 +305,11 @@ class Libilsws
             
              curl_close($ch);
         
-        } catch (Exception $e) {
-            $this->error = 'ILSWS send_query failed: ' .$e->getMessage();
+        } catch (APIException $e) {
+
+            $this->error = 'ILSWS send_query failed: ' . $e->getMessage();
+
+            throw new APIException($this->error, $this->code);
         }
 
         return $response;
@@ -541,13 +537,15 @@ class Libilsws
     public function patron_search ($token, $index, $value, $params)
     {
         /** 
-         * Valid params are: 
-         * q             = search index and value, 
+         * Valid incoming params are: 
          * ct            = number of results to return,
          * rw            = row to start on (so you can page through results),
          * j             = boolean AND or OR to use with multiple search terms, and
          * includeFields = fields to return in result.
+         *
+         * Any incoming q will be replaced by the values $index and $value.
          */
+
         $params = array(
             'q'             => "$index:$value",
             'ct'            => $params['ct'] ?? '1000',

@@ -10,3 +10,5 @@ ilsws:
   timeout: 20
   max_retries: 3
   max_search_count: 20
+  default_include_fields: profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate
+  allowed_search_indexes: UKEY,ALIAS,STUD_ID,PREV_ID,PREV_ID2,ALT_NAME,COMMENT,PHONE,EMAIL,STREET,NAME,ID,ALT_ID,GROUP_ID,USERGROUP,BIRTHDATE

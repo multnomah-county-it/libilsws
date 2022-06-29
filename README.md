@@ -31,11 +31,11 @@ if presented with inappropriate inputs.
 
 ## High level
 These functions offer functionality not directly supported by
-ILSWS by performing multiple queries and combining, manipulating
+ILSWS by performing multiple queries or by combining, manipulating
 or evaluating data from the Symphony system.
 
-- authenticate_search($token, $index, $search, $password)
-- authenticate_id($token, $patron_id, $password)
+- authenticate_search ($token, $index, $search, $password)
+- authenticate_id ($token, $patron_id, $password)
 - get_patron_attributes ($token, $patron_key)
 
 # Example

@@ -122,7 +122,7 @@ class dataHandler
                 }
                 break;
             default:
-                throw new Exception("No validation rule for type $type");
+                throw new \Exception("No validation rule for type $type");
         }
 
         return $retval;

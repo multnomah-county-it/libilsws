@@ -102,6 +102,12 @@ class Libilsws
     private $default_include_fields;
 
     /**
+     * Searchable indexes in Symphony. These are derived from the
+     * Symphony configuration and could change.
+     */
+    private $valid_search_indexes = 'UKEY|ALIAS|STUD_ID|PREV_ID|PREV_ID2|ALT_NAME|COMMENT|PHONE|EMAIL|STREET|NAME|ID|ALT_ID|GROUP_ID|USERGROUP|BIRTHDATE';
+    
+    /**
      * Constructor for this class
      */
     public function __construct()
@@ -136,7 +142,7 @@ class Libilsws
     private function validate ($function, $param, $value, $rule)
     {
         if ( ! $this->dh->validate($value, $rule) ) {
-            throw new Exception ("Invalid $param ('$rule') in $function: \"$value\"");
+            throw new Exception ("Invalid $param (rule: '$rule') in $function: \"$value\"");
         }
     }
 
@@ -283,7 +289,7 @@ class Libilsws
         $this->validate('send_query', 'url', $url, 'u');
         $this->validate('send_query', 'token', $token, 's:40');
         $this->validate('send_query', 'query_json', $query_json, 'j');
-        $this->validate('send_query', 'query_type', $query_type, 'POST|PUT');
+        $this->validate('send_query', 'query_type', $query_type, 'v:POST|PUT');
 
         // Define a random request tracker
         $req_num = rand(1, 1000000000);
@@ -358,7 +364,7 @@ class Libilsws
         $this->validate('authenticate_search', 'password', $password, 's:40');
 
         // These values are determined by the Symphony configuration 
-        $this->validate('authenticate_search', 'index', $index, 'UKEY|ALIAS|STUD_ID|PREV_ID|PREV_ID2|ALT_NAME|COMMENT|PHONE|EMAIL|STREET|NAME|ID|ALT_ID|GROUP_ID|USERGROUP|BIRTHDATE');
+        $this->validate('authenticate_search', 'index', $index, "v:$this->valid_search_indexes");
 
         $params = array(
                 'rw'            => '1',
@@ -578,7 +584,7 @@ class Libilsws
     public function patron_search ($token, $index, $value, $params)
     {
         $this->validate('patron_search', 'token', $token, 's:40');
-        $this->validate('patron_search', 'index', $index, 'UKEY|ALIAS|STUD_ID|PREV_ID|PREV_ID2|ALT_NAME|COMMENT|PHONE|EMAIL|STREET|NAME|ID|ALT_ID|GROUP_ID|USERGROUP|BIRTHDATE');
+        $this->validate('patron_search', 'index', $index, "v:$this->valid_search_indexes");
         $this->validate('patron_search', 'value', $value, 's:40');
 
         /** 
@@ -621,7 +627,7 @@ class Libilsws
     {
         $this->validate('patron_alt_id_search', 'token', $token, 's:40');
         $this->validate('patron_alt_id_search', 'alt_id', $alt_id, 'i:1,99999999');
-        $this->validate('patron_alt_id_search', 'count', $token, 'i:1,1000');
+        $this->validate('patron_alt_id_search', 'count', $count, 'i:1,1000');
 
         return $this->patron_search($token, 'ALT_ID', $alt_id, array('ct' => $count));
     }
@@ -694,7 +700,7 @@ class Libilsws
     public function patron_activity_update ($token, $patron_id)
     {
         $this->validate('patron_activity_update', 'token', $token, 's:40');
-        $this->validate('patron_activity_update', 'patron_id', $patron_id, 'i:1,99999999');
+        $this->validate('patron_activity_update', 'patron_id', $patron_id, 'i:1,99999999999999');
 
         $json = "{\"patronBarcode\": \"$patron_id\"}";
 

@@ -16,7 +16,7 @@ $password = $argv[5];
 
 // Initialize
 print "Initializing\n\n";
-$ilsws = new Libilsws\Libilsws();
+$ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 
 // Connect and get token
 print "Connecting\n\n";

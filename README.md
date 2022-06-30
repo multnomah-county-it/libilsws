@@ -42,8 +42,8 @@ or evaluating data from the Symphony system.
 ```
 require_once 'vendor/autoload.php';
 
-// Initialize and load configuration from libilsws.yaml
-$ilsws = new Libilsws\Libilsws();
+// Initialize and load configuration from YAML configuration file
+$ilsws = new Libilsws\Libilsws('./libilsws.yaml');
 
 // All connection parameters supplied from configuration loaded from YAML file
 $token = $ilsws->connect();

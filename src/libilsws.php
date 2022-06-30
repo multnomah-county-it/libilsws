@@ -25,13 +25,13 @@ use \Exception;
 class APIException extends Exception 
 {
 
-  /**
-   * Handles API errors that should be logged
-   */
-  public function __construct ($message = "", $code = 0) 
-  {
-    return "$code: $message";
-  }
+    /**
+     * Handles API errors that should be logged
+    */
+    public function __construct ($message = "", $code = 0) 
+    {
+        return "$code: $message";
+    }
 }
 
 class Libilsws
@@ -105,17 +105,21 @@ class Libilsws
      * Searchable indexes in Symphony. These are derived from the
      * Symphony configuration and could change.
      */
-    private $valid_search_indexes = 'UKEY|ALIAS|STUD_ID|PREV_ID|PREV_ID2|ALT_NAME|COMMENT|PHONE|EMAIL|STREET|NAME|ID|ALT_ID|GROUP_ID|USERGROUP|BIRTHDATE';
+    private $valid_search_indexes;
     
     /**
      * Constructor for this class
      */
-    public function __construct()
+    public function __construct($yaml_file)
     {
         include_once 'dataHandler.php';
 
         // Read the YAML configuration file and assign private varaibles
-        $config = Yaml::parseFile('libilsws.yaml');
+        if ( filesize($yaml_file) > 0 && substr($yaml_file, -4, 4) == 'yaml' ) {
+            $config = Yaml::parseFile('libilsws.yaml');
+        } else {
+            throw new Exception("Empty or inappropriate YAML file: $yaml_file");
+        }
 
         $this->hostname                = $config['ilsws']['hostname'];
         $this->port                    = $config['ilsws']['port'];
@@ -128,6 +132,7 @@ class Libilsws
         $this->max_search_count        = $config['ilsws']['max_search_count'];
         $this->user_privilege_override = $config['ilsws']['user_privilege_override'];
         $this->default_include_fields  = $config['ilsws']['default_include_fields'];
+        $this->valid_search_indexes    = preg_replace('/,/', '|', $config['ilsws']['valid_search_indexes']);
 
         //For convenience
         $this->base_url         = "https://$this->hostname:$this->port/$this->webapp";

@@ -37,8 +37,9 @@ or evaluating data from the Symphony system.
 - authenticate_search ($token, $index, $search, $password)
 - authenticate_id ($token, $patron_id, $password)
 - get_patron_attributes ($token, $patron_key)
+- create_patron_json ($patron, $patron_key)
 
-# Example
+# Get patron attributes example
 ```
 require_once 'vendor/autoload.php';
 
@@ -51,5 +52,40 @@ $token = $ilsws->connect();
 $response = $ilsws->get_patron($token, $patron_key);
 ```
 
+# Create new patron example
+```
+require_once 'vendor/autoload.php';
+
+// Initialize and load configuration from YAML configuration file
+$ilsws = new Libilsws\Libilsws('./libilsws.yaml');
+
+// All connection parameters supplied from configuration loaded from YAML file
+$token = $ilsws->connect();
+
+$patron = array(
+    'firstName' => 'John',
+    'lastName' => 'Houser',
+    'birthDate' => '1962-03-07',
+    'home_library' => 'CEN',
+    'middleName' => 'Clark',
+    'county' => '0_MULT',
+    'notice_type' => 'PHONE',
+    'library_news' => 'YES',
+    'friends_notices' => 'YES',
+    'online_update' => 'YES',
+    'street' => '925 NW Hoyt St Apt 406',
+    'city_state' => 'Portland, OR',
+    'postal_code' => '97209',
+    'email' => 'johnchouser@gmail.com',
+    'telephone' => '215-534-6821',
+    );
+
+/**
+ * Second parameter is the $patron_key. Set to 0 to create new record. 
+ * Set to an existing key to modify the patron record.
+ */
+
+$json = $ilsws->create_patron_json($patron, 0);
+```
 For a complete set of examples see:
 `test/test.php`

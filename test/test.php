@@ -73,79 +73,6 @@ $response = $ilsws->patron_id_search($token, $patron_id, $count);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-// Typical new patron record. For complete description see the output from patron_describe
-$json = 
-"{
-  resource: '/user/patron',
-  key: '591418',
-  fields: {
-    barcode: '21168045918653',
-    birthDate: '1962-03-07',
-    firstName: 'John',
-    language: { resource: '/policy/language', key: 'ENGLISH' },
-    lastName: 'Houser',
-    library: { resource: '/policy/library', key: 'CEN' },
-    middleName: 'Clark',
-    privilegeExpiresDate: null,
-    profile: { resource: '/policy/userProfile', key: '0_MULT' },
-    category01: { resource: '/policy/patronCategory01', key: '0_MULT' },
-    category02: { resource: '/policy/patronCategory02', key: 'PHONE' },
-    category05: { resource: '/policy/patronCategory05', key: 'YES' },
-    category06: { resource: '/policy/patronCategory06', key: 'YES' },
-    category11: { resource: '/policy/patronCategory11', key: 'YES' },
-    address1: [
-      {
-        resource: '/user/patron/address1',
-        key: '13',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'STREET' },
-          data: '925 NW Hoyt St Apt 406'
-        }
-      },
-      {
-        resource: '/user/patron/address1',
-        key: '2',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'CITY/STATE' },
-          data: 'Portland, OR'
-        }
-      },
-      {
-        resource: '/user/patron/address1',
-        key: '12',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'ZIP' },
-          data: '97209'
-        }
-      },
-      {
-        resource: '/user/patron/address1',
-        key: '11',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'EMAIL' },
-          data: 'johnchouser@gmail.com'
-        }
-      },
-      {
-        resource: '/user/patron/address1',
-        key: '7',
-        fields: {
-          code: { resource: '/policy/patronAddress1', key: 'PHONE' },
-          data: '215-534-6821'
-        }
-      }
-    ]
-  }
-}";
-
-/**
- * Code example to create new patron record
- *
- * $response = $ilsws->patron_create($token, $json);
- * $json = json_encode($response, JSON_PRETTY_PRINT);
- * print "$json\n\n";
- */
-
 // Describe the patron record
 print "patron_describe\n";
 $response = $ilsws->patron_describe($token);
@@ -168,6 +95,59 @@ $params = array(
 $response = $ilsws->patron_search($token, $index, $email, $params);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
+
+// Create patron record JSON
+print "create_patron_json new record\n";
+$patron = array(
+    'firstName' => 'John',
+    'lastName' => 'Houser',
+    'birthDate' => '1962-03-07',
+    'home_library' => 'CEN',
+    'middleName' => 'Clark',
+    'county' => '0_MULT',
+    'notice_type' => 'PHONE',
+    'library_news' => 'YES',
+    'friends_notices' => 'YES',
+    'online_update' => 'YES',
+    'street' => '925 NW Hoyt St Apt 406',
+    'city_state' => 'Portland, OR',
+    'postal_code' => '97209',
+    'email' => 'johnchouser@gmail.com',
+    'telephone' => '215-534-6821',
+    );
+// Second parameter is the $patron_key. Set to 0 to create new record.
+$json = $ilsws->create_patron_json($patron, 0);
+print "$json\n";
+
+// Supply a patron key to get JSON to modify a record
+print "create_patron_json overlay record\n";
+$patron = array(
+    'firstName' => 'John',
+    'lastName' => 'Houser',
+    'birthDate' => '1962-03-07',
+    'home_library' => 'CEN',
+    'middleName' => 'Clark',
+    'notice_type' => 'PHONE',
+    'library_news' => 'YES',
+    'friends_notices' => 'YES',
+    'street' => '925 NW Hoyt St Apt 406',
+    'city_state' => 'Portland, OR',
+    'postal_code' => '97209',
+    'email' => 'johnchouser@gmail.com',
+    'telephone' => '215-534-6821',
+    );
+$patron_key = 591418;
+$json = $ilsws->create_patron_json($patron, $patron_key);
+print "$json\n";
+
+/**
+ * Code example to create new patron record
+ * from a patron JSON object, as created by
+ * create_patron_json
+ */
+// $response = $ilsws->patron_create($token, $json);
+// $json = json_encode($response, JSON_PRETTY_PRINT);
+// print "$json\n\n";
 
 /** 
  * Code example to update a patron record. Note that the data structure is the same

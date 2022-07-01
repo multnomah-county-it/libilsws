@@ -36,6 +36,7 @@ class dataHandler
      *     integer            => 'i:1,99999999',       // integer between 1 and 99999999
      *     JSON               => 'j',                  // JSON
      *     number             => 'n:1,999',            // decimal number between 1 and 999
+     *     regex              => '/^[A-Z]{2,4}$/'      // Regular expression pattern
      *     string             => 's:256',              // string of length <= 256
      *     url                => 'u',                  // URL
      *     list               => 'v:01|11',            // list('01', '11')
@@ -48,6 +49,10 @@ class dataHandler
 
         $retval = 0;
         list($type, $param) = preg_split('/:/', $validation_rule, 2);
+
+        if ( ! $value ) {
+            return -1;
+        }
 
         switch ($type) {
             case "b":
@@ -94,6 +99,14 @@ class dataHandler
                  */
                 list($min_range, $max_range) = preg_split('/\./', $param);
                 if ( filter_var($value, FILTER_VALIDATE_FLOAT, ['options' => ['min_range' => $min_range, 'max_range' => $max_range]]) ) {
+                    $retval = 1;
+                }
+                break;
+            case "r":
+                /**
+                 * Regular expression match
+                 */
+                if ( preg_match($param, $value) ) {
                     $retval = 1;
                 }
                 break;

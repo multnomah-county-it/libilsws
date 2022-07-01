@@ -15,6 +15,7 @@ namespace Libilsws;
 
 use Symfony\Component\Yaml\Yaml;
 use Curl\Curl;
+use DateTime;
 use \Exception;
 
 /**
@@ -54,58 +55,18 @@ class Libilsws
     /**
      * The ILSWS host we should connect to.
      */
-    private $hostname;
-
-    /**
-     * The ILSWS port we should connect on.
-     */
-    private $port;
-
-    /**
-     * The username we should connect to the database with.
-     */
-    private $username;
-
-    /**
-     * The password we should connect to the database with.
-     */
-    private $password;
-
-    /**
-     * The ILSWS webapp
-     */
-    private $webapp;
-
-    /**
-     * The ILSWS app_id
-     */
-    private $app_id;
-
-    /**
-     * The ILSWS client_id
-     */
-    private $client_id;
-
-    /**
-     * The ILSWS connection timeout
-     */
-    private $timeout;
-
-    /**
-     * The ILSWS max search count
-     */
-    private $max_search_count;
-
-    /**
-     * Default field list to return from patron searches
-     */
-    private $default_include_fields;
+    private $config;
 
     /**
      * Searchable indexes in Symphony. These are derived from the
      * Symphony configuration and could change.
      */
     private $valid_search_indexes;
+
+    /**
+     * Data handler instance
+     */
+    private $dh;
     
     /**
      * Constructor for this class
@@ -113,31 +74,23 @@ class Libilsws
     public function __construct($yaml_file)
     {
         include_once 'dataHandler.php';
+        $this->dh = new dataHandler();
 
         // Read the YAML configuration file and assign private varaibles
         if ( filesize($yaml_file) > 0 && substr($yaml_file, -4, 4) == 'yaml' ) {
-            $config = Yaml::parseFile('libilsws.yaml');
+            $this->config = Yaml::parseFile('libilsws.yaml');
         } else {
             throw new Exception("Empty or inappropriate YAML file: $yaml_file");
         }
 
-        $this->hostname                = $config['ilsws']['hostname'];
-        $this->port                    = $config['ilsws']['port'];
-        $this->username                = $config['ilsws']['username'];
-        $this->password                = $config['ilsws']['password'];
-        $this->webapp                  = $config['ilsws']['webapp'];
-        $this->app_id                  = $config['ilsws']['app_id'];
-        $this->client_id               = $config['ilsws']['client_id'];
-        $this->timeout                 = $config['ilsws']['timeout'];
-        $this->max_search_count        = $config['ilsws']['max_search_count'];
-        $this->user_privilege_override = $config['ilsws']['user_privilege_override'];
-        $this->default_include_fields  = $config['ilsws']['default_include_fields'];
-        $this->valid_search_indexes    = preg_replace('/,/', '|', $config['ilsws']['valid_search_indexes']);
+        $this->valid_search_indexes = preg_replace('/,/', '|', $this->config['symphony']['valid_search_indexes']);
 
-        //For convenience
-        $this->base_url         = "https://$this->hostname:$this->port/$this->webapp";
-
-        $this->dh = new dataHandler();
+        $this->base_url = 'https://' 
+            . $this->config['ilsws']['hostname'] 
+            . ':' 
+            . $this->config['ilsws']['port'] 
+            . '/' 
+            . $this->config['ilsws']['webapp'];
     }
 
     /**
@@ -160,20 +113,20 @@ class Libilsws
     {
         try {
             $action = "rest/security/loginUser";
-            $params = "client_id=$this->client_id&login=$this->username&password=$this->password";
+            $params = "client_id=$this->config['ilsws']['client_id']&login=$this->config['ilsws']['username']&password=$this->config['ilsws']['password']";
 
             $headers = [
                 'Content-Type: application/json',
                 'Accept: application/json',
-                "SD-Originating-App-ID: $this->app_id",
-                "x-sirs-clientID: $this->client_id",
+                "SD-Originating-App-ID: $this->config['ilsws']['app_id']",
+                "x-sirs-clientID: $this->config['ilsws']['client_id']",
                 ];
 
             $options = array(
                 CURLOPT_URL              => "$this->base_url/$action?$params",
                 CURLOPT_RETURNTRANSFER   => true,
                 CURLOPT_SSL_VERIFYSTATUS => true,
-                CURLOPT_CONNECTTIMEOUT   => $this->timeout,
+                CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
                 CURLOPT_HTTPHEADER       => $headers,
                 );
 
@@ -240,9 +193,9 @@ class Libilsws
             $headers = [
                 'Content-Type: application/json',
                 'Accept: application/json',
-                "SD-Originating-App-ID: $this->app_id",
+                "SD-Originating-App-ID: $this->config['ilsws']['app_id']",
                 "SD-Request-Tracker: $req_num",
-                "x-sirs-clientID: $this->client_id",
+                "x-sirs-clientID: $this->config['ilsws']['client_id']",
                 "x-sirs-sessionToken: $token",
                 ];
 
@@ -250,7 +203,7 @@ class Libilsws
                 CURLOPT_URL              => $url,
                 CURLOPT_RETURNTRANSFER   => true,
                 CURLOPT_SSL_VERIFYSTATUS => true,
-                CURLOPT_CONNECTTIMEOUT   => $this->timeout,
+                CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
                 CURLOPT_HTTPHEADER       => $headers,
                 );
 
@@ -305,11 +258,11 @@ class Libilsws
             $headers = array(
                 'Content-Type: application/json',
                 'Accept: application/json',
-                "SD-Originating-App-Id: $this->app_id",
+                "SD-Originating-App-Id: $this->config['ilsws']['app_id']",
                 "SD-Response-Tracker: $req_num",
                 'SD-Preferred-Role: STAFF',
-                "SD-Prompt-Return: USER_PRIVILEGE_OVRCD/$this->user_privilege_override",
-                "x-sirs-clientID: $this->client_id",
+                "SD-Prompt-Return: USER_PRIVILEGE_OVRCD/$this->config['ilsws']['user_privilege_override']",
+                "x-sirs-clientID: $this->config['ilsws']['client_id']",
                 "x-sirs-sessionToken: $token",
                 );
 
@@ -318,7 +271,7 @@ class Libilsws
                 CURLOPT_CUSTOMREQUEST    => $query_type,
                 CURLOPT_RETURNTRANSFER   => true,
                 CURLOPT_SSL_VERIFYSTATUS => true,
-                CURLOPT_CONNECTTIMEOUT   => $this->timeout,
+                CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
                 CURLOPT_HTTPHEADER       => $headers,
                 CURLOPT_POSTFIELDS       => $query_json,
                 );
@@ -373,7 +326,7 @@ class Libilsws
 
         $params = array(
                 'rw'            => '1',
-                'ct'            => $this->max_search_count,
+                'ct'            => $this->config['ilsws']['max_search_count'],
                 'j'             => 'AND',
                 'includeFields' => 'barcode',
                 );
@@ -392,7 +345,7 @@ class Libilsws
          */
         $patron_key = 0;
         $count = 0;
-        if ( $response['totalResults'] > 0 && $response['totalResults'] <= $this->max_search_count ) {
+        if ( $response['totalResults'] > 0 && $response['totalResults'] <= $this->config['ilsws']['max_search_count'] ) {
             for ($i = 0; $i <= $response['totalResults'] - 1; $i++) {
                 if ( isset($response['result'][$i]['fields']['barcode']) ) {
                     $patron_id = $response['result'][$i]['fields']['barcode'];
@@ -607,7 +560,7 @@ class Libilsws
             'ct'            => $params['ct'] ?? '1000',
             'rw'            => $params['rw'] ?? '1',
             'j'             => $params['j'] ?? 'AND',
-            'includeFields' => $params['includeFields'] ?? $this->default_include_fields,
+            'includeFields' => $params['includeFields'] ?? $this->config['ilsws']['default_include_fields'],
             );
 
         $response = $this->send_get("$this->base_url/user/patron/search", $token, $params);
@@ -653,6 +606,141 @@ class Libilsws
         $this->validate('patron_id_search', 'count', $count, 'i:1,1000');
 
         return $this->patron_search($token, 'ID', $patron_id, array('ct' => $count));
+    }
+
+    /**
+     * Uses a birth day to determine whether a person is a youth, based on the 
+     * max_youth_age set in the config file
+     */
+    private function is_youth ($birthDate)
+    {
+        $youth = 0;
+
+        $today = date('Y-m-d');
+        $d1 = new DateTime($today);
+        $d2 = new DateTime($birthDate);
+        $diff = $d2->diff($d1);
+        $age = $diff->y;
+
+        if ( $age <= $this->max_youth_age ) {
+            $youth = 1;
+        }
+
+        return $youth;
+    }
+
+    /**
+     * Create patron data structure
+     * @param  object $patron     Associative array of patron data elements
+     * @param  string $patron_key Optional patron key to include if updating existing record
+     * @return string $json       Complete Symphony patron record JSON
+     */
+
+    public function create_patron_json ($patron, $patron_key = 0)
+    {
+        $mode = 'new';
+        $age_group = 'default';
+
+        $new['resource'] = '/user/patron';
+
+        // If we have a patron key, then we're in overlay mode
+        if ( $patron_key ) {
+            $this->validate('create_patron_json', 'patron_key', $patron_key, 'i:1,99999999');
+            $mode = 'overlay';
+            $new['key'] = $patron_key;
+        }
+
+        // Check if patron is a youth
+        if ( ! empty($this->config['symphony']['user_record']['fields']['birthDate']['label']) ) {
+            $dob = $patron[$this->config['symphony']['user_record']['fields']['birthDate']['label']];
+        } else {
+            $dob = $patron['birthDate'];
+        }
+        if ( $this->is_youth($dob) ) {
+            $age_group = 'youth';
+        }
+
+        # Extract the field definitions from the configuration
+        $fields = $this->config['symphony']['user_record']['fields'];
+
+        foreach ($fields as $field => $value) {
+
+            // Check if the data is coming in with a different field name (label)
+            if ( empty($patron[$field]) && ! empty($patron[$fields[$field]['label']]) ) {
+                $patron[$field] = $patron[$fields[$field]['label']];
+            }
+
+            // Assign default values to empty fields, where appropriate
+            if ( empty($patron[$field]) && ! empty($fields[$field][$mode][$age_group]) ) {
+                $patron[$field] = $fields[$field][$mode][$age_group];
+            }
+
+            // Validate
+            $this->validate('create_patron_json', $field, $patron[$field], $fields[$field]['validation']);
+            
+            if ( $field === 'profile' ) {
+
+                // This is a required field
+                $new['fields']['profile']['resource'] = '/policy/userProfile';
+                $new['fields']['profile']['key'] = $patron['profile'];
+
+            } else if ( $field === 'library' ) {
+
+                // This is a required field
+                $new['fields']['library']['resource'] = '/policy/library';
+                $new['fields']['library']['key'] = $patron['library'];
+
+            } else if ( preg_match('/^category/', $field) ) {
+
+                // Determine the category number
+                $num = substr($field, -2, 2);
+
+                // Add category to $new
+                if ( ! empty($patron[$field]) ) {
+                    $new['fields'][$field]['resource'] = "/policy/patronCategory$num";
+                    $new['fields'][$field]['key'] = $patron[$field];
+                }
+
+            } else if ( preg_match('/^address/', $field) ) {
+
+                $new['fields'][$field] = [];
+
+                // Determine the address number
+                $num = substr($field, -2, 2);
+
+                foreach ($fields[$field] as $part => $value) {
+
+                    // Check if the data is coming in with a different field name (label)
+                    if ( empty($patron[$part]) && ! empty($fields[$field][$part]['label']) ) {
+                        $patron[$part] = $patron[$fields[$field][$part]['label']];
+                    }
+
+                    // Assign default values where appropriate
+                    if ( empty($patron[$part]) && ! empty($fields[$field][$part][$mode][$age_group]) ) {
+                        $patron[$part] = $fields[$field][$part][$mode][$age_group];
+                    }
+
+                    $addr = [];
+                    $addr['resource'] = "/user/patron/address$num";
+                    $addr['fields']['code']['resource'] = '/policy/patronAddress1';
+                    $addr['fields']['code']['key'] = $part;
+                    $addr['fields']['data'] = $patron[$part];
+
+                    // Add this part to the address one array
+                    array_push($new['fields'][$field], $addr);
+                }
+
+            } else {
+
+                // Store as regular field
+                if ( ! empty($patron[$field]) ) {
+                    $new['fields'][$field] = $patron[$field];
+                }
+            }
+        }
+
+        // Return a JSON string suitable for use in patron_create
+        return json_encode($new, JSON_PRETTY_PRINT);
     }
 
     /**

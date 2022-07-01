@@ -28,105 +28,111 @@
 #     youth: Optional default value in overlays (modified records)
 #
 ilsws:
-  username: USERNAME
-  password: PASSWORD
-  hostname: HOST
-  port: PORT
-  webapp: WEBAPP
-  app_id: APP_ID
-  client_id: CLIENT_ID
-  user_privilege_override: OVERRIDE
+  username: 'USERNAME'
+  password: 'PASSWORD'
+  hostname: 'host.domain'
+  port: 443
+  webapp: 'WEBAPP'
+  app_id: 'libilsws'
+  client_id: 'CLIENT_ID'
+  user_privilege_override: 'OVERRIDE'
   timeout: 20
   max_retries: 3
   max_search_count: 20
-  default_include_fields: profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate
+  default_include_fields: 'profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate'
 symphony:
-  youth_max_age: 12
-  valid_search_indexes: "v:UKEY|ALIAS|STUD_ID|PREV_ID|PREV_ID2|ALT_NAME|COMMENT|PHONE|EMAIL|STREET|NAME|ID|ALT_ID|GROUP_ID|USERGROUP|BIRTHDATE"
+  max_youth_age: 12
+  valid_search_indexes: 'UKEY,ALIAS,STUD_ID,PREV_ID,PREV_ID2,ALT_NAME,COMMENT,PHONE,EMAIL,STREET,NAME,ID,ALT_ID,GROUP_ID,USERGROUP,BIRTHDATE'
   user_record: 
     key:
-      validation: "i:1,99999999"
+      label: 'patron_key'
+      validation: 'i:0,99999999'
     fields: 
       profile:
         validation: "v:0_MULT|1_MULT_Y|2_METRO|3_METRO_Y|PASSPORT|PASSPORT_Y"
         new:
-          default: 0_MULT
-          youth: 1_MULT_Y
+          default: '0_MULT'
+          youth: '1_MULT_Y'
         overlay:
-          default: 0_MULT
-          youth: 1_MULT_Y
+          default: '0_MULT'
+          youth: '1_MULT_Y'
+      pin:
+        label: 'password'
+        validation: 's:20'
       library:
-        label: home_library
-        validation: "s:4"
+        label: 'home_library'
+        validation: 's:4'
         new:
-          default: CEN
+          default: 'CEN'
+          youth: 'CEN'
       firstName:
-        validation: "s:128"
+        validation: 's:128'
       middleName:
-        validation: "s:128"
+        validation: 's:128'
       lastName:
-        validation: "s:128"
+        validation: 's:128'
       birthDate:
-        validation_rule: "d:YYYY-MM-DD"
+        validation: 'd:YYYY-MM-DD'
       barcode:
-        label: patron_id
-        validation: "i:20000000000000,29999999999999"
+        label: 'patron_id'
+        validation: 'i:20000000000000,29999999999999'
       address1:
         STREET:
-          label: street
-          validation: "s:128"
+          label: 'street'
+          validation: 's:128'
         CITY/STATE: 
-          label: city_state
-          validation: "r:/^[A-Zaz\-,]{4,128}$/"
+          label: 'city_state'
+          validation: 'r:/^[A-Zaz\-,]{4,128}$/'
           new:
-            default: "Portland, OR"
+            default: 'Portland, OR'
           overlay:
-            default: "Portland, OR"
+            default: 'Portland, OR'
         ZIP:
-          label: postal_code
-          validation: "i:1000000,9999999"
+          label: 'postal_code'
+          validation: 'i:1000000,9999999'
         EMAIL:
-          label: email
-          validation: e
+          label: 'email'
+          validation: 'e'
         PHONE:
-          label: telephone
-          validation: "r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/"
+          label: 'telephone'
+          validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
       category01:
-        label: county
-        validation: "v:0_MULT|1_CLACK|2_WASH|3_HOOD|4_OTHER_OR|7_CLARK_WA|CAMAS_WA|KLICK_WA|OTHER|SKAMA_WA|UNKNOWN"
-        new_default: 0_MULT
+        label: 'county'
+        validation: 'v:0_MULT|1_CLACK|2_WASH|3_HOOD|4_OTHER_OR|7_CLARK_WA|CAMAS_WA|KLICK_WA|OTHER|SKAMA_WA|UNKNOWN'
+        new:
+          default: '0_MULT'
       category02:
-        label: notice_type
-        validation: "v:EMAIL|PHONE|TEXT|UNKNOWN|US_MAIL|Z_NONE"
+        label: 'notice_type'
+        validation: 'v:EMAIL|PHONE|TEXT|UNKNOWN|US_MAIL|Z_NONE'
         new:
-          default: US_MAIL
+          default: 'US_MAIL'
       category03:
-        label: school_district
-        validation: "v:YES|NO|UNKNOWN"
+        label: 'school_district'
+        validation: 'v:YES|NO|UNKNOWN'
       category04:
-        label: filter
-        validation: "v:YES|NO|UNKNOWN"
+        label: 'filter'
+        validation: 'v:YES|NO|UNKNOWN'
       category05:
-        label: library_news
-        validation: "v:YES|NO|UNKNOWN"
+        label: 'library_news'
+        validation: 'v:YES|NO|UNKNOWN'
       category06:
-        label: friends_notices
-        validation: "v:YES|NO|UNKNOWN"
+        label: 'friends_notices'
+        validation: 'v:YES|NO|UNKNOWN'
       category07:
-        label: program
-        validation: "v:BOOKS2U|CONNECT|EVERYCHILD|LISTOS|PCO|RR_AGENCY|SCHOOL_OUT|SCHOOLCORP|WSYL|UNKNOWN"
+        label: 'program'
+        validation: 'v:BOOKS2U|CONNECT|EVERYCHILD|LISTOS|PCO|RR_AGENCY|SCHOOL_OUT|SCHOOLCORP|WSYL|UNKNOWN'
         new:
-          default: UNKNOWN
+          default: 'UNKNOWN'
       category08:
-        label: mailings
-        validation: "v:YES|NO|UNKNOWN"
+        label: 'mailings'
+        validation: 'v:YES|NO|UNKNOWN'
       category11:
-        label: online_update
-        validation: "v:YES|CHECK"
+        label: 'online_update'
+        validation: 'v:YES|CHECK'
         new:
-          default: YES
+          default: 'YES'
         overlay:
-          default: YES
+          default: 'YES'
       category12:
-        label: los
-        validation: "v:BBM|LOBBY|REG_MAIL|VAN|WOW|UNKNOWN"
+        label: 'los'
+        validation: 'v:BBM|LOBBY|REG_MAIL|VAN|WOW|UNKNOWN'

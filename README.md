@@ -61,8 +61,15 @@ $token = $ilsws->connect();
  * j             = boolean AND or OR to use with multiple search terms, and
  * includeFields = fields to return in result.
  */
-
-$response = $ilsws->patron_search($token, 'EMAIL', 'john.houser@multco.us', ['rw' => 1, 'ct' => 10, 'j' => 'AND', 'includeFields' => 'key,barcode']);
+$index = 'EMAIL';
+$search = 'john.houser@multco.us';
+$options = array(
+    'rw' => 1, 
+    'ct' => 10, 
+    'j' => 'AND', 
+    'includeFields' => 'key,barcode']
+    );
+$response = $ilsws->patron_search($token, $index, $search, $options);
 ```
 
 ### Get patron attributes example
@@ -74,20 +81,20 @@ $response = $ilsws->get_patron($token, $patron_key);
 ```
 $patron = array(
     'firstName' => 'John',
+    'middleName' => 'Rad',
     'lastName' => 'Houser',
-    'birthDate' => '1962-03-07',
+    'birthDate' => '1972-03-10',
     'home_library' => 'CEN',
-    'middleName' => 'Clark',
     'county' => '0_MULT',
     'notice_type' => 'PHONE',
     'library_news' => 'YES',
     'friends_notices' => 'YES',
     'online_update' => 'YES',
-    'street' => '925 NW Hoyt St Apt 406',
+    'street' => '925 NW Hoyt St Apt 606',
     'city_state' => 'Portland, OR',
-    'postal_code' => '97209',
-    'email' => 'johnchouser@gmail.com',
-    'telephone' => '215-534-6821',
+    'postal_code' => '97208',
+    'email' => 'john.houser@multco.us',
+    'telephone' => '215-544-6941',
     );
 
 /**

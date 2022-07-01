@@ -61,6 +61,7 @@ $token = $ilsws->connect();
  * j             = boolean AND or OR to use with multiple search terms, and
  * includeFields = fields to return in result.
  */
+
 $index = 'EMAIL';
 $search = 'john.houser@multco.us';
 $options = array(
@@ -69,6 +70,7 @@ $options = array(
     'j' => 'AND', 
     'includeFields' => 'key,barcode']
     );
+
 $response = $ilsws->patron_search($token, $index, $search, $options);
 ```
 
@@ -103,6 +105,7 @@ $patron = array(
  */
 
 $json = $ilsws->create_patron_json($patron, 0);
+$response = $ilsws->patron_create($token, $json);
 ```
 For a complete set of examples see:
 `test/test.php`

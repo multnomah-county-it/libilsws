@@ -39,29 +39,39 @@ or evaluating data from the Symphony system.
 - get_patron_attributes ($token, $patron_key)
 - create_patron_json ($patron, $patron_key)
 
-# Get patron attributes example
+## Examples
+
+### Initialize and Connect to ILSWS
 ```
 require_once 'vendor/autoload.php';
 
 // Initialize and load configuration from YAML configuration file
 $ilsws = new Libilsws\Libilsws('./libilsws.yaml');
 
-// All connection parameters supplied from configuration loaded from YAML file
+// Connect to ILSWS with configuration loaded from YAML file
 $token = $ilsws->connect();
+```
 
+### Search for a Patron
+```
+/** 
+ * Valid incoming params are: 
+ * ct            = number of results to return,
+ * rw            = row to start on (so you can page through results),
+ * j             = boolean AND or OR to use with multiple search terms, and
+ * includeFields = fields to return in result.
+ */
+
+$response = $ilsws->patron_search($token, 'EMAIL', 'john.houser@multco.us', ['rw' => 1, 'ct' => 10, 'j' => 'AND', 'includeFields' => 'key,barcode']);
+```
+
+### Get patron attributes example
+```
 $response = $ilsws->get_patron($token, $patron_key);
 ```
 
-# Create new patron example
+### Create new patron example
 ```
-require_once 'vendor/autoload.php';
-
-// Initialize and load configuration from YAML configuration file
-$ilsws = new Libilsws\Libilsws('./libilsws.yaml');
-
-// All connection parameters supplied from configuration loaded from YAML file
-$token = $ilsws->connect();
-
 $patron = array(
     'firstName' => 'John',
     'lastName' => 'Houser',

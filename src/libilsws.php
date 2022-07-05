@@ -26,9 +26,7 @@ use \Exception;
 class APIException extends Exception 
 {
 
-    /**
-     * Handles API errors that should be logged
-    */
+    // Handles API errors that should be logged
     public function __construct ($message = "", $code = 0) 
     {
         return "$code: $message";
@@ -37,40 +35,29 @@ class APIException extends Exception
 
 class Libilsws
 {
-    /**
-     * Public variable to share error information
-     */
+    // Public variable to share error information
     public $error;
 
-    /**
-     * Public variable to HTML return code
-     */
+    // Public variable to HTML return code
     public $code;
 
-    /**
-     * Turn this on to see various debug messages
-     */
+    // Turn this on to see various debug messages
     private $debug = 1;
 
-    /**
-     * The ILSWS host we should connect to.
-     */
+    // The ILSWS host we should connect to.
     private $config;
 
     /**
      * Searchable indexes in Symphony. These are derived from the
-     * Symphony configuration and could change.
+     * Symphony configuration and could change, so they are set 
+     * in the YAML configuration
      */
     private $valid_search_indexes;
 
-    /**
-     * Data handler instance
-     */
+    // Data handler instance
     private $dh;
     
-    /**
-     * Constructor for this class
-     */
+    // Constructor for this class
     public function __construct($yaml_file)
     {
         include_once 'dataHandler.php';
@@ -94,7 +81,14 @@ class Libilsws
     }
 
     /**
-     * Validation by rule, using dataHandler/validate class.
+     * Validation by rule, using dataHandler/validate class
+     * 
+     * @access private
+     * @param  string  Name of calling function
+     * @param  string  Name of parameter to validate
+     * @param  string  Value to be validated
+     * @param  string  Rule to apply
+     * @return integer Always returns 1, if it doesn't throw an exception
      */
 
     private function validate ($function, $param, $value, $rule)
@@ -102,11 +96,14 @@ class Libilsws
         if ( ! $this->dh->validate($value, $rule) ) {
             throw new Exception ("Invalid $param (rule: '$rule') in $function: \"$value\"");
         }
+
+        return 1;
     }
 
     /**
      * Connect to ILSWS
-     *
+     * 
+     * @access public
      * @return string $token The x-sirs-sessionToken to be used in all subsequent headers
      */
     public function connect()
@@ -156,6 +153,7 @@ class Libilsws
     /**
      * Create a standard GET request object. Used by most API functions.
      *
+     * @access public
      * @param  string $url      The URL to connect with
      * @param  string $token    The session token returned by ILSWS
      * @param  object $params   Associative array of optional parameters
@@ -235,6 +233,7 @@ class Libilsws
     /** 
      * Create a standard POST request object. Used by most updates and creates.
      * 
+     * @access public
      * @param  string $url        The URL to connect with
      * @param  string $token      The session token returned by ILSWS
      * @param  string $query_json JSON containing the required query elements
@@ -309,10 +308,11 @@ class Libilsws
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @param string  $token      The session token returned by ILSWS
-     * @param string  $index      The Symphony index to search
-     * @param string  $search     The value to search for
-     * @param string  $password   The patron password
+     * @access public
+     * @param  string $token      The session token returned by ILSWS
+     * @param  string $index      The Symphony index to search
+     * @param  string $search     The value to search for
+     * @param  string $password   The patron password
      * @return string $patron_key The patron ID (barcode)
      */
     public function authenticate_search ($token, $index, $search, $password)
@@ -372,10 +372,11 @@ class Libilsws
      *
      * On a successful login, this function should return the user's patron key. On failure,
      * it should throw an exception. If the error was caused by the user entering the wrong
-     * username or password, a \SimpleSAML\Error\Error('WRONGUSERPASS') should be thrown.
+     * username or password, a key of 0 is returned.
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
+     * @access public
      * @param  string $token      The session token returned by ILSWS
      * @param  string $patron_id  The patron ID (barcode)
      * @param  string $password   The patron password
@@ -408,12 +409,9 @@ class Libilsws
     /**
      * Attempt to retrieve patron attributes.
      *
-     * On a successful login, this function should return the users attributes. On failure,
-     * it should throw an exception. If the error was caused by the user entering the wrong
-     * username or password, a \SimpleSAML\Error\Error('WRONGUSERPASS') should be thrown.
+     * This function returns a patron's attributes.
      *
-     * Note that both the username and the password are UTF-8 encoded.
-     *
+     * @access public
      * @param  string $token      The session token returned by ILSWS
      * @param  string $patron_key The user's internal ID number
      * @return object $attributes Associative array with the user's attributes
@@ -421,7 +419,7 @@ class Libilsws
     public function get_patron_attributes ($token, $patron_key)
     {
         $this->validate('get_patron_attributes', 'token', $token, 's:40');
-        $this->validate('get_patron_attributes', 'patron_key', $patron_key, 'i:1,99999999999999');
+        $this->validate('get_patron_attributes', 'patron_key', $patron_key, 'i:1,99999999');
         
         $attributes = [];
 
@@ -501,11 +499,12 @@ class Libilsws
     }
 
     /**
-     * Authenticate a patron via ID (Barcode) and password
+     * Authenticate a patron via ID (barcode) and password
      *
+     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $patron_id The patron's ID (barcode)
-     * @return object Associative array contain the response from ILSWS
+     * @return object            Associative array contain the response from ILSWS
      */
 
     public function patron_authenticate ($token, $patron_id, $password)
@@ -520,6 +519,11 @@ class Libilsws
 
     /**
      * Describe the patron resource
+     * 
+     * @access public
+     * @param  string $token The session token returned by ILSWS
+     * @return object        Associative array containing information about the patron record
+     *                       structure used by SirsiDynix Symphony
      */
 
     public function patron_describe ($token) 
@@ -532,6 +536,7 @@ class Libilsws
     /** 
      * Search for patron by any valid single field
      *
+     * @access public
      * @param  string $token    The session token returned by ILSWS
      * @param  string $index    The index to search
      * @param  string $value    The value to search for
@@ -575,6 +580,7 @@ class Libilsws
     /**
      * Search by alternate ID number
      * 
+     * @access public
      * @param  string $token  The session token returned by ILSWS
      * @param  string $alt_id The user's alternate ID number
      * @param  string $count  How many records to return per page
@@ -591,8 +597,9 @@ class Libilsws
     }
 
     /**
-     * Search for patron by id (barcode)
+     * Search for patron by ID (barcode)
      *
+     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $patron_id The user's alternate ID number
      * @param  string $count     How many records to return per page
@@ -611,6 +618,11 @@ class Libilsws
     /**
      * Uses a birth day to determine whether a person is a youth, based on the 
      * max_youth_age set in the config file
+     *
+     * @access private
+     * @param  string  $birthDate Birth date in YYYY-MM-DD format
+     * @return boolean $youth     Sets 1 to indicate the patron is less than or equal
+     *                            to the maximum age for a youth. Sets 0 if they are not.
      */
     private function is_youth ($birthDate)
     {
@@ -631,6 +643,8 @@ class Libilsws
 
     /**
      * Create patron data structure
+     *
+     * @access public
      * @param  object $patron     Associative array of patron data elements
      * @param  string $patron_key Optional patron key to include if updating existing record
      * @return string $json       Complete Symphony patron record JSON
@@ -746,6 +760,7 @@ class Libilsws
     /**
      * Create a new patron record
      *
+     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $json      Complete JSON of patron record
      * @return object            Associative array containing result
@@ -768,6 +783,7 @@ class Libilsws
     /**
      * Update existing patron record
      *
+     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $json      Complete JSON of patron record
      * @return object            Associative array containing result
@@ -785,6 +801,7 @@ class Libilsws
     /**
      * Update the patron lastActivityDate
      *
+     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $patron_id The patron ID (barcode)
      * @return object            Associative array containing result
@@ -800,3 +817,5 @@ class Libilsws
         return $this->send_query("$this->base_url/user/patron/updateActivityDate", $token, $json, 'POST');
     }
 }
+
+// EOF

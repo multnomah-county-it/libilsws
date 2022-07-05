@@ -109,13 +109,18 @@ class Libilsws
     {
         try {
             $action = "rest/security/loginUser";
-            $params = "client_id=$this->config['ilsws']['client_id']&login=$this->config['ilsws']['username']&password=$this->config['ilsws']['password']";
+            $params = 'client_id=' 
+                . $this->config['ilsws']['client_id'] 
+                . '&login=' 
+                . $this->config['ilsws']['username'] 
+                . '&password=' 
+                . $this->config['ilsws']['password'];
 
             $headers = [
                 'Content-Type: application/json',
                 'Accept: application/json',
-                "SD-Originating-App-ID: $this->config['ilsws']['app_id']",
-                "x-sirs-clientID: $this->config['ilsws']['client_id']",
+                'SD-Originating-App-ID: ' . $this->config['ilsws']['app_id'],
+                'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
                 ];
 
             $options = array(
@@ -189,9 +194,9 @@ class Libilsws
             $headers = [
                 'Content-Type: application/json',
                 'Accept: application/json',
-                "SD-Originating-App-ID: $this->config['ilsws']['app_id']",
+                'SD-Originating-App-ID: ' . $this->config['ilsws']['app_id'],
                 "SD-Request-Tracker: $req_num",
-                "x-sirs-clientID: $this->config['ilsws']['client_id']",
+                'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
                 "x-sirs-sessionToken: $token",
                 ];
 
@@ -254,11 +259,11 @@ class Libilsws
             $headers = array(
                 'Content-Type: application/json',
                 'Accept: application/json',
-                "SD-Originating-App-Id: $this->config['ilsws']['app_id']",
+                'SD-Originating-App-Id: ' . $this->config['ilsws']['app_id'],
                 "SD-Response-Tracker: $req_num",
                 'SD-Preferred-Role: STAFF',
-                "SD-Prompt-Return: USER_PRIVILEGE_OVRCD/$this->config['ilsws']['user_privilege_override']",
-                "x-sirs-clientID: $this->config['ilsws']['client_id']",
+                'SD-Prompt-Return: USER_PRIVILEGE_OVRCD/' . $this->config['ilsws']['user_privilege_override'],
+                'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
                 "x-sirs-sessionToken: $token",
                 );
 

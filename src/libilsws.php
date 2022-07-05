@@ -380,7 +380,7 @@ class Libilsws
     public function authenticate_patron_id($token, $patron_id, $password)
     {
         $this->validate('authenticate_patron_id', 'token', $token, 's:40');
-        $this->validate('authenticate_patron_id', 'patron_id', $patron_id, 'i:1,99999999999999');
+        $this->validate('authenticate_patron_id', 'patron_id', $patron_id, 'i:20000000000000,29999999999999');
         $this->validate('authenticate_patron_id', 'password', $password, 's:20');
 
         $patron_key = 0;
@@ -503,7 +503,7 @@ class Libilsws
     public function patron_authenticate ($token, $patron_id, $password)
     {
         $this->validate('patron_authenticate', 'token', $token, 's:40');
-        $this->validate('patron_authenticate', 'patron_id', $patron_id, 'i:1,99999999999999');
+        $this->validate('patron_authenticate', 'patron_id', $patron_id, 'i:20000000000000,29999999999999');
 
         $json = "{ \"barcode\": \"$patron_id\", \"password\": \"$password\" }";
 
@@ -598,7 +598,7 @@ class Libilsws
     public function patron_id_search ($token, $patron_id, $count) 
     {
         $this->validate('patron_id_search', 'token', $token, 's:40');
-        $this->validate('patron_id_search', 'patron_id', $patron_id, 'i:1,99999999999999');
+        $this->validate('patron_id_search', 'patron_id', $patron_id, 'i:20000000000000,29999999999999');
         $this->validate('patron_id_search', 'count', $count, 'i:1,1000');
 
         return $this->patron_search($token, 'ID', $patron_id, array('ct' => $count));
@@ -795,7 +795,7 @@ class Libilsws
     public function patron_activity_update ($token, $patron_id)
     {
         $this->validate('patron_activity_update', 'token', $token, 's:40');
-        $this->validate('patron_activity_update', 'patron_id', $patron_id, 'i:1,99999999999999');
+        $this->validate('patron_activity_update', 'patron_id', $patron_id, 'i:20000000000000,29999999999999');
 
         $json = "{\"patronBarcode\": \"$patron_id\"}";
 

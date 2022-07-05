@@ -27,8 +27,28 @@ class APIException extends Exception
 {
 
     // Handles API errors that should be logged
-    public function __construct ($message = "", $code = 0) 
+    public function __construct ($code = 0, $error = "") 
     {
+        switch ($code) {
+            case 400:
+                $message = "Bad Request";
+                break;
+            case 401:
+                $message = "Unauthorized";
+                break;
+            case 403:
+                $message = "Forbidden";
+                break;
+            case 404:
+                $message = "Not Found";
+                break;
+        }
+
+        // Send original error if in debug mode
+        if ( $this->debug ) {
+            $message .= ": $error";
+        }
+
         return "$code: $message";
     }
 }
@@ -72,7 +92,7 @@ class Libilsws
             }
 
         } else {
-            throw new Exception("Empty or inappropriate YAML file: $yaml_file");
+            throw new Exception("Bad YAML file: $yaml_file");
         }
 
         $this->valid_search_indexes = preg_replace('/,/', '|', $this->config['symphony']['valid_search_indexes']);
@@ -151,9 +171,8 @@ class Libilsws
 
             // Obfuscate the password if it's part of the dsn
             $obfuscated_url =  "$url/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
-            $this->error = "Could not connect to ILSWS: $obfuscated_url: " . $e->getMessage();
-
-            throw new Exception($this->message, $this->code);
+            $this->error = "Connect failure: $obfuscated_url: " . $e->getMessage();
+            throw new APIException($this->code, $this->error);
         }
 
         return $token;
@@ -228,11 +247,10 @@ class Libilsws
 
             curl_close($ch);
 
-        } catch (APIException $e) {
+        } catch (Exception $e) {
 
-            $this->error = 'ILSWS send_get failed: ' . $e->getMessage();
-
-            throw new APIException($this->error, $this->code);
+            $this->error = $e->getMessage();
+            throw new APIException($this->code, $this->error);
         }
 
         return $response;
@@ -297,11 +315,10 @@ class Libilsws
             
              curl_close($ch);
         
-        } catch (APIException $e) {
+        } catch (Exception $e) {
 
-            $this->error = 'ILSWS send_query failed: ' . $e->getMessage();
-
-            throw new APIException($this->error, $this->code);
+            $this->error = $e->getMessage();
+            throw new APIException($this->code, $this->error);
         }
 
         return $response;
@@ -569,10 +586,14 @@ class Libilsws
             'includeFields' => $params['includeFields'] ?? $this->config['ilsws']['default_include_fields'],
             );
 
-        $response = $this->send_get("$this->base_url/user/patron/search", $token, $params);
+        try {
 
-        if ( $this->code == 401 ) {
-            $this->error = $response;
+            $response = $this->send_get("$this->base_url/user/patron/search", $token, $params);
+
+        } catch (Exception $e) {
+
+            $this->error = $e->getMessage;
+            throw new APIException($this->code, $this->message);
         }
 
         return $response;
@@ -625,6 +646,8 @@ class Libilsws
      */
     private function is_youth ($birthDate)
     {
+        $this->validate('is_youth', 'birthDate', $birthDate, 'd:YYYY-MM-DD');
+
         $youth = 0;
 
         $today = date('Y-m-d');
@@ -768,13 +791,7 @@ class Libilsws
         $this->validate('patron_update', 'token', $token, 's:40');
         $this->validate('patron_update', 'json', $json, 'j');
 
-        $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
-
-        if ( $this->code == 404 ) {
-            $this->error = "404: Invalid access point (resource)";
-        }
-
-        return $response;
+        return = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
     }
 
     /**

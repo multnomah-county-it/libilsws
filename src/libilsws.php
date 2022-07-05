@@ -243,7 +243,6 @@ class Libilsws
 
             if ( $this->debug ) {
                 print "Request number: $req_num\n";
-                print "HTTP $this->code: " . json_decode($json, JSON_PRETTY_PRINT) . "\n";
             }
             
             $response = json_decode($json, true);
@@ -659,7 +658,7 @@ class Libilsws
         $diff = $d2->diff($d1);
         $age = $diff->y;
 
-        if ( $age <= $this->max_youth_age ) {
+        if ( $age <= $this->config['symphony']['max_youth_age'] ) {
             $youth = 1;
         }
 
@@ -704,7 +703,7 @@ class Libilsws
         foreach ($fields as $field => $value) {
 
             // Check if the data is coming in with a different field name (label)
-            if ( empty($patron[$field]) && ! empty($patron[$fields[$field]['label']]) ) {
+            if ( empty($patron[$field]) && ! empty($fields[$field]['label']) && ! empty($patron[$fields[$field]['label']]) ) {
                 $patron[$field] = $patron[$fields[$field]['label']];
             }
 
@@ -714,7 +713,9 @@ class Libilsws
             }
 
             // Validate
-            $this->validate('create_patron_json', $field, $patron[$field], $fields[$field]['validation']);
+            if( ! empty($patron[$field])) {
+                $this->validate('create_patron_json', $field, $patron[$field], $fields[$field]['validation']);
+            }
             
             if ( $field === 'profile' ) {
 
@@ -744,7 +745,7 @@ class Libilsws
                 $new['fields'][$field] = [];
 
                 // Determine the address number
-                $num = substr($field, -2, 2);
+                $num = substr($field, -1, 1);
 
                 foreach ($fields[$field] as $part => $value) {
 

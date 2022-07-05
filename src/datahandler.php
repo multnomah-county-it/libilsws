@@ -50,7 +50,12 @@ class DataHandler
     public function validate ($value, $validation_rule) {
 
         $retval = 0;
-        list($type, $param) = preg_split('/:/', $validation_rule, 2);
+        if ( strlen($validation_rule) > 1 ) {
+            list($type, $param) = preg_split('/:/', $validation_rule, 2);
+        } else {
+            $type = $validation_rule;
+            $param = '';
+        }
 
         if ( ! $value ) {
             return -1;

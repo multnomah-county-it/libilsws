@@ -1,7 +1,6 @@
 <?php
 
 require_once 'vendor/autoload.php';
-error_reporting(E_ALL ^ E_WARNING);
 
 if ( ! $argv ) {
     print "Syntax: php $argv[0] EMAIL TELEPHONE BARCODE ALT_ID PASSWORD\n";
@@ -122,11 +121,11 @@ print "$json\n";
 // Supply a patron key to get JSON to modify a record
 print "create_patron_json overlay record\n";
 $patron = array(
-    'firstName' => 'John',
-    'lastName' => 'Houser',
+    'firstName' => 'Bogus',
+    'middleName' => 'T',
+    'lastName' => 'Bogart',
     'birthDate' => '1962-03-07',
     'home_library' => 'CEN',
-    'middleName' => 'Clark',
     'notice_type' => 'PHONE',
     'library_news' => 'YES',
     'friends_notices' => 'YES',
@@ -145,9 +144,9 @@ print "$json\n";
  * from a patron JSON object, as created by
  * create_patron_json
  */
-// $response = $ilsws->patron_create($token, $json);
-// $json = json_encode($response, JSON_PRETTY_PRINT);
-// print "$json\n\n";
+$response = $ilsws->patron_create($token, $json);
+$json = json_encode($response, JSON_PRETTY_PRINT);
+print "$json\n\n";
 
 /** 
  * Code example to update a patron record. Note that the data structure is the same

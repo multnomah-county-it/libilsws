@@ -791,7 +791,7 @@ class Libilsws
         $this->validate('patron_update', 'token', $token, 's:40');
         $this->validate('patron_update', 'json', $json, 'j');
 
-        return = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
+        return $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
     }
 
     /**

@@ -42,6 +42,9 @@ class APIException extends Exception
             case 404:
                 $message = "Not Found";
                 break;
+            case 500:
+                $message = "Internal Server Error";
+                break;
         }
 
         // Send original error if in debug mode

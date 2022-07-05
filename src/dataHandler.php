@@ -1,6 +1,6 @@
 <?php
 
-namespace libilsws;
+namespace Libilsws;
 
 /**
  * Copyright (c) Multnomah County (Oregon)
@@ -14,11 +14,11 @@ namespace libilsws;
  */
 
 
-class dataHandler
+class DataHandler
 {
 
     // Set to 1 for dubugging messages
-    private $debug = 1;
+    private $debug = 0;
 
     /**
      * Validates various types of incoming field data
@@ -42,7 +42,9 @@ class dataHandler
      *     list               => 'v:01|11',            // list('01', '11')
      *     );
      *
-     * Returns 0 or 1
+     * @param  string  $value           String to validation
+     * @param  string  $validation_rule Validation rule to apply
+     * @return integer $retval          Returns 1 if the validation is successful, 0 if it is not
      */
 
     public function validate ($value, $validation_rule) {
@@ -142,8 +144,16 @@ class dataHandler
     }
 
     /**
-     * Validates various date formats. Returns nothing or the valid date in 
-     * YYYY-MM-DD format, which is generally what is needed for ILSWS.
+     * Validates various date or timestamp formats. Returns nothing or the 
+     * valid date in YYYY-MM-DD format, which is generally what is needed 
+     * for ILSWS.
+     * 
+     * @access private
+     * @param  date    $date   Date in any supported format
+     * @param  string  $format Format of date (YYYY-MM-DD HH:MM, YYYY/MM/DD HH:MM, YYYY-MM-DD, 
+     *                         YYYY/MM/DD, MM-DD-YYYY, MM/DD/YYYY, YYYYMMDD)
+     * @return string  $retval Date in YYYY-MM-DD format if the validation is successful. 
+     *                         Empty if validation fails.
      */
 
     private function validate_date ($date, $format) 
@@ -193,3 +203,4 @@ class dataHandler
     }
 }
 
+// EOF

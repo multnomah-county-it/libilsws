@@ -60,8 +60,8 @@ class Libilsws
     // Constructor for this class
     public function __construct($yaml_file)
     {
-        include_once 'dataHandler.php';
-        $this->dh = new dataHandler();
+        include_once 'datahandler.php';
+        $this->dh = new DataHandler();
 
         // Read the YAML configuration file and assign private varaibles
         if ( filesize($yaml_file) > 0 && substr($yaml_file, -4, 4) == 'yaml' ) {
@@ -103,7 +103,6 @@ class Libilsws
     /**
      * Connect to ILSWS
      * 
-     * @access public
      * @return string $token The x-sirs-sessionToken to be used in all subsequent headers
      */
     public function connect()
@@ -153,7 +152,6 @@ class Libilsws
     /**
      * Create a standard GET request object. Used by most API functions.
      *
-     * @access public
      * @param  string $url      The URL to connect with
      * @param  string $token    The session token returned by ILSWS
      * @param  object $params   Associative array of optional parameters
@@ -233,7 +231,6 @@ class Libilsws
     /** 
      * Create a standard POST request object. Used by most updates and creates.
      * 
-     * @access public
      * @param  string $url        The URL to connect with
      * @param  string $token      The session token returned by ILSWS
      * @param  string $query_json JSON containing the required query elements
@@ -308,7 +305,6 @@ class Libilsws
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @access public
      * @param  string $token      The session token returned by ILSWS
      * @param  string $index      The Symphony index to search
      * @param  string $search     The value to search for
@@ -376,7 +372,6 @@ class Libilsws
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @access public
      * @param  string $token      The session token returned by ILSWS
      * @param  string $patron_id  The patron ID (barcode)
      * @param  string $password   The patron password
@@ -411,7 +406,6 @@ class Libilsws
      *
      * This function returns a patron's attributes.
      *
-     * @access public
      * @param  string $token      The session token returned by ILSWS
      * @param  string $patron_key The user's internal ID number
      * @return object $attributes Associative array with the user's attributes
@@ -501,7 +495,6 @@ class Libilsws
     /**
      * Authenticate a patron via ID (barcode) and password
      *
-     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $patron_id The patron's ID (barcode)
      * @return object            Associative array contain the response from ILSWS
@@ -520,7 +513,6 @@ class Libilsws
     /**
      * Describe the patron resource
      * 
-     * @access public
      * @param  string $token The session token returned by ILSWS
      * @return object        Associative array containing information about the patron record
      *                       structure used by SirsiDynix Symphony
@@ -536,7 +528,6 @@ class Libilsws
     /** 
      * Search for patron by any valid single field
      *
-     * @access public
      * @param  string $token    The session token returned by ILSWS
      * @param  string $index    The index to search
      * @param  string $value    The value to search for
@@ -580,7 +571,6 @@ class Libilsws
     /**
      * Search by alternate ID number
      * 
-     * @access public
      * @param  string $token  The session token returned by ILSWS
      * @param  string $alt_id The user's alternate ID number
      * @param  string $count  How many records to return per page
@@ -599,7 +589,6 @@ class Libilsws
     /**
      * Search for patron by ID (barcode)
      *
-     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $patron_id The user's alternate ID number
      * @param  string $count     How many records to return per page
@@ -621,7 +610,7 @@ class Libilsws
      *
      * @access private
      * @param  string  $birthDate Birth date in YYYY-MM-DD format
-     * @return boolean $youth     Sets 1 to indicate the patron is less than or equal
+     * @return integer $youth     Sets 1 to indicate the patron is less than or equal
      *                            to the maximum age for a youth. Sets 0 if they are not.
      */
     private function is_youth ($birthDate)
@@ -644,7 +633,6 @@ class Libilsws
     /**
      * Create patron data structure
      *
-     * @access public
      * @param  object $patron     Associative array of patron data elements
      * @param  string $patron_key Optional patron key to include if updating existing record
      * @return string $json       Complete Symphony patron record JSON
@@ -760,7 +748,6 @@ class Libilsws
     /**
      * Create a new patron record
      *
-     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $json      Complete JSON of patron record
      * @return object            Associative array containing result
@@ -783,7 +770,6 @@ class Libilsws
     /**
      * Update existing patron record
      *
-     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $json      Complete JSON of patron record
      * @return object            Associative array containing result
@@ -801,7 +787,6 @@ class Libilsws
     /**
      * Update the patron lastActivityDate
      *
-     * @access public
      * @param  string $token     The session token returned by ILSWS
      * @param  string $patron_id The patron ID (barcode)
      * @return object            Associative array containing result

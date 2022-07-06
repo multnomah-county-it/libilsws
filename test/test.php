@@ -98,11 +98,11 @@ print "$json\n\n";
 // Create patron record JSON
 print "create_patron_json new record\n";
 $patron = array(
-    'firstName' => 'John',
-    'lastName' => 'Houser',
+    'firstName' => 'Bogus',
+    'middleName' => 'T',
+    'lastName' => 'Bogart',
     'birthDate' => '1962-03-07',
     'home_library' => 'CEN',
-    'middleName' => 'Clark',
     'county' => '0_MULT',
     'notice_type' => 'PHONE',
     'library_news' => 'YES',

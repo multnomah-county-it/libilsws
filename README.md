@@ -38,6 +38,7 @@ or evaluating data from the Symphony system.
 - authenticate_id ($token, $patron_id, $password)
 - get_patron_attributes ($token, $patron_key)
 - create_patron_json ($patron, $patron_key)
+- patron_register ($token, $patron)
 
 ## Examples
 
@@ -79,7 +80,7 @@ $response = $ilsws->patron_search($token, $index, $search, $options);
 $response = $ilsws->get_patron($token, $patron_key);
 ```
 
-### Create new patron example
+### Modify patron example
 ```
 $patron = array(
     'firstName' => 'John',
@@ -100,12 +101,13 @@ $patron = array(
     );
 
 /**
- * Second parameter is the $patron_key. Set to 0 to create new record. 
- * Set to an existing key to modify the patron record.
+ * Second parameter is the $patron_key. (Set to 0 to create new record. 
+ * However, a create requires that a patron_id or barcode be included
+ * in the patron array.) Set to an existing key to modify the patron record.
  */
 
 $json = $ilsws->create_patron_json($patron, 0);
-$response = $ilsws->patron_create($token, $json);
+$response = $ilsws->patron_modify($token, $json);
 ```
 For a complete set of examples see:
 `test/test.php`

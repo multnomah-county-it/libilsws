@@ -17,6 +17,9 @@ use Symfony\Component\Yaml\Yaml;
 use Curl\Curl;
 use DateTime;
 use \Exception;
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception as MailerException;
+use Twig\Environment;
 
 /**
  * Custom API exception.
@@ -783,7 +786,10 @@ class Libilsws
     }
 
     /**
-     * Create a new patron record
+     * Create a new patron record. Note that this function requires
+     * that you supply a patron_id (barcode) in the JSON. If you need
+     * the SirsiDynix system to supply a temporary barcode, then use
+     * patron_register function.
      *
      * @param  string $token     The session token returned by ILSWS
      * @param  string $json      Complete JSON of patron record
@@ -799,11 +805,94 @@ class Libilsws
     }
 
     /**
+     * Register a new patron (with email response and duplicate checking)
+     *
+     * @param  string $token The session token returned by ILSWS
+     * @param  object $patron Associative array containing patron data
+     * @return object $response Associative array containing response from ILSWS
+     */
+
+    public function patron_register ($token, $patron)
+    {
+        /**
+         * Edit this map if your ILSWS Self-Registration Configuration 
+         * uses different patron fields. The left-hand column is the 
+         * field as defined in your YAML configuration file. The right-hand
+         * column is the ILSWS Self-Registration field name.
+         */
+
+        $map = array(
+            'birthDate'   => 'patron-birthDate',
+            'category01'  => 'patron-category01',
+            'category02'  => 'patron-category02',
+            'category03'  => 'patron-category03',
+            'category04'  => 'patron-category04',
+            'category05'  => 'patron-category05',
+            'category06'  => 'patron-category06',
+            'category07'  => 'patron-category07',
+            'category08'  => 'patron-category08',
+            'category09'  => 'patron-category09',
+            'category10'  => 'patron-category10',
+            'category11'  => 'patron-category11',
+            'category12'  => 'patron-category12',
+            'firstName'   => 'patron-firstName',
+            'lastName'    => 'patron-lastName',
+            'middleName'  => 'patron-middleName',
+            'password'    => 'patron-pin',
+            'city_state'  => 'patronAddress1-CITY/STATE',
+            'email'       => 'patronAddress1-EMAIL',
+            'telephone'   => 'patronAddress1-PHONE',
+            'street'      => 'patronAddress1-STREET',
+            'postal_code' => 'patronAddress1-ZIP',
+            );
+            
+        // Check if patron is a youth
+        $age_group = 'default';
+        if ( ! empty($this->config['symphony']['user_record']['fields']['birthDate']['label']) ) {
+            $dob = $patron[$this->config['symphony']['user_record']['fields']['birthDate']['label']];
+        } else {
+            $dob = $patron['birthDate'];
+        }
+        if ( $this->is_youth($dob) ) {
+            $age_group = 'youth';
+        }
+
+        $fields = $this->config['symphony']['user_record']['fields'];
+        foreach ($fields as $field => $value) {
+
+            // Check if the data is coming in with a different field name (label)
+            if ( empty($patron[$field]) && ! empty($fields[$field]['label']) && ! empty($patron[$fields[$field]['label']]) ) {
+                $patron[$field] = $patron[$fields[$field]['label']];
+            }
+
+            // Assign default values to empty fields, where appropriate
+            if ( empty($patron[$field]) && ! empty($fields[$field]['new'][$age_group]) ) {
+                $patron[$field] = $fields[$field][$mode][$age_group];
+            }
+
+            // Validate
+            if( ! empty($patron[$field])) {
+                $this->validate('create_patron_json', $field, $patron[$field], $fields[$field]['validation']);
+            }
+
+            $new[$map[$field]] = $patron[$field];
+        }
+
+        $json = json_encode($new);
+
+        if ( $this->debug ) {
+            print "$json\n";
+        }
+
+        return $this->send_query("$this->base_url/usr/patron/register", $token, $json, 'POST');
+    }
+
+    /**
      * Update existing patron record
      *
-     * @param  string $token     The session token returned by ILSWS
-     * @param  string $json      Complete JSON of patron record
-     * @return object            Associative array containing result
+     * @param  string $token The session token returned by ILSWS
+     * @param  string $json  Complete JSON of patron record including barcode
+     * @return object        Associative array containing result
      */
 
     public function patron_update ($token, $json, $patron_key) 

@@ -27,7 +27,7 @@ class APIException extends Exception
 {
 
     // Handles API errors that should be logged
-    public function __construct ($error = "", $code = 200) 
+    public function errorMessage ($error = "", $code = 0) 
     {
         $message = '';
 
@@ -60,7 +60,8 @@ class APIException extends Exception
         if ( ! $message ) {
             $message = "HTTP $code: $error";
         }
-       throw new Exception ($message);
+
+       return $message;
     }
 }
 
@@ -73,7 +74,7 @@ class Libilsws
     public $code;
 
     // Turn this on to see various debug messages
-    private $debug = 1;
+    private $debug = 0;
 
     // The ILSWS host we should connect to.
     private $config;
@@ -143,6 +144,7 @@ class Libilsws
      */
     public function connect()
     {
+
         $action = "rest/security/loginUser";
         $params = 'client_id=' 
             . $this->config['ilsws']['client_id'] 
@@ -166,26 +168,34 @@ class Libilsws
             CURLOPT_HTTPHEADER       => $headers,
             );
 
-        $ch = curl_init();
-        curl_setopt_array($ch, $options);
+        try {
 
-        $json = curl_exec($ch);
-        $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $ch = curl_init();
+            curl_setopt_array($ch, $options);
 
-        if ( $this->debug ) {
-            print "$this->code: $json\n";
-        }
+            $json = curl_exec($ch);
+            $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-        if ( $this->code != 200 ) {
-            $obfuscated_url =  $this->base_url . "/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
-            $this->error = "Connect failure: $obfuscated_url: " . curl_error($ch);
-            throw new APIException($this->error, $this->code);
-        }
+            if ( $this->debug ) {
+                print "HTTP $this->code: $json\n";
+            }
 
-        $response = json_decode($json, true);
-        $token = $response['sessionToken'];
+            if ( $this->code != 200 ) {
+                $obfuscated_url =  $this->base_url . "/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
+                $this->error = "Connect failure: $obfuscated_url: " . curl_error($ch);
+                throw new APIException($this->error);
+            }
 
-        curl_close($ch);
+            $response = json_decode($json, true);
+            $token = $response['sessionToken'];
+
+            curl_close($ch);
+
+        } catch (APIException $e) {
+
+            echo $e->errorMessage($this->error, $this->code), "\n";
+            exit;
+        } 
 
         return $token;
     }
@@ -242,27 +252,35 @@ class Libilsws
             CURLOPT_HTTPHEADER       => $headers,
             );
 
-        $ch = curl_init();
-        curl_setopt_array($ch, $options);
+        try {
 
-        $json = curl_exec($ch);
-        $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $ch = curl_init();
+            curl_setopt_array($ch, $options);
 
-        if ( $this->debug ) {
-            print "Request number: $req_num\n";
-            print "HTTP $this->code: $json\n";
-        }
-            
-        // Check for errors
-        if ( $this->code != 200 ) {
-            $this->error = curl_error($ch);
-            if ( ! $this->error ) {
-                $this->error = $json;
+            $json = curl_exec($ch);
+            $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            if ( $this->debug ) {
+                print "Request number: $req_num\n";
+                print "HTTP $this->code: $json\n";
             }
-            throw new APIException($this->error, $this->code);
-        }
+            
+            // Check for errors
+            if ( $this->code != 200 ) {
+                $this->error = curl_error($ch);
+                if ( ! $this->error ) {
+                    $this->error = $json;
+                }
+                throw new APIException($this->error);
+            }
 
-        curl_close($ch);
+            curl_close($ch);
+
+        } catch (APIException $e) {
+
+            echo $e->errorMessage($this->error, $this->code), "\n";
+            exit;
+        } 
 
         return json_decode($json, true);
     }
@@ -314,27 +332,35 @@ class Libilsws
             CURLOPT_POSTFIELDS       => $query_json,
             );
 
-        $ch = curl_init();
-        curl_setopt_array($ch, $options);
-           
-        $json = curl_exec($ch);
-        $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        try {
 
-        if ( $this->debug ) {
-            print "Request number: $req_num\n";
-            print "HTTP $this->code: $json\n";
-        }
+            $ch = curl_init();
+            curl_setopt_array($ch, $options);
+            
+            $json = curl_exec($ch);
+            $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-        // Check for errors
-        if ( $this->code != 200 ) {
-            $this->error = curl_error($ch);
-            if ( ! $this->error ) {
-                $this->error = $json;
+            if ( $this->debug ) {
+                print "Request number: $req_num\n";
+                print "HTTP $this->code: $json\n";
             }
-            throw new APIException($this->error, $this->code);
-        }
 
-        curl_close($ch);
+            // Check for errors
+            if ( $this->code != 200 ) {
+                $this->error = curl_error($ch);
+                if ( ! $this->error ) {
+                    $this->error = $json;
+                }
+                throw new APIException($this->error);
+            }
+
+            curl_close($ch);
+
+        } catch (APIException $e) {
+
+            echo $e->errorMessage($this->error, $this->code), "\n";
+            exit;
+        }
         
         return json_decode($json, true);
     }

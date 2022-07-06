@@ -33,6 +33,6 @@ $patron = array(
     );
 
 $response = $ilsws->patron_register($token, $patron);
-print "$response\n";
+print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

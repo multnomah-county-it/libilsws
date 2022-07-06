@@ -17,9 +17,6 @@ use Symfony\Component\Yaml\Yaml;
 use Curl\Curl;
 use DateTime;
 use \Exception;
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception as MailerException;
-use Twig\Environment;
 
 /**
  * Custom API exception.
@@ -30,32 +27,40 @@ class APIException extends Exception
 {
 
     // Handles API errors that should be logged
-    public function __construct ($code = 0, $error = "") 
+    public function __construct ($error = "", $code = 200) 
     {
+        $message = '';
+
         switch ($code) {
             case 400:
-                $message = "Bad Request";
+                $message .= "HTTP $code: Bad Request";
                 break;
             case 401:
-                $message = "Unauthorized";
+                $message .= "HTTP $code: Unauthorized";
                 break;
             case 403:
-                $message = "Forbidden";
+                $message .= "HTTP $code: Forbidden";
                 break;
             case 404:
-                $message = "Not Found";
+                $message .= "HTTP $code: Not Found";
                 break;
             case 500:
-                $message = "Internal Server Error";
+                $message .= "HTTP $code: Internal Server Error";
                 break;
         }
 
-        // Send original error if in debug mode
-        if ( $this->debug ) {
-            $message .= ": $error";
+        $err_message = json_decode($error, true);
+        if ( json_last_error() === JSON_ERROR_NONE ) {
+            if ( ! empty($err_message['messageList'][0]['message']) ) {
+                $error = $err_message['messageList'][0]['message'];
+                $message .= ": $error";
+            }
         }
 
-        return "$code: $message";
+        if ( ! $message ) {
+            $message = "HTTP $code: $error";
+        }
+       throw new Exception ($message);
     }
 }
 
@@ -138,48 +143,49 @@ class Libilsws
      */
     public function connect()
     {
-        try {
-            $action = "rest/security/loginUser";
-            $params = 'client_id=' 
-                . $this->config['ilsws']['client_id'] 
-                . '&login=' 
-                . $this->config['ilsws']['username'] 
-                . '&password=' 
-                . $this->config['ilsws']['password'];
+        $action = "rest/security/loginUser";
+        $params = 'client_id=' 
+            . $this->config['ilsws']['client_id'] 
+            . '&login=' 
+            . $this->config['ilsws']['username'] 
+            . '&password=' 
+            . $this->config['ilsws']['password'];
 
-            $headers = [
-                'Content-Type: application/json',
-                'Accept: application/json',
-                'SD-Originating-App-ID: ' . $this->config['ilsws']['app_id'],
-                'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
-                ];
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'SD-Originating-App-ID: ' . $this->config['ilsws']['app_id'],
+            'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
+            ];
 
-            $options = array(
-                CURLOPT_URL              => "$this->base_url/$action?$params",
-                CURLOPT_RETURNTRANSFER   => true,
-                CURLOPT_SSL_VERIFYSTATUS => true,
-                CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
-                CURLOPT_HTTPHEADER       => $headers,
-                );
+        $options = array(
+            CURLOPT_URL              => "$this->base_url/$action?$params",
+            CURLOPT_RETURNTRANSFER   => true,
+            CURLOPT_SSL_VERIFYSTATUS => true,
+            CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
+            CURLOPT_HTTPHEADER       => $headers,
+            );
 
-            $ch = curl_init();
-            curl_setopt_array($ch, $options);
+        $ch = curl_init();
+        curl_setopt_array($ch, $options);
 
-            $json = curl_exec($ch);
-            $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $json = curl_exec($ch);
+        $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            $response = json_decode($json, true);
-            $token = $response['sessionToken'];
-
-            curl_close($ch);
-
-        } catch (APIException $e) {
-
-            // Obfuscate the password if it's part of the dsn
-            $obfuscated_url =  "$url/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
-            $this->error = "Connect failure: $obfuscated_url: " . $e->getMessage();
-            throw new APIException($this->code, $this->error);
+        if ( $this->debug ) {
+            print "$this->code: $json\n";
         }
+
+        if ( $this->code != 200 ) {
+            $obfuscated_url =  $this->base_url . "/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
+            $this->error = "Connect failure: $obfuscated_url: " . curl_error($ch);
+            throw new APIException($this->error, $this->code);
+        }
+
+        $response = json_decode($json, true);
+        $token = $response['sessionToken'];
+
+        curl_close($ch);
 
         return $token;
     }
@@ -219,46 +225,46 @@ class Libilsws
             print "$url\n";
         }
 
-        try {
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'SD-Originating-App-ID: ' . $this->config['ilsws']['app_id'],
+            "SD-Request-Tracker: $req_num",
+            'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
+            "x-sirs-sessionToken: $token",
+            ];
 
-            $headers = [
-                'Content-Type: application/json',
-                'Accept: application/json',
-                'SD-Originating-App-ID: ' . $this->config['ilsws']['app_id'],
-                "SD-Request-Tracker: $req_num",
-                'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
-                "x-sirs-sessionToken: $token",
-                ];
+        $options = array(
+            CURLOPT_URL              => $url,
+            CURLOPT_RETURNTRANSFER   => true,
+            CURLOPT_SSL_VERIFYSTATUS => true,
+            CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
+            CURLOPT_HTTPHEADER       => $headers,
+            );
 
-            $options = array(
-                CURLOPT_URL              => $url,
-                CURLOPT_RETURNTRANSFER   => true,
-                CURLOPT_SSL_VERIFYSTATUS => true,
-                CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
-                CURLOPT_HTTPHEADER       => $headers,
-                );
+        $ch = curl_init();
+        curl_setopt_array($ch, $options);
 
-            $ch = curl_init();
-            curl_setopt_array($ch, $options);
+        $json = curl_exec($ch);
+        $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            $json = curl_exec($ch);
-            $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-            if ( $this->debug ) {
-                print "Request number: $req_num\n";
-            }
+        if ( $this->debug ) {
+            print "Request number: $req_num\n";
+            print "HTTP $this->code: $json\n";
+        }
             
-            $response = json_decode($json, true);
-
-            curl_close($ch);
-
-        } catch (Exception $e) {
-
-            $this->error = $e->getMessage();
-            throw new APIException($this->code, $this->error);
+        // Check for errors
+        if ( $this->code != 200 ) {
+            $this->error = curl_error($ch);
+            if ( ! $this->error ) {
+                $this->error = $json;
+            }
+            throw new APIException($this->error, $this->code);
         }
 
-        return $response;
+        curl_close($ch);
+
+        return json_decode($json, true);
     }
 
     /** 
@@ -278,55 +284,59 @@ class Libilsws
         $this->validate('send_query', 'query_json', $query_json, 'j');
         $this->validate('send_query', 'query_type', $query_type, 'v:POST|PUT');
 
+        $role = 'STAFF';
+        if ( preg_match('/patron\/register/', $url) ) {
+            $role = 'PATRON';
+        }
+
         // Define a random request tracker
         $req_num = rand(1, 1000000000);
 
-        try {
+        // Define the request headers
+        $headers = array(
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'SD-Originating-App-Id: ' . $this->config['ilsws']['app_id'],
+            "SD-Response-Tracker: $req_num",
+            "SD-Preferred-Role: $role",
+            'SD-Prompt-Return: USER_PRIVILEGE_OVRCD/' . $this->config['ilsws']['user_privilege_override'],
+            'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
+            "x-sirs-sessionToken: $token",
+            );
 
-            // Define the request headers
-            $headers = array(
-                'Content-Type: application/json',
-                'Accept: application/json',
-                'SD-Originating-App-Id: ' . $this->config['ilsws']['app_id'],
-                "SD-Response-Tracker: $req_num",
-                'SD-Preferred-Role: STAFF',
-                'SD-Prompt-Return: USER_PRIVILEGE_OVRCD/' . $this->config['ilsws']['user_privilege_override'],
-                'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
-                "x-sirs-sessionToken: $token",
-                );
+        $options = array(
+            CURLOPT_URL              => $url,
+            CURLOPT_CUSTOMREQUEST    => $query_type,
+            CURLOPT_RETURNTRANSFER   => true,
+            CURLOPT_SSL_VERIFYSTATUS => true,
+            CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
+            CURLOPT_HTTPHEADER       => $headers,
+            CURLOPT_POSTFIELDS       => $query_json,
+            );
 
-            $options = array(
-                CURLOPT_URL              => $url,
-                CURLOPT_CUSTOMREQUEST    => $query_type,
-                CURLOPT_RETURNTRANSFER   => true,
-                CURLOPT_SSL_VERIFYSTATUS => true,
-                CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
-                CURLOPT_HTTPHEADER       => $headers,
-                CURLOPT_POSTFIELDS       => $query_json,
-                );
-
-             $ch = curl_init();
-             curl_setopt_array($ch, $options);
+        $ch = curl_init();
+        curl_setopt_array($ch, $options);
            
-             $json = curl_exec($ch);
-             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-             
-             if ( $this->debug ) {
-                 print "Request number: $req_num\n";
-                 print "HTTP $this->code: $json\n";
-             }
-             
-             $response = json_decode($json, true);
-            
-             curl_close($ch);
-        
-        } catch (Exception $e) {
+        $json = curl_exec($ch);
+        $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            $this->error = $e->getMessage();
-            throw new APIException($this->code, $this->error);
+        if ( $this->debug ) {
+            print "Request number: $req_num\n";
+            print "HTTP $this->code: $json\n";
         }
 
-        return $response;
+        // Check for errors
+        if ( $this->code != 200 ) {
+            $this->error = curl_error($ch);
+            if ( ! $this->error ) {
+                $this->error = $json;
+            }
+            throw new APIException($this->error, $this->code);
+        }
+
+        curl_close($ch);
+        
+        return json_decode($json, true);
     }
 
     /**
@@ -422,10 +432,6 @@ class Libilsws
 
         $response = $this->send_query("$this->base_url/$action", $token, $json, 'POST');
 
-        if ( $this->error ) {
-            throw new Exception("ILSWS send_query failed: $this->error");
-        }
-                
         if ( isset($response['patronKey']) ) {
             $patron_key = $response['patronKey'];
         }
@@ -591,17 +597,7 @@ class Libilsws
             'includeFields' => $params['includeFields'] ?? $this->config['ilsws']['default_include_fields'],
             );
 
-        try {
-
-            $response = $this->send_get("$this->base_url/user/patron/search", $token, $params);
-
-        } catch (Exception $e) {
-
-            $this->error = $e->getMessage;
-            throw new APIException($this->code, $this->message);
-        }
-
-        return $response;
+        return $this->send_get("$this->base_url/user/patron/search", $token, $params);
     }
 
     /**
@@ -845,6 +841,8 @@ class Libilsws
             'street'      => 'patronAddress1-STREET',
             'postal_code' => 'patronAddress1-ZIP',
             );
+
+        $new = array();
             
         // Check if patron is a youth
         $age_group = 'default';
@@ -867,7 +865,7 @@ class Libilsws
 
             // Assign default values to empty fields, where appropriate
             if ( empty($patron[$field]) && ! empty($fields[$field]['new'][$age_group]) ) {
-                $patron[$field] = $fields[$field][$mode][$age_group];
+                $patron[$field] = $fields[$field]['new'][$age_group];
             }
 
             // Validate
@@ -875,7 +873,9 @@ class Libilsws
                 $this->validate('create_patron_json', $field, $patron[$field], $fields[$field]['validation']);
             }
 
-            $new[$map[$field]] = $patron[$field];
+            if ( ! empty($patron[$field]) && isset($map[$field]) ) {
+                $new[$map[$field]] = $patron[$field];
+            }
         }
 
         $json = json_encode($new);
@@ -884,7 +884,7 @@ class Libilsws
             print "$json\n";
         }
 
-        return $this->send_query("$this->base_url/usr/patron/register", $token, $json, 'POST');
+        return $this->send_query("$this->base_url/user/patron/register", $token, $json, 'POST');
     }
 
     /**

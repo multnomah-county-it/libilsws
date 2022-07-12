@@ -114,6 +114,7 @@ of the YAML configuration options.
 
 For a complete set of code examples see:
 `test/test.php` and `test/register.php`
+
 **Warning:** the test files make real changes to the configured
 Symphony system. Do use on a production system without carefully
 reviewing what they do!

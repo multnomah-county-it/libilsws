@@ -5,6 +5,14 @@ PHP package to support use of the SirsiDynix Symphony Web Services API (ILSWS)
 John Houser
 john.houser@multco.us
 
+# Design Goals
+- Validate all inputs
+- Produce clean, clear error messages
+- Prevent or replace SirsiDynix error messages, which are sometimes obscure
+- Provide easy, high-level functions for creating, modifying, searching for, and authenticating patrons
+- Support easy reconfiguration to mirror changes to the Symphony configuration
+- Allow easy adaptation by other libraries
+
 # Public Functions
 
 ## Low level 
@@ -99,9 +107,14 @@ $patron = array(
     );
 
 $json = $ilsws->create_patron_json($patron, $patron_key);
-$response = $ilsws->patron_update($token, $json);
+$response = $ilsws->patron_update($token, $json, $patron_key);
 ```
-See the libilsws.yaml file for field definitions.
+See the libilsws.yaml.sample file for field definitions and documentation
+of the YAML configuration options.
 
-For a complete set of examples see:
+For a complete set of code examples see:
 `test/test.php` and `test/register.php`
+
+**Warning:** the test files make real changes to the configured
+Symphony system. Do use on a production system without carefully
+reviewing what they do!

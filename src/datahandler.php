@@ -49,6 +49,11 @@ class DataHandler
 
     public function validate ($value, $validation_rule) {
 
+        // A null value always returns 0
+        if ( $value === null ) {
+            return 0;
+        }
+
         $retval = 0;
         if ( strlen($validation_rule) > 1 ) {
             list($type, $param) = preg_split('/:/', $validation_rule, 2);
@@ -113,7 +118,8 @@ class DataHandler
                 /**
                  * Regular expression match
                  */
-                if ( preg_match($param, $value) ) {
+                preg_match($param, $value, $matches);
+                if ( $matches >= 1 ) {
                     $retval = 1;
                 }
                 break;

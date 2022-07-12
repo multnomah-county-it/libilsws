@@ -1,7 +1,6 @@
 <?php
 
 require_once 'vendor/autoload.php';
-// error_reporting(E_ALL ^ E_WARNING);
 
 // Initialize
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
@@ -14,25 +13,30 @@ $params = array();
 $response = $ilsws->send_get("$ilsws->base_url/user/patron/register/describe", $token, $params);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
+/**
+ * Not all of these are actually required. See the YAML configuration file to determine
+ * which fields are required.
+ */
 $patron = array(
-    'firstName' => 'Bogus',
-    'middleName' => 'T',
-    'lastName' => 'Bogart',
     'birthDate' => '1962-03-07',
-    'home_library' => 'CEN',
-    'county' => '0_MULT',
-    'notice_type' => 'PHONE',
-    'library_news' => 'YES',
-    'friends_notices' => 'YES',
-    'online_update' => 'YES',
-    'street' => '925 NW Hoyt St Apt 406',
     'city_state' => 'Portland, OR',
-    'postal_code' => '97209',
+    'county' => '0_MULT',
     'email' => 'johnchouser@gmail.com',
+    'firstName' => 'Bogus',
+    'friends_notices' => 'YES',
+    'home_library' => 'CEN',
+    'language' => 'ENGLISH',
+    'lastName' => 'Bogart',
+    'library_news' => 'YES',
+    'middleName' => 'T',
+    'notice_type' => 'PHONE',
+    'online_update' => 'YES',
+    'postal_code' => '97209',
+    'street' => '925 NW Hoyt St Apt 406',
     'telephone' => '215-534-6821',
     );
 
-$response = $ilsws->patron_register($token, $patron);
+$response = $ilsws->patron_register($patron, $token);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

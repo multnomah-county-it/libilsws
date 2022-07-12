@@ -19,20 +19,18 @@
 # List of fields to include in new and modified records. Do not include unused fields or user categories.
 # For every field there are five possible values:
 #   validation: Required validation rule
-#   label: Optional name of the field in the patron array (if different)
-#   new: 
-#     default: Optional default value in new records
-#     youth: Optional new record default value for youth (see youth_max_age)
-#   overlay: 
-#     default: Optional default value in overlays (modified records)
-#     youth: Optional default value in overlays (modified records)
+#   alias: Optional name of the field in the patron array (if different)
+#   default: Optional default value in new records
+#   youth: Optional new record default value for youth (see youth_max_age)
+# For new_fields, you must also include the 
+#   required: true|false
 #
 ilsws:
   username: 'USERNAME'
   password: 'PASSWORD'
   hostname: 'host.domain'
   port: 443
-  webapp: 'WEBAPP'
+  webapp: 'library_ilsws'
   app_id: 'libilsws'
   client_id: 'CLIENT_ID'
   user_privilege_override: 'OVERRIDE'
@@ -43,96 +41,177 @@ ilsws:
 symphony:
   max_youth_age: 12
   valid_search_indexes: 'UKEY,ALIAS,STUD_ID,PREV_ID,PREV_ID2,ALT_NAME,COMMENT,PHONE,EMAIL,STREET,NAME,ID,ALT_ID,GROUP_ID,USERGROUP,BIRTHDATE'
-  user_record: 
+  # The overlay_fields section defines the fields that may be used in the patron_modify and patron_register functions. 
+  # Note: new records are created with the patron_register function because that function utilizes Symphony to generate 
+  # a temporary patron_id (barcode). The order of fields does not matter, but the address fields must be grouped under 
+  # address1, address2, or address3. Empty fields sections or attributes will cause errors.
+  overlay_fields: 
     key:
-      label: 'patron_key'
+      alias: 'patron_key'
       validation: 'i:0,99999999'
-    fields: 
-      profile:
-        validation: "v:0_MULT|1_MULT_Y|2_METRO|3_METRO_Y|PASSPORT|PASSPORT_Y"
-        new:
-          default: '0_MULT'
-          youth: '1_MULT_Y'
-        overlay:
-          default: '0_MULT'
-          youth: '1_MULT_Y'
-      pin:
-        label: 'password'
-        validation: 's:20'
-      library:
-        label: 'home_library'
-        validation: 's:4'
-        new:
-          default: 'CEN'
-          youth: 'CEN'
-      firstName:
+    profile:
+      validation: "v:0_MULT|1_MULT_Y|2_METRO|3_METRO_Y|PASSPORT|PASSPORT_Y"
+      default: '0_MULT'
+      youth: '1_MULT_Y'
+    pin:
+      alias: 'password'
+      validation: 's:25'
+    language:
+      validation: 'v:ARABIC|CHINESE|DUTCH|ENGLISH|FRENCH|FRENCH-AF|GERMAN|HUNGARIAN|JAPANESE|ROMANIAN|RUSSIAN|SOMALI|SPANISH|VIETNAMESE'
+      default: 'ENGLISH'
+      youth: 'ENGLISH'
+    library:
+      alias: 'home_library'
+      validation: 's:4'
+    firstName:
+      validation: 's:25'
+    middleName:
+      validation: 's:25'
+    lastName:
+      validation: 's:60'
+    birthDate:
+      validation: 'd:YYYY-MM-DD'
+    barcode:
+      alias: 'patron_id'
+      validation: 'i:20000000000000,29999999999999'
+    address1:
+      STREET:
+        alias: 'street'
         validation: 's:128'
-      middleName:
-        validation: 's:128'
-      lastName:
-        validation: 's:128'
-      birthDate:
-        validation: 'd:YYYY-MM-DD'
-      barcode:
-        label: 'patron_id'
-        validation: 'i:20000000000000,29999999999999'
-      address1:
-        STREET:
-          label: 'street'
-          validation: 's:128'
-        CITY/STATE: 
-          label: 'city_state'
-          validation: 'r:/^[A-Zaz\-,]{4,128}$/'
-          new:
-            default: 'Portland, OR'
-          overlay:
-            default: 'Portland, OR'
-        ZIP:
-          label: 'postal_code'
-          validation: 'i:1000000,9999999'
-        EMAIL:
-          label: 'email'
-          validation: 'e'
-        PHONE:
-          label: 'telephone'
-          validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
-      category01:
-        label: 'county'
-        validation: 'v:0_MULT|1_CLACK|2_WASH|3_HOOD|4_OTHER_OR|7_CLARK_WA|CAMAS_WA|KLICK_WA|OTHER|SKAMA_WA|UNKNOWN'
-        new:
-          default: '0_MULT'
-      category02:
-        label: 'notice_type'
-        validation: 'v:EMAIL|PHONE|TEXT|UNKNOWN|US_MAIL|Z_NONE'
-        new:
-          default: 'US_MAIL'
-      category03:
-        label: 'school_district'
-        validation: 'v:YES|NO|UNKNOWN'
-      category04:
-        label: 'filter'
-        validation: 'v:YES|NO|UNKNOWN'
-      category05:
-        label: 'library_news'
-        validation: 'v:YES|NO|UNKNOWN'
-      category06:
-        label: 'friends_notices'
-        validation: 'v:YES|NO|UNKNOWN'
-      category07:
-        label: 'program'
-        validation: 'v:BOOKS2U|CONNECT|EVERYCHILD|LISTOS|PCO|RR_AGENCY|SCHOOL_OUT|SCHOOLCORP|WSYL|UNKNOWN'
-        new:
-          default: 'UNKNOWN'
-      category08:
-        label: 'mailings'
-        validation: 'v:YES|NO|UNKNOWN'
-      category11:
-        label: 'online_update'
-        validation: 'v:YES|CHECK'
-        new:
-          default: 'YES'
-        overlay:
-          default: 'YES'
-      category12:
-        label: 'los'
-        validation: 'v:BBM|LOBBY|REG_MAIL|VAN|WOW|UNKNOWN'
+      CITY/STATE: 
+        alias: 'city_state'
+        validation: 'r:/^[[:word:] ]{4,128}$/'
+        default: 'Portland, OR'
+      ZIP:
+        validation: 'v:97002|97003|97004|97005|97006|97007|97008|97009|97010|97011|97013|97014|97015|97017|97019|97022|97023|97024|97027|97028|97030|97031|97032r97034|97035|97036|97038|97041|97042|97044|97045|97049|97055|97056|97060|97062|97064|97067|97068|97070|97071|97075|97076|97077|97078|97079|97080|97086|97089|97106|97109|97113|97116|97117|97119|97123|97124|97125|97129|97133|97140|97144|97201|97202|97203|97204|97205|97206|97207|97208|97209|97210|97211|97212|97213|97214|97215|97216|97217|97218|97219|97220|97221|97222|97223|97224|97225|97227|97228|97229|97230|97231|97232|97233|97236|97238|97239|97240|97242|97250|97251|97252|97253|97254|97255|97256|97259|97266|97267|97268|97269|97271|97272|97280|97281|97282|97283|97286|97290|97291|97292|97293|97294|97296|97298|97362|97375|98601|98602|98603|98604|98605|98606|98607|98610|98613|98616|98617|98619|98620|98622|98623|98628|98629|98635|98639|98642|98648|98650|98651|98660|98661|98662|98663|98664|98665|98666|98668|98670|98671|98672|98673|98674|98675|98682|98683|98684|98685|98686|98687|99322|99356'
+      EMAIL:
+        alias: 'email'
+        validation: 'e'
+      PHONE:
+        alias: 'telephone'
+        validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
+    category01:
+      alias: 'county'
+      validation: 'v:0_MULT|1_CLACK|2_WASH|3_HOOD|4_OTHER_OR|7_CLARK_WA|CAMAS_WA|KLICK_WA|OTHER|SKAMA_WA|UNKNOWN'
+    category02:
+      alias: 'notice_type'
+      validation: 'v:EMAIL|PHONE|TEXT|UNKNOWN|US_MAIL|Z_NONE'
+    category03:
+      alias: 'school_district'
+      validation: 'v:YES|NO|UNKNOWN'
+    category04:
+      alias: 'filter'
+      validation: 'v:YES|NO|UNKNOWN'
+    category05:
+      alias: 'library_news'
+      validation: 'v:YES|NO|UNKNOWN'
+    category06:
+      alias: 'friends_notices'
+      validation: 'v:YES|NO|UNKNOWN'
+    category07:
+      alias: 'program'
+      validation: 'v:BOOKS2U|CONNECT|EVERYCHILD|LISTOS|PCO|RR_AGENCY|SCHOOL_OUT|SCHOOLCORP|WSYL|UNKNOWN'
+    category08:
+      alias: 'mailings'
+      validation: 'v:YES|NO|UNKNOWN'
+    category11:
+      alias: 'online_update'
+      validation: 'v:YES|CHECK'
+      default: 'YES'
+    category12:
+      alias: 'los'
+  # This section defines the fields used by the patron_register function to create new patron records. 
+  # Note: the fields here *must* match those selected in the ILSWS Self-Registration Configuration. 
+  # However, you may make the aliases the same as those in the previous section. Fields in this section
+  # must include the boolean required attribute. The order of fields in the configuration does not matter.
+  new_fields: 
+    profile:
+      validation: "v:0_MULT|1_MULT_Y|2_METRO|3_METRO_Y|PASSPORT|PASSPORT_Y"
+      default: '0_MULT'
+      youth: '1_MULT_Y'
+      required: true
+    library:
+      alias: 'home_library'
+      validation: 's:4'
+      default: 'CEN'
+      youth: 'CEN'
+      required: true
+    language:
+      validation: 'v:ARABIC|CHINESE|DUTCH|ENGLISH|FRENCH|FRENCH-AF|GERMAN|HUNGARIAN|JAPANESE|ROMANIAN|RUSSIAN|SOMALI|SPANISH|VIETNAMESE'
+      default: 'ENGLISH'
+      youth: 'ENGLISH'
+      required: false
+    patron-pin:
+      alias: 'password'
+      validation: 's:25'
+      required: false
+    patron-confirmPIN:
+      alias: 'confirm_password'
+      required: false
+    patron-firstName:
+      alias: 'firstName'
+      validation: 's:25'
+      required: true
+    patron-middleName:
+      alias: 'middleName'
+      validation: 's:25'
+      required: false
+    patron-lastName:
+      alias: 'lastName'
+      validation: 's:60'
+      required: true
+    patron-birthDate:
+      alias: 'birthDate'
+      validation: 'd:YYYY-MM-DD'
+      required: true
+    patron-preferredName:
+      alias: 'preferred_name'
+      required: false
+    patronAddress1-STREET:
+      alias: 'street'
+      validation: 's:128'
+      required: true
+    patronAddress1-CITY/STATE: 
+      alias: 'city_state'
+      validation: 'r:/^[[:word:] ]{4,128}$/'
+      default: 'Portland, OR'
+      required: true
+    patronAddress1-ZIP:
+      alias: 'postal_code'
+      validation: 'v:97002|97003|97004|97005|97006|97007|97008|97009|97010|97011|97013|97014|97015|97017|97019|97022|97023|97024|97027|97028|97030|97031|97032r97034|97035|97036|97038|97041|97042|97044|97045|97049|97055|97056|97060|97062|97064|97067|97068|97070|97071|97075|97076|97077|97078|97079|97080|97086|97089|97106|97109|97113|97116|97117|97119|97123|97124|97125|97129|97133|97140|97144|97201|97202|97203|97204|97205|97206|97207|97208|97209|97210|97211|97212|97213|97214|97215|97216|97217|97218|97219|97220|97221|97222|97223|97224|97225|97227|97228|97229|97230|97231|97232|97233|97236|97238|97239|97240|97242|97250|97251|97252|97253|97254|97255|97256|97259|97266|97267|97268|97269|97271|97272|97280|97281|97282|97283|97286|97290|97291|97292|97293|97294|97296|97298|97362|97375|98601|98602|98603|98604|98605|98606|98607|98610|98613|98616|98617|98619|98620|98622|98623|98628|98629|98635|98639|98642|98648|98650|98651|98660|98661|98662|98663|98664|98665|98666|98668|98670|98671|98672|98673|98674|98675|98682|98683|98684|98685|98686|98687|99322|99356'
+      required: true
+    patronAddress1-EMAIL:
+      alias: 'email'
+      validation: 'e'
+      required: false
+    patronAddress1-PHONE:
+      alias: 'telephone'
+      validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
+      required: false
+    patron-category01:
+      alias: 'county'
+      validation: 'v:0_MULT|1_CLACK|2_WASH|3_HOOD|4_OTHER_OR|7_CLARK_WA|CAMAS_WA|KLICK_WA|OTHER|SKAMA_WA|UNKNOWN'
+      default: '0_MULT'
+      required: false
+    patron-category02:
+      alias: 'notice_type'
+      validation: 'v:EMAIL|PHONE|TEXT|UNKNOWN|US_MAIL|Z_NONE'
+      default: 'US_MAIL'
+      required: false
+    patron-category03:
+      alias: 'school_district'
+      validation: 'v:YES|NO|UNKNOWN'
+      required: false
+    patron-category05:
+      alias: 'library_news'
+      validation: 'v:YES|NO|UNKNOWN'
+      required: false
+    patron-category06:
+      alias: 'friends_notices'
+      validation: 'v:YES|NO|UNKNOWN'
+      required: false
+    patron-category11:
+      alias: 'online_update'
+      validation: 'v:YES|CHECK'
+      default: 'YES'
+      required: false

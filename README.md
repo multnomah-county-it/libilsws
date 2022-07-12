@@ -24,7 +24,6 @@ if presented with inappropriate inputs.
 - patron_alt_id_search ($token, $alt_id, $count)
 - patron_authenticate ($token, $patron_id, $password)
 - patron_id_search ($token, $patron_id, $count) 
-- patron_create ($token, $json) 
 - patron_describe ($token) 
 - patron_search ($token, $index, $search, $params)
 - patron_update ($token, $json, $patron_key) 
@@ -37,8 +36,7 @@ or evaluating data from the Symphony system.
 - authenticate_search ($token, $index, $search, $password)
 - authenticate_id ($token, $patron_id, $password)
 - get_patron_attributes ($token, $patron_key)
-- create_patron_json ($patron, $patron_key)
-- patron_register ($token, $patron)
+- patron_register ($patron, $token)
 
 ## Examples
 
@@ -80,7 +78,7 @@ $response = $ilsws->patron_search($token, $index, $search, $options);
 $response = $ilsws->get_patron($token, $patron_key);
 ```
 
-### Modify patron example
+### Update patron example
 ```
 $patron = array(
     'firstName' => 'John',
@@ -100,14 +98,10 @@ $patron = array(
     'telephone' => '215-544-6941',
     );
 
-/**
- * Second parameter is the $patron_key. (Set to 0 to create new record. 
- * However, a create requires that a patron_id or barcode be included
- * in the patron array.) Set to an existing key to modify the patron record.
- */
-
-$json = $ilsws->create_patron_json($patron, 0);
-$response = $ilsws->patron_modify($token, $json);
+$json = $ilsws->create_patron_json($patron, $patron_key);
+$response = $ilsws->patron_update($token, $json);
 ```
+See the libilsws.yaml file for field definitions.
+
 For a complete set of examples see:
-`test/test.php`
+`test/test.php` and `test/register.php`

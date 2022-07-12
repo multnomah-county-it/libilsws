@@ -118,20 +118,24 @@ class Libilsws
     }
 
     /**
-     * Validation by rule, using dataHandler/validate class
+     * Validation by rule, using datahandler/validate. If 
+     * dataHandler/validate receives a null value, it will return
+     * 0. However, if it receives an empty value, the function will
+     * return a 1. This is why function parameters within this class
+     * are set to default to null even if they are actually 
+     * required, so long as they are being validated by this function.
      * 
      * @access private
-     * @param  string  Name of calling function
      * @param  string  Name of parameter to validate
      * @param  string  Value to be validated
      * @param  string  Rule to apply
      * @return integer Always returns 1, if it doesn't throw an exception
      */
 
-    private function validate ($function, $param, $value, $rule)
+    private function validate ($param, $value, $rule)
     {
         if ( ! $this->dh->validate($value, $rule) ) {
-            throw new Exception ("Invalid $param (rule: '$rule') in $function: \"$value\"");
+            throw new Exception ("Invalid $param: \"$value\" (rule: '$rule')");
         }
 
         return 1;
@@ -211,8 +215,8 @@ class Libilsws
 
     public function send_get ($url, $token, $params) 
     {
-        $this->validate('send_get', 'token', $token, 's:40');
-        $this->validate('send_get', 'url', $url, 'u');
+        $this->validate('token', $token, 's:40');
+        $this->validate('url', $url, 'u');
  
         // Encode the query parameters, as they will be sent in the URL
         $url .= "?";
@@ -297,10 +301,10 @@ class Libilsws
 
     public function send_query ($url, $token, $query_json, $query_type)
     {
-        $this->validate('send_query', 'url', $url, 'u');
-        $this->validate('send_query', 'token', $token, 's:40');
-        $this->validate('send_query', 'query_json', $query_json, 'j');
-        $this->validate('send_query', 'query_type', $query_type, 'v:POST|PUT');
+        $this->validate('url', $url, 'u');
+        $this->validate('token', $token, 's:40');
+        $this->validate('query_json', $query_json, 'j');
+        $this->validate('query_type', $query_type, 'v:POST|PUT');
 
         $role = 'STAFF';
         if ( preg_match('/patron\/register/', $url) ) {
@@ -379,14 +383,14 @@ class Libilsws
      * @param  string $password   The patron password
      * @return string $patron_key The patron ID (barcode)
      */
-    public function authenticate_search ($token, $index, $search, $password)
+    public function authenticate_search ($token = null, $index = null, $search = null, $password = null)
     {
-        $this->validate('authenticate_search', 'token', $token, 's:40');
-        $this->validate('authenticate_search', 'search', $search, 's:40');
-        $this->validate('authenticate_search', 'password', $password, 's:40');
+        $this->validate('token', $token, 's:40');
+        $this->validate('search', $search, 's:40');
+        $this->validate('password', $password, 's:40');
 
         // These values are determined by the Symphony configuration 
-        $this->validate('authenticate_search', 'index', $index, "v:$this->valid_search_indexes");
+        $this->validate('index', $index, "v:$this->valid_search_indexes");
 
         $params = array(
                 'rw'            => '1',
@@ -445,11 +449,11 @@ class Libilsws
      * @param  string $password   The patron password
      * @return string $patron_key The patron key (internal ID)
      */
-    public function authenticate_patron_id($token, $patron_id, $password)
+    public function authenticate_patron_id ($token = null, $patron_id = null, $password = null)
     {
-        $this->validate('authenticate_patron_id', 'token', $token, 's:40');
-        $this->validate('authenticate_patron_id', 'patron_id', $patron_id, 'i:20000000000000,29999999999999');
-        $this->validate('authenticate_patron_id', 'password', $password, 's:20');
+        $this->validate('token', $token, 's:40');
+        $this->validate('patron_id', $patron_id, 'i:100000,29999999999999');
+        $this->validate('password', $password, 's:20');
 
         $patron_key = 0;
 
@@ -474,10 +478,10 @@ class Libilsws
      * @param  string $patron_key The user's internal ID number
      * @return object $attributes Associative array with the user's attributes
      */
-    public function get_patron_attributes ($token, $patron_key)
+    public function get_patron_attributes ($token = null, $patron_key = null)
     {
-        $this->validate('get_patron_attributes', 'token', $token, 's:40');
-        $this->validate('get_patron_attributes', 'patron_key', $patron_key, 'i:1,99999999');
+        $this->validate('token', $token, 's:40');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
         
         $attributes = [];
 
@@ -564,10 +568,10 @@ class Libilsws
      * @return object            Associative array contain the response from ILSWS
      */
 
-    public function patron_authenticate ($token, $patron_id, $password)
+    public function patron_authenticate ($token = null, $patron_id = null, $password = null)
     {
-        $this->validate('patron_authenticate', 'token', $token, 's:40');
-        $this->validate('patron_authenticate', 'patron_id', $patron_id, 'i:20000000000000,29999999999999');
+        $this->validate('token', $token, 's:40');
+        $this->validate('patron_id', $patron_id, 'i:20000000000000,29999999999999');
 
         $json = "{ \"barcode\": \"$patron_id\", \"password\": \"$password\" }";
 
@@ -584,7 +588,7 @@ class Libilsws
 
     public function patron_describe ($token) 
     {
-        $this->validate('patron_describe', 'token', $token, 's:40');
+        $this->validate('token', $token, 's:40');
 
         return $this->send_get("$this->base_url/user/patron/describe", $token, []);
     }
@@ -599,11 +603,11 @@ class Libilsws
      * @return object $response Associative array containing search results
      */
 
-    public function patron_search ($token, $index, $value, $params)
+    public function patron_search ($token = null, $index = null, $value = null, $params = null)
     {
-        $this->validate('patron_search', 'token', $token, 's:40');
-        $this->validate('patron_search', 'index', $index, "v:$this->valid_search_indexes");
-        $this->validate('patron_search', 'value', $value, 's:40');
+        $this->validate('token', $token, 's:40');
+        $this->validate('index', $index, "v:$this->valid_search_indexes");
+        $this->validate('value', $value, 's:40');
 
         /** 
          * Valid incoming params are: 
@@ -635,11 +639,11 @@ class Libilsws
      * @return object         Associative array containing search results
      */
 
-    public function patron_alt_id_search ($token, $alt_id, $count)
+    public function patron_alt_id_search ($token = null, $alt_id = null, $count = null)
     {
-        $this->validate('patron_alt_id_search', 'token', $token, 's:40');
-        $this->validate('patron_alt_id_search', 'alt_id', $alt_id, 'i:1,99999999');
-        $this->validate('patron_alt_id_search', 'count', $count, 'i:1,1000');
+        $this->validate('token', $token, 's:40');
+        $this->validate('alt_id', $alt_id, 'i:1,99999999');
+        $this->validate('count', $count, 'i:1,1000');
 
         return $this->patron_search($token, 'ALT_ID', $alt_id, array('ct' => $count));
     }
@@ -653,11 +657,11 @@ class Libilsws
      * @return object            Associative array containing search results
      */
 
-    public function patron_id_search ($token, $patron_id, $count) 
+    public function patron_id_search ($token = null, $patron_id = null, $count = null) 
     {
-        $this->validate('patron_id_search', 'token', $token, 's:40');
-        $this->validate('patron_id_search', 'patron_id', $patron_id, 'i:20000000000000,29999999999999');
-        $this->validate('patron_id_search', 'count', $count, 'i:1,1000');
+        $this->validate('token', $token, 's:40');
+        $this->validate('patron_id', $patron_id, 'i:20000000000000,29999999999999');
+        $this->validate('count', $count, 'i:1,1000');
 
         return $this->patron_search($token, 'ID', $patron_id, array('ct' => $count));
     }
@@ -671,9 +675,9 @@ class Libilsws
      * @return integer $youth     Sets 1 to indicate the patron is less than or equal
      *                            to the maximum age for a youth. Sets 0 if they are not.
      */
-    private function is_youth ($birthDate)
+    private function is_youth ($birthDate = null)
     {
-        $this->validate('is_youth', 'birthDate', $birthDate, 'd:YYYY-MM-DD');
+        $this->validate('birthDate', $birthDate, 'd:YYYY-MM-DD');
 
         $youth = 0;
 
@@ -691,70 +695,82 @@ class Libilsws
     }
 
     /**
-     * Create patron data structure
+     * Create patron data structure required by the patron_update function
      *
      * @param  object $patron     Associative array of patron data elements
      * @param  string $patron_key Optional patron key to include if updating existing record
      * @return string $json       Complete Symphony patron record JSON
      */
 
-    public function create_patron_json ($patron, $patron_key = 0)
+    public function create_patron_json ($patron, $patron_key = null)
     {
-        $mode = 'new';
+        $this->validate('patron_key', $patron_key, 'i:1,99999999');
+
         $age_group = 'default';
 
+        // Start building the object
         $new['resource'] = '/user/patron';
+        $new['key'] = $patron_key;
 
-        // If we have a patron key, then we're in overlay mode
-        if ( $patron_key ) {
-            $this->validate('create_patron_json', 'patron_key', $patron_key, 'i:1,99999999');
-            $mode = 'overlay';
-            $new['key'] = $patron_key;
-        }
+        # Extract the field definitions from the configuration
+        $fields = $this->config['symphony']['overlay_fields'];
 
         // Check if patron is a youth
-        if ( ! empty($this->config['symphony']['user_record']['fields']['birthDate']['label']) ) {
-            $dob = $patron[$this->config['symphony']['user_record']['fields']['birthDate']['label']];
-        } else {
+        $dob = '';
+        if ( ! empty($fields['birthDate']['alias']) && ! empty($patron[$fields['birthDate']['alias']]) ) {
+            $dob = $patron[$fields['birthDate']['alias']];
+        } elseif ( ! empty($patron['birthDate']) ) {
             $dob = $patron['birthDate'];
         }
-        if ( $this->is_youth($dob) ) {
+        if ( $dob && $this->is_youth($dob) ) {
             $age_group = 'youth';
         }
 
-        # Extract the field definitions from the configuration
-        $fields = $this->config['symphony']['user_record']['fields'];
-
         foreach ($fields as $field => $value) {
 
-            // Check if the data is coming in with a different field name (label)
-            if ( empty($patron[$field]) && ! empty($fields[$field]['label']) && ! empty($patron[$fields[$field]['label']]) ) {
-                $patron[$field] = $patron[$fields[$field]['label']];
+            // Check if the data is coming in with a different field name (alias)
+            if ( empty($patron[$field]) && ! empty($fields[$field]['alias']) && ! empty($patron[$fields[$field]['alias']]) ) {
+                $patron[$field] = $patron[$fields[$field]['alias']];
             }
 
             // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && ! empty($fields[$field][$mode][$age_group]) ) {
-                $patron[$field] = $fields[$field][$mode][$age_group];
+            if ( empty($patron[$field]) && ! empty($fields[$field][$age_group]) ) {
+                $patron[$field] = $fields[$field][$age_group];
+            }
+
+            // Check for missing required fields
+            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
+                throw new Exception ("The $field field is required");
             }
 
             // Validate
             if( ! empty($patron[$field])) {
-                $this->validate('create_patron_json', $field, $patron[$field], $fields[$field]['validation']);
+                $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
-            
+           
+            // Ignore certain fields if we're in new mode 
             if ( $field === 'profile' ) {
 
-                // This is a required field
-                $new['fields']['profile']['resource'] = '/policy/userProfile';
-                $new['fields']['profile']['key'] = $patron['profile'];
+                if ( ! empty($patron[$field]) ) {
+                    $new['fields']['profile']['resource'] = '/policy/userProfile';
+                    $new['fields']['profile']['key'] = $patron['profile'];
+                }
 
-            } else if ( $field === 'library' ) {
+            } elseif ( $field === 'library' ) {
 
-                // This is a required field
-                $new['fields']['library']['resource'] = '/policy/library';
-                $new['fields']['library']['key'] = $patron['library'];
+                if ( ! empty($patron[$field]) ) {
+                    $new['fields']['library']['resource'] = '/policy/library';
+                    $new['fields']['library']['key'] = $patron['library'];
+                }
 
-            } else if ( preg_match('/^category/', $field) ) {
+            } elseif ( $field === 'language' ) {
+
+                if ( ! empty($patron[$field]) ) {
+                    $new['fields']['language']['resource'] = '/policy/language';
+                    $new['fields']['language']['key'] = $patron['language'];
+                }
+
+            } elseif ( preg_match('/category/', $field) ) {
 
                 // Determine the category number
                 $num = substr($field, -2, 2);
@@ -765,7 +781,7 @@ class Libilsws
                     $new['fields'][$field]['key'] = $patron[$field];
                 }
 
-            } else if ( preg_match('/^address/', $field) ) {
+            } elseif ( preg_match('/^address\d{1}$/', $field) && ! empty($patron[$field]) ) {
 
                 $new['fields'][$field] = [];
 
@@ -774,19 +790,19 @@ class Libilsws
 
                 foreach ($fields[$field] as $part => $value) {
 
-                    // Check if the data is coming in with a different field name (label)
-                    if ( empty($patron[$part]) && ! empty($fields[$field][$part]['label']) ) {
-                        $patron[$part] = $patron[$fields[$field][$part]['label']];
+                    // Check if the data is coming in with a different field name (alias)
+                    if ( empty($patron[$part]) && ! empty($fields[$field][$part]['alias']) ) {
+                        $patron[$part] = $patron[$fields[$field][$part]['alias']];
                     }
 
                     // Assign default values where appropriate
-                    if ( empty($patron[$part]) && ! empty($fields[$field][$part][$mode][$age_group]) ) {
-                        $patron[$part] = $fields[$field][$part][$mode][$age_group];
+                    if ( empty($patron[$part]) && ! empty($fields[$field][$part][$age_group]) ) {
+                        $patron[$part] = $fields[$field][$part][$age_group];
                     }
 
                     $addr = [];
                     $addr['resource'] = "/user/patron/address$num";
-                    $addr['fields']['code']['resource'] = '/policy/patronAddress1';
+                    $addr['fields']['code']['resource'] = "/policy/patronAddress$num";
                     $addr['fields']['code']['key'] = $part;
                     $addr['fields']['data'] = $patron[$part];
 
@@ -794,12 +810,10 @@ class Libilsws
                     array_push($new['fields'][$field], $addr);
                 }
 
-            } else {
+            } elseif ( ! empty($patron[$field]) ) {
 
                 // Store as regular field
-                if ( ! empty($patron[$field]) ) {
-                    $new['fields'][$field] = $patron[$field];
-                }
+                $new['fields'][$field] = $patron[$field];
             }
         }
 
@@ -808,72 +822,25 @@ class Libilsws
     }
 
     /**
-     * Create a new patron record. Note that this function requires
-     * that you supply a patron_id (barcode) in the JSON. If you need
-     * the SirsiDynix system to supply a temporary barcode, then use
-     * patron_register function.
+     * Create patron data structure required by the patron_register
+     * function
      *
-     * @param  string $token     The session token returned by ILSWS
-     * @param  string $json      Complete JSON of patron record
-     * @return object            Associative array containing result
+     * @param  object $patron     Associative array of patron data elements
+     * @return string $json       Complete Symphony patron record JSON
      */
 
-    public function patron_create ($token, $json) 
+    public function create_register_json ($patron)
     {
-        $this->validate('patron_update', 'token', $token, 's:40');
-        $this->validate('patron_update', 'json', $json, 'j');
-
-        return $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
-    }
-
-    /**
-     * Register a new patron (with email response and duplicate checking)
-     *
-     * @param  string $token The session token returned by ILSWS
-     * @param  object $patron Associative array containing patron data
-     * @return object $response Associative array containing response from ILSWS
-     */
-
-    public function patron_register ($token, $patron)
-    {
-        /**
-         * Edit this map if your ILSWS Self-Registration Configuration 
-         * uses different patron fields. The left-hand column is the 
-         * field as defined in your YAML configuration file. The right-hand
-         * column is the ILSWS Self-Registration field name.
-         */
-
-        $map = array(
-            'birthDate'   => 'patron-birthDate',
-            'category01'  => 'patron-category01',
-            'category02'  => 'patron-category02',
-            'category03'  => 'patron-category03',
-            'category04'  => 'patron-category04',
-            'category05'  => 'patron-category05',
-            'category06'  => 'patron-category06',
-            'category07'  => 'patron-category07',
-            'category08'  => 'patron-category08',
-            'category09'  => 'patron-category09',
-            'category10'  => 'patron-category10',
-            'category11'  => 'patron-category11',
-            'category12'  => 'patron-category12',
-            'firstName'   => 'patron-firstName',
-            'lastName'    => 'patron-lastName',
-            'middleName'  => 'patron-middleName',
-            'password'    => 'patron-pin',
-            'city_state'  => 'patronAddress1-CITY/STATE',
-            'email'       => 'patronAddress1-EMAIL',
-            'telephone'   => 'patronAddress1-PHONE',
-            'street'      => 'patronAddress1-STREET',
-            'postal_code' => 'patronAddress1-ZIP',
-            );
+        $age_group = 'default';
 
         $new = array();
-            
+
+        # Extract the field definitions from the configuration
+        $fields = $this->config['symphony']['new_fields'];
+
         // Check if patron is a youth
-        $age_group = 'default';
-        if ( ! empty($this->config['symphony']['user_record']['fields']['birthDate']['label']) ) {
-            $dob = $patron[$this->config['symphony']['user_record']['fields']['birthDate']['label']];
+        if ( ! empty($fields['birthDate']['alias']) ) {
+            $dob = $patron[$fields['birthDate']['alias']];
         } else {
             $dob = $patron['birthDate'];
         }
@@ -881,36 +848,105 @@ class Libilsws
             $age_group = 'youth';
         }
 
-        $fields = $this->config['symphony']['user_record']['fields'];
         foreach ($fields as $field => $value) {
 
-            // Check if the data is coming in with a different field name (label)
-            if ( empty($patron[$field]) && ! empty($fields[$field]['label']) && ! empty($patron[$fields[$field]['label']]) ) {
-                $patron[$field] = $patron[$fields[$field]['label']];
+            if ( $this->debug && ! empty($patron[$field]) ) {
+                print "$field: $patron[$field]\n";
+            }
+
+            // Check if the data is coming in with a different field name (alias)
+            if ( empty($patron[$field]) && ! empty($fields[$field]['alias']) && ! empty($patron[$fields[$field]['alias']]) ) {
+                $patron[$field] = $patron[$fields[$field]['alias']];
             }
 
             // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && ! empty($fields[$field]['new'][$age_group]) ) {
-                $patron[$field] = $fields[$field]['new'][$age_group];
+            if ( empty($patron[$field]) && ! empty($fields[$field][$age_group]) ) {
+                $patron[$field] = $fields[$field][$age_group];
+            }
+
+            // Check for missing required fields
+            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
+                throw new Exception ("The $field field is required");
             }
 
             // Validate
             if( ! empty($patron[$field])) {
-                $this->validate('create_patron_json', $field, $patron[$field], $fields[$field]['validation']);
+                $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
+           
+            if ( preg_match('/category/', $field) ) {
 
-            if ( ! empty($patron[$field]) && isset($map[$field]) ) {
-                $new[$map[$field]] = $patron[$field];
+                // Determine the category number
+                $num = substr($field, -2, 2);
+
+                // Add category to $new
+                if ( ! empty($patron[$field]) ) {
+                    $new[$field]['resource'] = "/policy/patronCategory$num";
+                    $new[$field]['key'] = $patron[$field];
+                }
+
+            } elseif ( ! empty($patron[$field]) ) {
+
+                // Store as regular field
+                $new[$field] = $patron[$field];
             }
         }
 
-        $json = json_encode($new);
+        // Return a JSON string suitable for use in patron_create
+        return json_encode($new, JSON_PRETTY_PRINT);
+    }
 
+    /**
+     * Register a new patron (with email response and duplicate checking)
+     * 
+     * The initial registration can't update all the fields we want to set,
+     * so we do the initial registration, then take the patron key returned
+     * and perform an update of the remaining fields.
+     *
+     * @param  object $patron Associative array containing patron data
+     * @param  string $token The session token returned by ILSWS
+     * @return object $response Associative array containing response from ILSWS
+     */
+
+    public function patron_register ($patron, $token = null)
+    {
+        $this->validate('token', $token, 's:40');
+
+        $response = [];
+
+        // Create the required record structure for a registration
+        $json = $this->create_register_json($patron);
         if ( $this->debug ) {
             print "$json\n";
         }
+        $response = $this->send_query("$this->base_url/user/patron/register", $token, $json, 'POST');
 
-        return $this->send_query("$this->base_url/user/patron/register", $token, $json, 'POST');
+        // Assign the patron_id (barcode) from the initial registration to the update array
+        $patron_key = $response['patron']['key'];
+
+        if ( strlen($patron_key) > 0 ) { 
+
+            // Assign the new values from the patron array, checking for aliases
+            $update = [];
+            $fields = $this->config['symphony']['new_fields'];
+            foreach ($fields as $field => $value) {
+                if ( ! empty($fields[$field]['alias']) && ! empty($patron[$fields[$field]['alias']]) ) {
+                    $update[$field] = $patron[$fields[$field]['alias']];
+                } elseif ( ! empty($patron[$field]) ) {
+                    $update[$field] = $patron[$field];
+                }
+            }
+
+            // Create a record structure with the update fields 
+            $json = $this->create_patron_json($update, $patron_key);
+            if ( $this->debug ) {
+                print "$json\n";
+            }
+            $response = $this->patron_update($token, $json, $patron_key);
+        }
+
+        // Update the fields
+        return $response;
     }
 
     /**
@@ -921,11 +957,11 @@ class Libilsws
      * @return object        Associative array containing result
      */
 
-    public function patron_update ($token, $json, $patron_key) 
+    public function patron_update ($token = null, $json = null, $patron_key = null) 
     {
-        $this->validate('patron_update', 'token', $token, 's:40');
-        $this->validate('patron_update', 'json', $json, 'j');
-        $this->validate('patron_update', 'patron_key', $patron_key, 'i:1,99999999');
+        $this->validate('token', $token, 's:40');
+        $this->validate('json', $json, 'j');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
 
         return $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
     }
@@ -938,10 +974,10 @@ class Libilsws
      * @return object            Associative array containing result
      */
 
-    public function patron_activity_update ($token, $patron_id)
+    public function patron_activity_update ($token = null, $patron_id = null)
     {
-        $this->validate('patron_activity_update', 'token', $token, 's:40');
-        $this->validate('patron_activity_update', 'patron_id', $patron_id, 'i:20000000000000,29999999999999');
+        $this->validate('token', $token, 's:40');
+        $this->validate('patron_id', $patron_id, 'i:10000000,29999999999999');
 
         $json = "{\"patronBarcode\": \"$patron_id\"}";
 

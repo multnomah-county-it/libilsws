@@ -2,16 +2,19 @@
 
 require_once 'vendor/autoload.php';
 
-if ( ! $argv ) {
+if ( count($argv) < 6 ) {
+
     print "Syntax: php $argv[0] EMAIL TELEPHONE BARCODE ALT_ID PASSWORD\n";
     exit;
-}
 
-$email = $argv[1];
-$telephone = $argv[2];
-$patron_id = $argv[3];
-$alt_id = $argv[4];
-$password = $argv[5];
+} else {
+
+    $email = $argv[1];
+    $telephone = $argv[2];
+    $patron_id = $argv[3];
+    $alt_id = $argv[4];
+    $password = $argv[5];
+}
 
 // Initialize
 print "Initializing\n\n";
@@ -32,7 +35,7 @@ print "patron_id: $patron_id\n\n";
 
 // Get patron attributes
 print "authenticate_search\n";
-$patron_key = $ilsws->authenticate_search($token, 'PHONE', $telephone, $password);
+$patron_key = $ilsws->authenticate_search($token, 'EMAIL', $email, $password);
 print "patron_id: $patron_key\n\n";
 
 print "get_patron\n";
@@ -96,7 +99,7 @@ $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
 // Create patron record JSON
-print "create_patron_json new record\n";
+print "create_patron_json overlay record\n";
 $patron = array(
     'firstName' => 'Bogus',
     'middleName' => 'T',
@@ -114,53 +117,15 @@ $patron = array(
     'email' => 'johnchouser@gmail.com',
     'telephone' => '215-534-6821',
     );
-// Second parameter is the $patron_key. Set to 0 to create new record.
-$json = $ilsws->create_patron_json($patron, 0);
-print "$json\n";
-
-// Supply a patron key to get JSON to modify a record
-print "create_patron_json overlay record\n";
-$patron = array(
-    'firstName' => 'Bogus',
-    'middleName' => 'T',
-    'lastName' => 'Bogart',
-    'birthDate' => '1962-03-07',
-    'home_library' => 'CEN',
-    'notice_type' => 'PHONE',
-    'library_news' => 'YES',
-    'friends_notices' => 'YES',
-    'street' => '925 NW Hoyt St Apt 406',
-    'city_state' => 'Portland, OR',
-    'postal_code' => '97209',
-    'email' => 'johnchouser@gmail.com',
-    'telephone' => '215-534-6821',
-    );
-$patron_key = 591418;
 $json = $ilsws->create_patron_json($patron, $patron_key);
 print "$json\n";
 
-/**
- * Code example to create new patron record
- * from a patron JSON object, as created by
- * create_patron_json
- */
-$response = $ilsws->patron_create($token, $json);
+// Patron update from JSON
+print "patron_update from JSON\n";
+$response = $ilsws->patron_update($token, $json, $patron_key);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-/** 
- * Code example to update a patron record. Note that the data structure is the same
- * as for updating a patron. So to update, you generally have to retrieve
- * the entire structure for a given patron, modify it, then update.
- * 
- * $patron_key = '591418';
- * $includeFields = "barcode,birthDate,firstName,language,lastName,library,middleName,privilegeExpiresDate,profile,category01,category02,category05,category06,category11,address1";
- * $patron = $ilsws->send_get("$this->base_url/user/patron/key/$patron_key", $token, array('includeFields' => $include_str));
- * 
- * [Modify the data structure]
- * 
- * $response = $ilsws->patron_update($token, $json, $patron_key);
- * $json = json_encode($response, JSON_PRETTY_PRINT);
- * print "$json\n\n";
- */
+// See test/register.php for patron registration example
 
+// EOF

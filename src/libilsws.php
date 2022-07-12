@@ -299,7 +299,7 @@ class Libilsws
      * @return object $response   Associative array containing the response from ILSWS 
      */
 
-    public function send_query ($url, $token, $query_json, $query_type)
+    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null)
     {
         $this->validate('url', $url, 'u');
         $this->validate('token', $token, 's:40');

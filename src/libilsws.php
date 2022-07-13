@@ -97,7 +97,7 @@ class Libilsws
 
         // Read the YAML configuration file and assign private varaibles
         if ( filesize($yaml_file) > 0 && substr($yaml_file, -4, 4) == 'yaml' ) {
-            $this->config = Yaml::parseFile('libilsws.yaml');
+            $this->config = Yaml::parseFile($yaml_file);
 
             if ( $this->debug ) {
                 print json_encode($this->config, JSON_PRETTY_PRINT) . "\n";

@@ -71,12 +71,12 @@ $token = $ilsws->connect();
 
 $index = 'EMAIL';
 $search = 'john.houser@multco.us';
-$options = array(
+$options = [
     'rw' => 1, 
     'ct' => 10, 
     'j' => 'AND', 
     'includeFields' => 'key,barcode']
-    );
+    ];
 
 $response = $ilsws->patron_search($token, $index, $search, $options);
 ```
@@ -88,7 +88,7 @@ $response = $ilsws->get_patron($token, $patron_key);
 
 ### Update Patron Record
 ```
-$patron = array(
+$patron = [
     'firstName' => 'John',
     'middleName' => 'Rad',
     'lastName' => 'Houser',
@@ -104,7 +104,7 @@ $patron = array(
     'postal_code' => '97208',
     'email' => 'john.houser@multco.us',
     'telephone' => '215-544-6941',
-    );
+    ];
 
 $json = $ilsws->create_patron_json($patron, $patron_key);
 $response = $ilsws->patron_update($token, $json, $patron_key);

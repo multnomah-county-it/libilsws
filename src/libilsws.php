@@ -74,7 +74,7 @@ class Libilsws
     public $code;
 
     // Turn this on to see various debug messages
-    private $debug = 0;
+    private $debug = 1;
 
     // The ILSWS host we should connect to.
     private $config;
@@ -164,13 +164,13 @@ class Libilsws
             'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
             ];
 
-        $options = array(
+        $options = [
             CURLOPT_URL              => "$this->base_url/$action?$params",
             CURLOPT_RETURNTRANSFER   => true,
             CURLOPT_SSL_VERIFYSTATUS => true,
             CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
             CURLOPT_HTTPHEADER       => $headers,
-            );
+            ];
 
         try {
 
@@ -213,20 +213,22 @@ class Libilsws
      * @return object $response Associative array containing response from ILSWS
      */
 
-    public function send_get ($url, $token, $params) 
+    public function send_get ($url = null, $token = null, $params = null) 
     {
         $this->validate('token', $token, 's:40');
         $this->validate('url', $url, 'u');
  
         // Encode the query parameters, as they will be sent in the URL
-        $url .= "?";
-        $keys = array('q','rw','ct','j','includeFields');
-        foreach ($keys as $key) {
-            if ( isset($params[$key]) ) {
-                $url .= "$key=" . htmlentities($params[$key]) . '&';
+        if ( ! empty($params) ) {
+            $url .= "?";
+            foreach ($params as $key => $value) {
+                if ( ! empty($params[$key]) ) {
+                    $url .= "$key=" . htmlentities($params[$key]) . '&';
+                }
             }
+            $url = substr($url, 0, -1);
         }
-        $url = substr($url, 0, -1);
+
         $url = preg_replace('/(.*)\#(.*)/', '$1%23$2', $url);
 
         // Define a random request tracker. Can help when talking with SirsiDynix
@@ -248,13 +250,13 @@ class Libilsws
             "x-sirs-sessionToken: $token",
             ];
 
-        $options = array(
+        $options = [
             CURLOPT_URL              => $url,
             CURLOPT_RETURNTRANSFER   => true,
             CURLOPT_SSL_VERIFYSTATUS => true,
             CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
             CURLOPT_HTTPHEADER       => $headers,
-            );
+            ];
 
         try {
 
@@ -315,7 +317,7 @@ class Libilsws
         $req_num = rand(1, 1000000000);
 
         // Define the request headers
-        $headers = array(
+        $headers = [
             'Content-Type: application/json',
             'Accept: application/json',
             'SD-Originating-App-Id: ' . $this->config['ilsws']['app_id'],
@@ -324,9 +326,9 @@ class Libilsws
             'SD-Prompt-Return: USER_PRIVILEGE_OVRCD/' . $this->config['ilsws']['user_privilege_override'],
             'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
             "x-sirs-sessionToken: $token",
-            );
+            ];
 
-        $options = array(
+        $options = [
             CURLOPT_URL              => $url,
             CURLOPT_CUSTOMREQUEST    => $query_type,
             CURLOPT_RETURNTRANSFER   => true,
@@ -334,7 +336,7 @@ class Libilsws
             CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
             CURLOPT_HTTPHEADER       => $headers,
             CURLOPT_POSTFIELDS       => $query_json,
-            );
+            ];
 
         try {
 
@@ -392,12 +394,12 @@ class Libilsws
         // These values are determined by the Symphony configuration 
         $this->validate('index', $index, "v:$this->valid_search_indexes");
 
-        $params = array(
+        $params = [
                 'rw'            => '1',
                 'ct'            => $this->config['ilsws']['max_search_count'],
                 'j'             => 'AND',
                 'includeFields' => 'barcode',
-                );
+                ];
 
         $response = $this->patron_search($token, $index, $search, $params);
 
@@ -458,7 +460,7 @@ class Libilsws
         $patron_key = 0;
 
         $action = "/user/patron/authenticate";
-        $json = json_encode( array('barcode' => $patron_id, 'password' => $password) );
+        $json = json_encode(['barcode' => $patron_id, 'password' => $password]);
 
         $response = $this->send_query("$this->base_url/$action", $token, $json, 'POST');
 
@@ -503,7 +505,7 @@ class Libilsws
 
         $include_str = implode(',', $include_fields);
 
-        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, array('includeFields' => $include_str));
+        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, ['includeFields' => $include_str]);
 
         // Extract patron attributes from the ILSWS response and assign to $attributes.
         if ( isset($response['key']) ) {
@@ -619,13 +621,13 @@ class Libilsws
          * Any incoming q will be replaced by the values $index and $value.
          */
 
-        $params = array(
+        $params = [
             'q'             => "$index:$value",
             'ct'            => $params['ct'] ?? '1000',
             'rw'            => $params['rw'] ?? '1',
             'j'             => $params['j'] ?? 'AND',
             'includeFields' => $params['includeFields'] ?? $this->config['ilsws']['default_include_fields'],
-            );
+            ];
 
         return $this->send_get("$this->base_url/user/patron/search", $token, $params);
     }
@@ -645,7 +647,7 @@ class Libilsws
         $this->validate('alt_id', $alt_id, 'i:1,99999999');
         $this->validate('count', $count, 'i:1,1000');
 
-        return $this->patron_search($token, 'ALT_ID', $alt_id, array('ct' => $count));
+        return $this->patron_search($token, 'ALT_ID', $alt_id, ['ct' => $count]);
     }
 
     /**
@@ -663,7 +665,7 @@ class Libilsws
         $this->validate('patron_id', $patron_id, 'i:20000000000000,29999999999999');
         $this->validate('count', $count, 'i:1,1000');
 
-        return $this->patron_search($token, 'ID', $patron_id, array('ct' => $count));
+        return $this->patron_search($token, 'ID', $patron_id, ['ct' => $count]);
     }
 
     /**
@@ -744,7 +746,7 @@ class Libilsws
             }
 
             // Validate
-            if( ! empty($patron[$field])) {
+            if( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
                 $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
            
@@ -810,6 +812,19 @@ class Libilsws
                     array_push($new['fields'][$field], $addr);
                 }
 
+            } elseif ( $field === 'phoneList' ) {
+
+                if ( isset($patron[$field]['params']) ) {
+                    if ( $patron[$field]['params'] ) {
+                        $telephone = $patron[$field]['params']['number'];
+                        unset($patron[$field]['params']['number']);
+                        $telephone = preg_replace('/\-/', '', $telephone);
+                        if ( $telephone ) {
+                            $new['fields'][$field] = $this->create_phone_structure($token, $patron_key, $telephone, $patron[$field]['params']);
+                        }
+                    }
+                }
+                
             } elseif ( ! empty($patron[$field]) ) {
 
                 // Store as regular field
@@ -833,7 +848,7 @@ class Libilsws
     {
         $age_group = 'default';
 
-        $new = array();
+        $new = [];
 
         # Extract the field definitions from the configuration
         $fields = $this->config['symphony']['new_fields'];
@@ -870,7 +885,7 @@ class Libilsws
             }
 
             // Validate
-            if( ! empty($patron[$field])) {
+            if( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
                 $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
            
@@ -885,7 +900,7 @@ class Libilsws
                     $new[$field]['key'] = $patron[$field];
                 }
 
-            } elseif ( ! empty($patron[$field]) ) {
+            } elseif ( ! empty($patron[$field]) && preg_match('/^patron/', $field) ) {
 
                 // Store as regular field
                 $new[$field] = $patron[$field];
@@ -982,6 +997,54 @@ class Libilsws
         $json = "{\"patronBarcode\": \"$patron_id\"}";
 
         return $this->send_query("$this->base_url/user/patron/updateActivityDate", $token, $json, 'POST');
+    }
+
+    /**
+     * Create phone structure for use in patron_update
+     *
+     * @access private
+     * @param  string $token      The session token returned by ILSWS
+     * @param  string $patron_key The patron key
+     * @param  string $telephone  The telephone number to update
+     * @return object             Associative array containing result
+     */
+
+    public function create_phone_structure ($token = null, $patron_key = null, $telephone = null, $params = null)
+    {
+        $params = [
+            'countryCode' => $params['countryCode'] ?? 'US',
+            'bills'       => $params['bills'] ?? true,
+            'general'     => $params['general'] ?? true,
+            'holds'       => $params['holds'] ?? true,
+            'manual'      => $params['manual'] ?? true,
+            'overdues'    => $params['overdues'] ?? true,
+            ];
+
+        $this->validate('token', $token, 's:40');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
+        $this->validate('telephone', $telephone, 'i:1000000000,9999999999');
+        
+        $structure = [
+            'resource' => '/user/patron/phone',
+            'fields' => [
+                'patron' => [
+                    'resource' => '/user/patron',
+                    'key' => $patron_key,
+                    ],
+                'countryCode' => [
+                    'resource' => '/policy/countryCode',
+                    'key' => $params['countryCode'],
+                    ],
+                'number' => $telephone,
+                'bills' => $params['bills'],
+                'general' => $params['general'],
+                'holds' => $params['holds'],
+                'manual' => $params['manual'],
+                'overdues' => $params['overdues'],
+                ],
+            ];
+
+        return $structure;
     }
 }
 

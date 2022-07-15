@@ -814,9 +814,6 @@ class Libilsws
 
             } elseif ( $field === 'phoneList' ) {
 
-                print var_dump($patron[$field]) . "\n";
-                print "patron_key: $patron_key\n";
-
                 if ( isset($patron[$field]['number']) ) {
                     $telephone = $patron[$field]['number'];
                     $telephone = preg_replace('/\-/', '', $telephone);

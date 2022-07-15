@@ -104,6 +104,15 @@ $patron = [
     'postal_code' => '97208',
     'email' => 'john.houser@multco.us',
     'telephone' => '215-544-6941',
+    'sms_phone_list' => [
+        'number' => '215-544-6941',
+        'countryCode => 'US',
+        'bills'       => true,
+        'general'     => true,
+        'holds'       => true,
+        'manual'      => true,
+        'overdues'    => true,
+        ],
     ];
 
 $json = $ilsws->create_patron_json($patron, $patron_key);

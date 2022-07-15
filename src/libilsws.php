@@ -67,16 +67,20 @@ class APIException extends Exception
 
 class Libilsws
 {
+    // Turn these on to see various debug messages
+    const DEBUG_CONFIG = 1;
+    const DEBUG_CONNECT = 0;
+    const DEBUG_QUERY = 0;
+    const DEBUG_REGISTER = 0;
+    const DEBUG_UPDATE = 1;
+
     // Public variable to share error information
     public $error;
 
     // Public variable to HTML return code
     public $code;
 
-    // Turn this on to see various debug messages
-    private $debug = 1;
-
-    // The ILSWS host we should connect to.
+    // The ILSWS connection parameters and Symphony field configuration
     private $config;
 
     /**
@@ -88,6 +92,9 @@ class Libilsws
 
     // Data handler instance
     private $dh;
+
+    // ILSWS patron field description information
+    private $field_desc = [];
     
     // Constructor for this class
     public function __construct($yaml_file)
@@ -99,7 +106,7 @@ class Libilsws
         if ( filesize($yaml_file) > 0 && substr($yaml_file, -4, 4) == 'yaml' ) {
             $this->config = Yaml::parseFile($yaml_file);
 
-            if ( $this->debug ) {
+            if ( self::DEBUG_CONFIG ) {
                 print json_encode($this->config, JSON_PRETTY_PRINT) . "\n";
             }
 
@@ -115,6 +122,23 @@ class Libilsws
             . $this->config['ilsws']['port'] 
             . '/' 
             . $this->config['ilsws']['webapp'];
+
+        // Get the ILSWS patron field descriptions
+        $token = $this->connect();
+
+        // Make the fields descriptions accessible by name
+        $field_arrays = $this->patron_describe($token);
+        foreach ($field_arrays['fields'] as $object) {
+            $name = $object['name'];
+            foreach ($object as $key => $value) {
+                $this->field_desc[$name][$key] = $object[$key];
+            }
+        }
+
+        if ( self::DEBUG_CONFIG ) {
+            $json = json_encode($this->field_desc, JSON_PRETTY_PRINT);
+            print "$json\n";
+        }
     }
 
     /**
@@ -180,7 +204,7 @@ class Libilsws
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            if ( $this->debug ) {
+            if ( self::DEBUG_CONNECT ) {
                 print "HTTP $this->code: $json\n";
             }
 
@@ -237,7 +261,7 @@ class Libilsws
         /** Set $error to the URL being submitted so that it can be accessed 
          * in debug mode, when there is no error
          */
-        if ( $this->debug ) {
+        if ( self::DEBUG_QUERY ) {
             print "$url\n";
         }
 
@@ -266,7 +290,7 @@ class Libilsws
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            if ( $this->debug ) {
+            if ( self::DEBUG_QUERY ) {
                 print "Request number: $req_num\n";
                 print "HTTP $this->code: $json\n";
             }
@@ -346,7 +370,7 @@ class Libilsws
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            if ( $this->debug ) {
+            if ( self::DEBUG_QUERY ) {
                 print "Request number: $req_num\n";
                 print "HTTP $this->code: $json\n";
             }
@@ -555,10 +579,6 @@ class Libilsws
             }
         }
 
-        if ( $this->debug ) {
-            print 'ILSWS attributes returned: ' . implode(',', array_keys($attributes)) . "\n";
-        }
-
         return $attributes;
     }
 
@@ -746,44 +766,40 @@ class Libilsws
             }
 
             // Validate
-            if( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
+            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
                 $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
+
+            if ( self::DEBUG_UPDATE ) {
+                print "field: $field\n";
+                if ( isset($this->field_desc[$field]) ) {
+                    foreach ($this->field_desc[$field] as $key => $value) {
+                        print "$key: $value\n";
+                    }
+                }
+                print "\n";
+            }
+
+            if ( ! empty($patron[$field]) ) {
+                switch ($this->field_desc[$field]['type']) {
+                    case 'boolean':
+                        break;
+                    case 'date':
+                        break;
+                    case 'list':
+                        break;
+                    case 'resource':
+                        $new['fields'][$field] = $this->create_field_resource($field, $patron[$field]);
+                        break;
+                    case 'set':
+                        break;
+                    case 'string':
+                        $new['fields'][$field] = $this->create_field_string($field, $patron[$field]);
+                        break;
+                }
+            }
            
-            // Ignore certain fields if we're in new mode 
-            if ( $field === 'profile' ) {
-
-                if ( ! empty($patron[$field]) ) {
-                    $new['fields']['profile']['resource'] = '/policy/userProfile';
-                    $new['fields']['profile']['key'] = $patron['profile'];
-                }
-
-            } elseif ( $field === 'library' ) {
-
-                if ( ! empty($patron[$field]) ) {
-                    $new['fields']['library']['resource'] = '/policy/library';
-                    $new['fields']['library']['key'] = $patron['library'];
-                }
-
-            } elseif ( $field === 'language' ) {
-
-                if ( ! empty($patron[$field]) ) {
-                    $new['fields']['language']['resource'] = '/policy/language';
-                    $new['fields']['language']['key'] = $patron['language'];
-                }
-
-            } elseif ( preg_match('/category/', $field) ) {
-
-                // Determine the category number
-                $num = substr($field, -2, 2);
-
-                // Add category to $new
-                if ( ! empty($patron[$field]) ) {
-                    $new['fields'][$field]['resource'] = "/policy/patronCategory$num";
-                    $new['fields'][$field]['key'] = $patron[$field];
-                }
-
-            } elseif ( preg_match('/^address\d{1}$/', $field) && ! empty($patron[$field]) ) {
+            if ( preg_match('/^address\d{1}$/', $field) && ! empty($patron[$field]) ) {
 
                 $new['fields'][$field] = [];
 
@@ -822,16 +838,60 @@ class Libilsws
                         $new['fields'][$field] = $this->create_phone_structure($patron_key, $telephone, $patron[$field]);
                     }
                 }
-                
-            } elseif ( ! empty($patron[$field]) ) {
-
-                // Store as regular field
-                $new['fields'][$field] = $patron[$field];
             }
         }
 
         // Return a JSON string suitable for use in patron_create
         return json_encode($new, JSON_PRETTY_PRINT);
+    }
+
+    /**
+     * Create structure for a generic resource field
+     *
+     * @access private
+     * @param  string $name   The name of the field
+     * @param  string $value  The incoming value
+     * @return object $return The outgoing associative array object
+     */
+
+    private function create_field_resource ($name, $value = null)
+    {
+        $object = [];
+        if ( isset($this->field_desc[$name]) ) {
+
+            $object['resource'] = $this->field_desc[$name]['uri'];
+            $object['key'] = $value;
+
+        } else {
+            throw new Exception("Unknown field: $field");
+        }
+
+        return $object;
+    }
+
+    /**
+     * Create structure for a generic string field
+     *
+     * @access private
+     * @param  string $name   The name of the field
+     * @param  string $value  The incoming value
+     * @return string $return The outgoing value
+     */
+
+    private function create_field_string ($name, $value = null)
+    {
+        if ( isset($this->field_desc[$name]) ) {
+
+            $length = strlen($value);
+            if ( $length >= $this->field_desc[$name][min] && $length <= $this->field_desc[$name]['max'] ) {
+                throw new Exception("Invalid field $name length: $length");
+            }
+
+        } else {
+            throw new Exception("Unknown field: $field");
+        }
+
+        return $value;
     }
 
     /**
@@ -863,7 +923,7 @@ class Libilsws
 
         foreach ($fields as $field => $value) {
 
-            if ( $this->debug && ! empty($patron[$field]) ) {
+            if ( self::DEBUG_REGISTER && ! empty($patron[$field]) ) {
                 print "$field: $patron[$field]\n";
             }
 
@@ -929,7 +989,7 @@ class Libilsws
 
         // Create the required record structure for a registration
         $json = $this->create_register_json($patron);
-        if ( $this->debug ) {
+        if ( self::DEBUG_REGISTER ) {
             print "$json\n";
         }
         $response = $this->send_query("$this->base_url/user/patron/register", $token, $json, 'POST');
@@ -952,7 +1012,7 @@ class Libilsws
 
             // Create a record structure with the update fields 
             $json = $this->create_patron_json($update, $patron_key);
-            if ( $this->debug ) {
+            if ( self::DEBUG_REGISTER ) {
                 print "$json\n";
             }
             $response = $this->patron_update($token, $json, $patron_key);

@@ -998,7 +998,9 @@ class Libilsws
     }
 
     /**
-     * Create phone structure for use in patron_update
+     * Create phone structure for use in patron_update, when a phoneList is supplied for use
+     * with SMS messaging. Note: this function only supports a single number for SMS, although
+     * individual types of messages may be turned on or off.
      *
      * @access private
      * @param  string $token      The session token returned by ILSWS

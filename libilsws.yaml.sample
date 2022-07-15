@@ -28,10 +28,10 @@
 ilsws:
   username: 'USERNAME'
   password: 'PASSWORD'
-  hostname: 'host.domain'
+  hostname: 'HOSTNAME.DOMAIN'
   port: 443
-  webapp: 'library_ilsws'
-  app_id: 'libilsws'
+  webapp: 'WEBAPP'
+  app_id: 'APP_ID'
   client_id: 'CLIENT_ID'
   user_privilege_override: 'OVERRIDE'
   timeout: 20
@@ -90,6 +90,9 @@ symphony:
       PHONE:
         alias: 'telephone'
         validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
+    # This element is used to configure SMS phone numbers only, and requires a fixed params array
+    phoneList:
+        alias: 'sms_phone_list'
     category01:
       alias: 'county'
       validation: 'v:0_MULT|1_CLACK|2_WASH|3_HOOD|4_OTHER_OR|7_CLARK_WA|CAMAS_WA|KLICK_WA|OTHER|SKAMA_WA|UNKNOWN'
@@ -141,6 +144,9 @@ symphony:
       default: 'ENGLISH'
       youth: 'ENGLISH'
       required: false
+    # This element is used to configure SMS phone numbers only, and requires a fixed params array
+    phoneList:
+        alias: 'sms_phone_list'
     patron-pin:
       alias: 'password'
       validation: 's:25'

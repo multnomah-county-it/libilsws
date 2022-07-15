@@ -814,14 +814,15 @@ class Libilsws
 
             } elseif ( $field === 'phoneList' ) {
 
-                if ( isset($patron[$field]['params']) ) {
-                    if ( $patron[$field]['params'] ) {
-                        $telephone = $patron[$field]['params']['number'];
-                        unset($patron[$field]['params']['number']);
-                        $telephone = preg_replace('/\-/', '', $telephone);
-                        if ( $telephone ) {
-                            $new['fields'][$field] = $this->create_phone_structure($token, $patron_key, $telephone, $patron[$field]['params']);
-                        }
+                print var_dump($patron[$field]) . "\n";
+                print "patron_key: $patron_key\n";
+
+                if ( isset($patron[$field]['number']) ) {
+                    $telephone = $patron[$field]['number'];
+                    $telephone = preg_replace('/\-/', '', $telephone);
+                    if ( $telephone ) {
+                        unset($patron[$field]['number']);
+                        $new['fields'][$field] = $this->create_phone_structure($patron_key, $telephone, $patron[$field]);
                     }
                 }
                 
@@ -1006,10 +1007,10 @@ class Libilsws
      * @param  string $token      The session token returned by ILSWS
      * @param  string $patron_key The patron key
      * @param  string $telephone  The telephone number to update
-     * @return object             Associative array containing result
+     * @return object $structure  Associative array containing result
      */
 
-    public function create_phone_structure ($token = null, $patron_key = null, $telephone = null, $params = null)
+    public function create_phone_structure ($patron_key = null, $telephone = null, $params = null)
     {
         $params = [
             'countryCode' => $params['countryCode'] ?? 'US',
@@ -1020,11 +1021,10 @@ class Libilsws
             'overdues'    => $params['overdues'] ?? true,
             ];
 
-        $this->validate('token', $token, 's:40');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
         $this->validate('telephone', $telephone, 'i:1000000000,9999999999');
         
-        $structure = [
+        $structure = [[
             'resource' => '/user/patron/phone',
             'fields' => [
                 'patron' => [
@@ -1042,7 +1042,7 @@ class Libilsws
                 'manual' => $params['manual'],
                 'overdues' => $params['overdues'],
                 ],
-            ];
+            ]];
 
         return $structure;
     }

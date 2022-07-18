@@ -167,7 +167,7 @@ class DataHandler
      *                         Empty if validation fails.
      */
 
-    protected function validate_date ($date, $format) 
+    public function validate_date ($date, $format) 
     {
         $retval = '';
 
@@ -196,7 +196,7 @@ class DataHandler
                     }
                 }
                 break;
-            case preg_match('YYYYMMDD', $format):
+            case preg_match('/^YYYYMMDD$/', $format):
                 if ( preg_match('/^\d{8}$/', $date) ) {
                     $year = substr($format, 0, 4);
                     $month = substr($format, 5, 2);

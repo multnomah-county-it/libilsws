@@ -148,7 +148,7 @@ class DataHandler
                 }
                 break;
             default:
-                throw new \Exception("No validation rule for type $type");
+                throw new Exception("No validation rule for type $type");
         }
 
         return $retval;
@@ -167,7 +167,7 @@ class DataHandler
      *                         Empty if validation fails.
      */
 
-    private function validate_date ($date, $format) 
+    protected function validate_date ($date, $format) 
     {
         $retval = '';
 

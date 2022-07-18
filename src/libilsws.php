@@ -781,21 +781,29 @@ class Libilsws
             }
 
             if ( ! empty($patron[$field]) ) {
-                switch ($this->field_desc[$field]['type']) {
-                    case 'boolean':
-                        break;
-                    case 'date':
-                        break;
-                    case 'list':
-                        break;
-                    case 'resource':
-                        $new['fields'][$field] = $this->create_field_resource($field, $patron[$field]);
-                        break;
-                    case 'set':
-                        break;
-                    case 'string':
-                        $new['fields'][$field] = $this->create_field_string($field, $patron[$field]);
-                        break;
+
+                if ( isset($this->field_desc[$field]) ) {
+
+                    switch ($this->field_desc[$field]['type']) {
+                        case 'boolean':
+                            break;
+                        case 'date':
+                            $new['fields'][$field] = $this->create_date_string($field, $patron[$field]);
+                            break;
+                        case 'list':
+                            break;
+                        case 'resource':
+                            $new['fields'][$field] = $this->create_field_resource($field, $patron[$field]);
+                            break;
+                        case 'set':
+                            break;
+                        case 'string':
+                            $new['fields'][$field] = $this->create_field_string($field, $patron[$field]);
+                            break;
+                    }
+
+                } else {
+                    throw new Exception ("Unknown field: $field");
                 }
             }
            
@@ -846,6 +854,40 @@ class Libilsws
     }
 
     /**
+     * Create structure for generic date field
+     * 
+     * @access private
+     * @param  string $name   The name of the field
+     * @param  string $value  The incoming value
+     * @return string $return The outgoing validated date string
+     */
+
+    private function create_field_date ($name, $value = null)
+    {
+        $date = '';
+
+        $supported_formats = [
+            'YYYYMMDD',
+            'YYYY-MM-DD',
+            'YYYY/MM/DD',
+            'MM-DD-YYYY',
+            'MM/DD/YYYY',
+            ];
+
+        foreach ($supported_formats as $format) {
+            if ( $date = $dh->validate_date($value, $format) ) {
+                break;
+            }
+        }
+        
+        if ( ! $date ) {
+            throw new Exception ("Invalid date format: \"$value\"");
+        }
+
+        return $date;
+    }
+
+    /**
      * Create structure for a generic resource field
      *
      * @access private
@@ -856,15 +898,8 @@ class Libilsws
 
     private function create_field_resource ($name, $value = null)
     {
-        $object = [];
-        if ( isset($this->field_desc[$name]) ) {
-
-            $object['resource'] = $this->field_desc[$name]['uri'];
-            $object['key'] = $value;
-
-        } else {
-            throw new Exception("Unknown field: $field");
-        }
+        $object['resource'] = $this->field_desc[$name]['uri'];
+        $object['key'] = $value;
 
         return $object;
     }
@@ -880,15 +915,9 @@ class Libilsws
 
     private function create_field_string ($name, $value = null)
     {
-        if ( isset($this->field_desc[$name]) ) {
-
-            $length = strlen($value);
-            if ( $length >= $this->field_desc[$name][min] && $length <= $this->field_desc[$name]['max'] ) {
-                throw new Exception("Invalid field $name length: $length");
-            }
-
-        } else {
-            throw new Exception("Unknown field: $field");
+        $length = strlen($value);
+        if ( $length >= $this->field_desc[$name][min] && $length <= $this->field_desc[$name]['max'] ) {
+            throw new Exception("Invalid field $name length: $length");
         }
 
         return $value;

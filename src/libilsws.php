@@ -699,8 +699,6 @@ class Libilsws
      */
     private function is_youth ($birthDate = null)
     {
-        $this->validate('birthDate', $birthDate, 'd:YYYY-MM-DD');
-
         $youth = 0;
 
         $today = date('Y-m-d');
@@ -740,9 +738,9 @@ class Libilsws
         // Check if patron is a youth
         $dob = '';
         if ( ! empty($fields['birthDate']['alias']) && ! empty($patron[$fields['birthDate']['alias']]) ) {
-            $dob = $patron[$fields['birthDate']['alias']];
+            $dob = $this->create_field_date('birthDate', $patron[$fields['birthDate']['alias']]);
         } elseif ( ! empty($patron['birthDate']) ) {
-            $dob = $patron['birthDate'];
+            $dob = $this->create_field_date($patron['birthDate']);
         }
         if ( $dob && $this->is_youth($dob) ) {
             $age_group = 'youth';
@@ -788,7 +786,7 @@ class Libilsws
                         case 'boolean':
                             break;
                         case 'date':
-                            $new['fields'][$field] = $this->create_date_string($field, $patron[$field]);
+                            $new['fields'][$field] = $this->create_field_date($field, $patron[$field]);
                             break;
                         case 'list':
                             break;
@@ -862,7 +860,7 @@ class Libilsws
      * @return string $return The outgoing validated date string
      */
 
-    private function create_field_date ($name, $value = null)
+    private function create_field_date ($name, $value)
     {
         $date = '';
 
@@ -875,7 +873,9 @@ class Libilsws
             ];
 
         foreach ($supported_formats as $format) {
-            if ( $date = $dh->validate_date($value, $format) ) {
+            print "format: $format, value: $value\n";
+            $this->dh->validate_date($value, $format);
+            if ( $date ) {
                 break;
             }
         }
@@ -896,7 +896,7 @@ class Libilsws
      * @return object $return The outgoing associative array object
      */
 
-    private function create_field_resource ($name, $value = null)
+    private function create_field_resource ($name, $value)
     {
         $object['resource'] = $this->field_desc[$name]['uri'];
         $object['key'] = $value;
@@ -913,7 +913,7 @@ class Libilsws
      * @return string $return The outgoing value
      */
 
-    private function create_field_string ($name, $value = null)
+    private function create_field_string ($name, $value)
     {
         $length = strlen($value);
         if ( $length >= $this->field_desc[$name][min] && $length <= $this->field_desc[$name]['max'] ) {

@@ -714,7 +714,7 @@ class Libilsws
     public function create_patron_json ($mode, $patron, $token = null, $patron_key = null)
     {
         $this->validate('token', $token, 's:20');
-        $this->validate('patron_key', $patron_key, 'i:1,99999999');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
 
         $age_group = 'default';
 

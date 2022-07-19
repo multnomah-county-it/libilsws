@@ -70,10 +70,10 @@ class Libilsws
     // Turn these on to see various debug messages
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
-    const DEBUG_FIELDS = 1;
+    const DEBUG_FIELDS = 0;
     const DEBUG_QUERY = 0;
     const DEBUG_REGISTER = 0;
-    const DEBUG_UPDATE = 1;
+    const DEBUG_UPDATE = 0;
 
     // Public variable to share error information
     public $error;
@@ -750,7 +750,7 @@ class Libilsws
             }
 
             // Check for missing required fields
-            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && boolval($fields[$field]['required']) ) {
+            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
                 throw new Exception ("The $field field is required");
             }
 
@@ -879,7 +879,6 @@ class Libilsws
             ];
 
         foreach ($supported_formats as $format) {
-            print "format: $format, value: $value\n";
             $date = $this->dh->validate_date($value, $format);
             if ( $date ) {
                 break;
@@ -927,7 +926,7 @@ class Libilsws
     private function create_field_string ($name, $value)
     {
         $length = strlen($value);
-        if ( $length >= $this->field_desc[$name][min] && $length <= $this->field_desc[$name]['max'] ) {
+        if ( $length <= intval($this->field_desc[$name]['min']) && $length >= intval($this->field_desc[$name]['max']) ) {
             throw new Exception("Invalid field length $length in $name field");
         }
 
@@ -1092,7 +1091,9 @@ class Libilsws
             if ( ! empty($this->field_desc[$field]) ) {
 
                 // Create field structure based on field type
-                $new[$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
+                if ( ! empty($patron[$field]) ) {
+                    $new[$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
+                }
 
             } else {
                 throw new Exception ("Unknown field: $field");
@@ -1137,9 +1138,10 @@ class Libilsws
             $update = [];
             $fields = $this->config['symphony']['new_fields'];
             foreach ($fields as $field => $value) {
-                preg_match('/^patron/', $field, $matches);
-                if ( ! $matches ) {
-                    $update[$field] = $patron[$field];
+                if ( ! preg_match('/^patron-/', $field) ) {
+                    if ( ! empty($patron[$field]) ) {
+                        $update[$field] = $patron[$field];
+                    }
                 }
             }
 
@@ -1199,18 +1201,20 @@ class Libilsws
 
     private function get_field_desc ($token, $name) 
     {
-        if ( $name = 'patron' ) {
+        $field_arrays = [];
+        if ( $name === 'patron' ) {
             $field_arrays = $this->send_get("$this->base_url/user/patron/describe", $token, []);
+            $type = 'fields';
         } else {
             $field_arrays = $this->send_get("$this->base_url/user/patron/$name/describe", $token, []);
+            $type = 'params';
         }
 
         // Make the fields descriptions accessible by name
-        foreach ($field_arrays['fields'] as $object) {
+        foreach ($field_arrays[$type] as $object) {
             $name = $object['name'];
             foreach ($object as $key => $value) {
                 $this->field_desc[$name][$key] = $object[$key];
-                print "$key: $object[$key]\n";
             }
         }
 
@@ -1220,6 +1224,7 @@ class Libilsws
         }
     }
 
+// End of class
 }
 
 // EOF

@@ -117,7 +117,7 @@ $patron = [
     'email' => 'johnchouser@gmail.com',
     'telephone' => '215-534-6821',
     ];
-$json = $ilsws->create_patron_json($patron, $patron_key);
+$json = $ilsws->create_patron_json($patron, $token, $patron_key);
 print "$json\n";
 
 // Patron update from JSON

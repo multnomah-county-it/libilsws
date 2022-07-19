@@ -678,29 +678,67 @@ class Libilsws
     }
 
     /**
-     * Uses a birth day to determine whether a person is a youth, based on the 
-     * max_youth_age set in the config file
+     * Uses a birth day to determine what profile the patron should receive, assuming
+     * a profile has not been set in the incoming data
      *
      * @access private
-     * @param  string  $birthDate Birth date in YYYY-MM-DD format
-     * @return integer $youth     Sets 1 to indicate the patron is less than or equal
-     *                            to the maximum age for a youth. Sets 0 if they are not.
+     * @param  object  $patron
+     * @return string  $profile The profile
      */
-    private function is_youth ($birthDate = null)
+    private function get_profile ($patron)
     {
-        $youth = 0;
-
-        $today = date('Y-m-d');
-        $d1 = new DateTime($today);
-        $d2 = new DateTime($birthDate);
-        $diff = $d2->diff($d1);
-        $age = $diff->y;
-
-        if ( $age <= $this->config['symphony']['max_youth_age'] ) {
-            $youth = 1;
+        // Look in all the places we might find an incoming profile
+        $profile = '';
+        if (! empty($patron['profile']) ) {
+            $profile = $patron['profile'];
+        } elseif ( ! empty($this->config['symphony']['new_fields']['alias']) 
+            && ! empty($patron[$this->config['symphony']['new_fields']['alias']]) ) {
+            $profile = $patron[$this->config['symphony']['new_fields']['alias']];
+        } elseif ( ! empty($this->config['symphony']['overlay_fields']['alias']) 
+            && ! empty($patron[$this->config['symphony']['overlay_fields']['alias']]) ) {
+            $profile = $patron[$this->config['symphony']['overlay_fields']['alias']];
+        }
+            
+        // If we found an incoming profile, it takes precedence, so return it.
+        if ( $profile ) {
+            return $profile;
         }
 
-        return $youth;
+        // Check everywhere we might find a birth date
+        $dob = '';
+        if ( ! empty($patron['birthDate']) ) {
+            $dob = $this->create_field_date('birthDate', $patron['birthDate']);
+        } elseif ( ! empty($this->config['symphony']['new_fields']['birthDate']['alias']) 
+            && ! empty($patron[$this->config['symphony']['new_fields']['birthDate']['alias']]) ) {
+            $dob = $this->create_field_date('birthDate', $patron[$this->config['symphony']['new_fields']['birthDate']['alias']]);
+        } elseif ( ! empty($this->config['symphony']['overlay_fields']['birthDate']['alias']) 
+            && ! empty($patron[$this->config['symphony']['overlay_fields']['birthDate']['alias']]) ) {
+            $dob = $this->create_field_date('birthDate', $patron[$this->config['symphony']['overlay_fields']['birthDate']['alias']]);
+        }
+
+        // If we got a birth date, calculate the age
+        $age = 0;
+        if ( $dob )  {
+            $today = date('Y-m-d');
+            $d1 = new DateTime($today);
+            $d2 = new DateTime($dob);
+            $diff = $d2->diff($d1);
+            $age = $diff->y;
+        }
+
+        // Check if the age fits into a range
+        if ( $age && ! empty($this->config['symphony']['age_ranges']) ) {
+
+            $ranges = $this->config['symphony']['age_ranges'];
+            foreach ($ranges as $range => $value) {
+                list($min, $max) = preg_split('/-/', $range);
+                if ( $age >= $min && $age <= $max ) {
+                    $profile = $ranges[$range];
+                }
+            }
+        }
+
+        return $profile;
     }
 
     /**
@@ -716,25 +754,18 @@ class Libilsws
         $this->validate('token', $token, 's:20');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 
-        $age_group = 'default';
-
         // Start building the object
         $new['resource'] = '/user/patron';
         $new['key'] = $patron_key;
 
-        # Extract the field definitions from the configuration
+        // Extract the field definitions from the configuration
         $fields = $this->config['symphony'][$mode];
 
-        // Check if patron is a youth
-        $dob = '';
-        if ( ! empty($fields['birthDate']['alias']) && ! empty($patron[$fields['birthDate']['alias']]) ) {
-            $dob = $this->create_field_date('birthDate', $patron[$fields['birthDate']['alias']]);
-        } elseif ( ! empty($patron['birthDate']) ) {
-            $dob = $this->create_field_date('birthDate', $patron['birthDate']);
-        }
-        if ( $dob && $this->is_youth($dob) ) {
-            $age_group = 'youth';
-        }
+        /**
+         * Get the patron profile based on (in priority order) the incoming value, the 
+         * birthDate and age ranges defined in the YAML configuration.
+         */
+        $patron['profile'] = $this->get_profile($patron);
 
         // Loop through each field
         foreach ($fields as $field => $value) {
@@ -745,8 +776,8 @@ class Libilsws
             }
 
             // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && ! empty($fields[$field][$age_group]) ) {
-                $patron[$field] = $fields[$field][$age_group];
+            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
+                $patron[$field] = $fields[$field]['default'];
             }
 
             // Check for missing required fields
@@ -1010,8 +1041,8 @@ class Libilsws
             }
 
             // Assign default values where appropriate
-            if ( empty($patron[$subfield]) && ! empty($fields[$field][$subfield][$age_group]) ) {
-                $patron[$subfield] = $fields[$field][$subfield][$age_group];
+            if ( empty($patron[$subfield]) ) {
+                $patron[$subfield] = $fields[$field][$subfield]['default'];
             }
 
             // Check for missing required fields
@@ -1042,25 +1073,19 @@ class Libilsws
     {
         $this->validate('token', $token, 's:20');
 
-        $age_group = 'default';
         $new = [];
 
         // Get additional field metadata from Symphony
         $this->get_field_desc($token, 'register');
 
+        /**
+         * Get the patron profile based on (in priority order) the incoming value, the 
+         * birthDate and age ranges defined in the YAML configuration.
+         */
+        $patron['profile'] = $this->get_profile($patron);
+
         # Extract the field definitions from the configuration
         $fields = $this->config['symphony']['new_fields'];
-
-        // Check if patron is a youth
-        $dob = '';
-        if ( ! empty($fields['birthDate']['alias']) && ! empty($patron[$fields['birthDate']['alias']]) ) {
-            $dob = $this->create_field_date('birthDate', $patron[$fields['birthDate']['alias']]);
-        } elseif ( ! empty($patron['birthDate']) ) {
-            $dob = $this->create_field_date('birthDate', $patron['birthDate']);
-        }
-        if ( $dob && $this->is_youth($dob) ) {
-            $age_group = 'youth';
-        }
 
         foreach ($fields as $field => $value) {
 
@@ -1074,8 +1099,8 @@ class Libilsws
             }
 
             // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && ! empty($fields[$field][$age_group]) ) {
-                $patron[$field] = $fields[$field][$age_group];
+            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
+                $patron[$field] = $fields[$field]['default'];
             }
 
             // Check for missing required fields
@@ -1138,7 +1163,7 @@ class Libilsws
             $update = [];
             $fields = $this->config['symphony']['new_fields'];
             foreach ($fields as $field => $value) {
-                if ( ! preg_match('/^patron-/', $field) ) {
+                if ( ! preg_match('/^patron(.*)/', $field) ) {
                     if ( ! empty($patron[$field]) ) {
                         $update[$field] = $patron[$field];
                     }

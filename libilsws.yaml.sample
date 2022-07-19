@@ -21,14 +21,13 @@
 #   validation: Required validation rule
 #   alias: Optional name of the field in the patron array (if different)
 #   default: Optional default value in new records
-#   youth: Optional new record default value for youth (see youth_max_age)
 # For new_fields, you must also include the 
 #   required: true|false
 #
 ilsws:
   username: 'USERNAME'
   password: 'PASSWORD'
-  hostname: 'HOSTNAME.DOMAIN'
+  hostname: 'hostname.domain'
   port: 443
   webapp: 'WEBAPP'
   app_id: 'APP_ID'
@@ -39,7 +38,11 @@ ilsws:
   max_search_count: 20
   default_include_fields: 'profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate'
 symphony:
-  max_youth_age: 12
+  # The age_ranges are used to map a particular age range to a profile. If you don't use age based profiles, 
+  # set 1-120 to your default profile 
+  age_ranges: 
+    1-12: '1_MULT_Y'
+    13-120: '0_MULT'
   valid_search_indexes: 'UKEY,ALIAS,STUD_ID,PREV_ID,PREV_ID2,ALT_NAME,COMMENT,PHONE,EMAIL,STREET,NAME,ID,ALT_ID,GROUP_ID,USERGROUP,BIRTHDATE'
   # The overlay_fields section defines the fields that may be used in the patron_modify and patron_register functions. 
   # Note: new records are created with the patron_register function because that function utilizes Symphony to generate 
@@ -52,14 +55,12 @@ symphony:
     profile:
       validation: "v:0_MULT|1_MULT_Y|2_METRO|3_METRO_Y|PASSPORT|PASSPORT_Y"
       default: '0_MULT'
-      youth: '1_MULT_Y'
     pin:
       alias: 'password'
       validation: 's:25'
     language:
       validation: 'v:ARABIC|CHINESE|DUTCH|ENGLISH|FRENCH|FRENCH-AF|GERMAN|HUNGARIAN|JAPANESE|ROMANIAN|RUSSIAN|SOMALI|SPANISH|VIETNAMESE'
       default: 'ENGLISH'
-      youth: 'ENGLISH'
     library:
       alias: 'home_library'
       validation: 's:4'
@@ -131,18 +132,15 @@ symphony:
     profile:
       validation: "v:0_MULT|1_MULT_Y|2_METRO|3_METRO_Y|PASSPORT|PASSPORT_Y"
       default: '0_MULT'
-      youth: '1_MULT_Y'
       required: true
     library:
       alias: 'home_library'
       validation: 's:4'
       default: 'CEN'
-      youth: 'CEN'
       required: true
     language:
       validation: 'v:ARABIC|CHINESE|DUTCH|ENGLISH|FRENCH|FRENCH-AF|GERMAN|HUNGARIAN|JAPANESE|ROMANIAN|RUSSIAN|SOMALI|SPANISH|VIETNAMESE'
       default: 'ENGLISH'
-      youth: 'ENGLISH'
       required: false
     # This element is used to configure SMS phone numbers only, and requires a fixed params array
     phoneList:
@@ -219,5 +217,4 @@ symphony:
     patron-category11:
       alias: 'online_update'
       validation: 'v:YES|CHECK'
-      default: 'YES'
       required: false

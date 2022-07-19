@@ -926,7 +926,7 @@ class Libilsws
     private function create_field_string ($name, $value)
     {
         $length = strlen($value);
-        if ( $length <= intval($this->field_desc[$name]['min']) && $length >= intval($this->field_desc[$name]['max']) ) {
+        if ( $length < intval($this->field_desc[$name]['min']) && $length > intval($this->field_desc[$name]['max']) ) {
             throw new Exception("Invalid field length $length in $name field");
         }
 

@@ -68,8 +68,9 @@ class APIException extends Exception
 class Libilsws
 {
     // Turn these on to see various debug messages
-    const DEBUG_CONFIG = 1;
+    const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
+    const DEBUG_FIELDS = 1;
     const DEBUG_QUERY = 0;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 1;
@@ -123,22 +124,10 @@ class Libilsws
             . '/' 
             . $this->config['ilsws']['webapp'];
 
-        // Get the ILSWS patron field descriptions
+
+        // Get the ILSWS patron field metadata and make it accessible by name
         $token = $this->connect();
-
-        // Make the fields descriptions accessible by name
-        $field_arrays = $this->patron_describe($token);
-        foreach ($field_arrays['fields'] as $object) {
-            $name = $object['name'];
-            foreach ($object as $key => $value) {
-                $this->field_desc[$name][$key] = $object[$key];
-            }
-        }
-
-        if ( self::DEBUG_CONFIG ) {
-            $json = json_encode($this->field_desc, JSON_PRETTY_PRINT);
-            print "$json\n";
-        }
+        $this->get_field_desc($token, 'patron');
     }
 
     /**
@@ -722,8 +711,9 @@ class Libilsws
      * @return string $json       Complete Symphony patron record JSON
      */
 
-    public function create_patron_json ($patron, $patron_key = null)
+    public function create_patron_json ($mode, $patron, $token = null, $patron_key = null)
     {
+        $this->validate('token', $token, 's:20');
         $this->validate('patron_key', $patron_key, 'i:1,99999999');
 
         $age_group = 'default';
@@ -733,19 +723,20 @@ class Libilsws
         $new['key'] = $patron_key;
 
         # Extract the field definitions from the configuration
-        $fields = $this->config['symphony']['overlay_fields'];
+        $fields = $this->config['symphony'][$mode];
 
         // Check if patron is a youth
         $dob = '';
         if ( ! empty($fields['birthDate']['alias']) && ! empty($patron[$fields['birthDate']['alias']]) ) {
             $dob = $this->create_field_date('birthDate', $patron[$fields['birthDate']['alias']]);
         } elseif ( ! empty($patron['birthDate']) ) {
-            $dob = $this->create_field_date($patron['birthDate']);
+            $dob = $this->create_field_date('birthDate', $patron['birthDate']);
         }
         if ( $dob && $this->is_youth($dob) ) {
             $age_group = 'youth';
         }
 
+        // Loop through each field
         foreach ($fields as $field => $value) {
 
             // Check if the data is coming in with a different field name (alias)
@@ -759,7 +750,7 @@ class Libilsws
             }
 
             // Check for missing required fields
-            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
+            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && boolval($fields[$field]['required']) ) {
                 throw new Exception ("The $field field is required");
             }
 
@@ -768,80 +759,27 @@ class Libilsws
                 $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
 
-            if ( self::DEBUG_UPDATE ) {
-                print "field: $field\n";
-                if ( isset($this->field_desc[$field]) ) {
-                    foreach ($this->field_desc[$field] as $key => $value) {
-                        print "$key: $value\n";
-                    }
-                }
-                print "\n";
-            }
-
             if ( ! empty($patron[$field]) ) {
 
                 if ( isset($this->field_desc[$field]) ) {
 
-                    switch ($this->field_desc[$field]['type']) {
-                        case 'boolean':
-                            break;
-                        case 'date':
-                            $new['fields'][$field] = $this->create_field_date($field, $patron[$field]);
-                            break;
-                        case 'list':
-                            break;
-                        case 'resource':
-                            $new['fields'][$field] = $this->create_field_resource($field, $patron[$field]);
-                            break;
-                        case 'set':
-                            break;
-                        case 'string':
-                            $new['fields'][$field] = $this->create_field_string($field, $patron[$field]);
-                            break;
-                    }
+                    if ( $this->field_desc[$field]['type'] !== 'list' ) {
 
-                } else {
-                    throw new Exception ("Unknown field: $field");
-                }
-            }
-           
-            if ( preg_match('/^address\d{1}$/', $field) && ! empty($patron[$field]) ) {
+                        $new['fields'][$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
 
-                $new['fields'][$field] = [];
+                    } else {
 
-                // Determine the address number
-                $num = substr($field, -1, 1);
+                        if ( preg_match('/^address\d{1}$/', $field) && ! empty($patron[$field]) ) {
 
-                foreach ($fields[$field] as $part => $value) {
+                            $new['fields'][$field] = $this->create_field_address($field, $fields[$field], $patron[$field]);
 
-                    // Check if the data is coming in with a different field name (alias)
-                    if ( empty($patron[$part]) && ! empty($fields[$field][$part]['alias']) ) {
-                        $patron[$part] = $patron[$fields[$field][$part]['alias']];
-                    }
+                        } elseif ( $field === 'phoneList' ) {
 
-                    // Assign default values where appropriate
-                    if ( empty($patron[$part]) && ! empty($fields[$field][$part][$age_group]) ) {
-                        $patron[$part] = $fields[$field][$part][$age_group];
-                    }
+                            $new['fields'][$field] = $this->create_field_phone($patron_key, $patron[$field]);
 
-                    $addr = [];
-                    $addr['resource'] = "/user/patron/address$num";
-                    $addr['fields']['code']['resource'] = "/policy/patronAddress$num";
-                    $addr['fields']['code']['key'] = $part;
-                    $addr['fields']['data'] = $patron[$part];
-
-                    // Add this part to the address one array
-                    array_push($new['fields'][$field], $addr);
-                }
-
-            } elseif ( $field === 'phoneList' ) {
-
-                if ( isset($patron[$field]['number']) ) {
-                    $telephone = $patron[$field]['number'];
-                    $telephone = preg_replace('/\-/', '', $telephone);
-                    if ( $telephone ) {
-                        unset($patron[$field]['number']);
-                        $new['fields'][$field] = $this->create_phone_structure($patron_key, $telephone, $patron[$field]);
+                        } else {
+                            throw new Exception ("Unknown list type: $field");
+                        }
                     }
                 }
             }
@@ -852,7 +790,75 @@ class Libilsws
     }
 
     /**
-     * Create structure for generic date field
+     * Validates and formats fields based on their type
+     * 
+     * @param  string $name  The field to be processed
+     * @param  string $value The value to checked
+     * @param  string $type  The type of field to be processed
+     * @return               The output of the appropriate function
+     */
+
+    private function create_field ($name, $value, $type)
+    {
+        switch ($type) {
+            case 'boolean':
+                return $this->create_field_boolean($name, $value);
+            case 'date':
+                return $this->create_field_date($name, $value);
+            case 'resource':
+                return $this->create_field_resource($name, $value);
+            case 'set':
+                return $this->create_field_set($name, $value);
+            case 'string':
+                return $this->create_field_string($name, $value);
+        }
+    }
+
+    /**
+     * Process generic set fields
+     * 
+     * @access private
+     * @param  string $name  The name of the field
+     * @param  string $value The incoming value to be processed
+     * @return string        The validated field value
+     */
+ 
+    private function create_field_set ($name, $value)
+    {
+        foreach ($this->field_desc[$name]['setMembers'] as $allowed) {
+            if ( $value === $allowed ) {
+                return $value;
+            }
+        }
+
+        # If we got here, we didn't match any of the acceptable values
+        throw new Exception ("Invalid set member \"$value\" in $name");
+    }
+
+    /**
+     * Process generic boolean fields
+     * 
+     * @access private
+     * @param  string $name  The name of the field
+     * @param  string $value The incoming value to be processed
+     * @return string        "true" or "false"
+     */
+
+    private function create_field_boolean ($name, $value)
+    {
+        if ( is_bool($value) ) {
+            return (boolval($value) ? 'true' : 'false');
+        } elseif ( preg_match('/^true$/i', $value) ) {
+            return 'true';
+        } elseif ( preg_match('/^false$/i', $value) ) {
+            return 'false';
+        }
+    }
+
+    /**
+     * Process date for generic date field. Converts incoming strings
+     * in any supported format (see $supported_formats) into Symphony's 
+     * preferred YYYY-MM-DD format.
      * 
      * @access private
      * @param  string $name   The name of the field
@@ -874,14 +880,14 @@ class Libilsws
 
         foreach ($supported_formats as $format) {
             print "format: $format, value: $value\n";
-            $this->dh->validate_date($value, $format);
+            $date = $this->dh->validate_date($value, $format);
             if ( $date ) {
                 break;
             }
         }
         
         if ( ! $date ) {
-            throw new Exception ("Invalid date format: \"$value\"");
+            throw new Exception ("Invalid date format: \"$value\" in $name field");
         }
 
         return $date;
@@ -896,10 +902,15 @@ class Libilsws
      * @return object $return The outgoing associative array object
      */
 
-    private function create_field_resource ($name, $value)
+    private function create_field_resource ($name, $key, $data = '')
     {
         $object['resource'] = $this->field_desc[$name]['uri'];
-        $object['key'] = $value;
+        $object['key'] = $key;
+
+        // Not all resource fields have data
+        if ( $data ) {
+            $object['data'] = $data;
+        }
 
         return $object;
     }
@@ -917,10 +928,107 @@ class Libilsws
     {
         $length = strlen($value);
         if ( $length >= $this->field_desc[$name][min] && $length <= $this->field_desc[$name]['max'] ) {
-            throw new Exception("Invalid field $name length: $length");
+            throw new Exception("Invalid field length $length in $name field");
         }
 
         return $value;
+    }
+
+    /**
+     * Create phone structure for use in patron_update, when a phoneList is supplied for use
+     * with SMS messaging. Note: this function only supports a single number for SMS, although
+     * individual types of messages may be turned on or off.
+     *
+     * @access private
+     * @param  string $patron_key The patron key
+     * @param  array  $params     SMS message types with which to use this number
+     * @return object $structure  Associative array containing result
+     */
+
+    private function create_field_phone ($patron_key = null, $params = null)
+    {
+        $telephone = preg_replace('/\D/', '', $params['number']);
+
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
+        $this->validate('telephone', $telephone, 'i:1000000000,9999999999');
+        $this->validate('countryCode', $params['countryCode'], 'r:/^[A-Z]{2}$/');
+        $this->validate('bills', $params['bills'], 'v:true|false');
+        $this->validate('general', $params['general'], 'v:true|false');
+        $this->validate('holds', $params['holds'], 'v:true|false');
+        $this->validate('manual', $params['manual'], 'v:true|false');
+        $this->validate('overdues', $params['overdues'], 'v:true|false');
+
+        $params = [
+            'countryCode' => $params['countryCode'] ?? 'US',
+            'bills'       => $params['bills'] ?? true,
+            'general'     => $params['general'] ?? true,
+            'holds'       => $params['holds'] ?? true,
+            'manual'      => $params['manual'] ?? true,
+            'overdues'    => $params['overdues'] ?? true,
+            ];
+        
+        $structure = [[
+            'resource' => '/user/patron/phone',
+            'fields' => [
+                'patron' => [
+                    'resource' => '/user/patron',
+                    'key' => $patron_key,
+                    ],
+                'countryCode' => [
+                    'resource' => '/policy/countryCode',
+                    'key' => $params['countryCode'],
+                    ],
+                'number' => $telephone,
+                'bills' => $params['bills'],
+                'general' => $params['general'],
+                'holds' => $params['holds'],
+                'manual' => $params['manual'],
+                'overdues' => $params['overdues'],
+                ],
+            ]];
+
+        return $structure;
+    }
+
+    /**
+     * Create address structure for use in patron update
+     * 
+     * @access private
+     * @param  string $field Name of address field
+     * @return object        Address object for insertion into a patron record
+     */
+
+    private function create_field_address ($field, $fields, $patron)
+    {
+        // Determine the address number
+        $num = substr($field, -1, 1);
+
+        foreach ($fields as $subfield => $value) {
+
+            // Check if the data is coming in with a different field name (alias)
+            if ( empty($patron[$subfield]) && ! empty($fields[$field][$subfield]['alias']) ) {
+                $patron[$subfield] = $patron[$fields[$field][$subfield]['alias']];
+            }
+
+            // Assign default values where appropriate
+            if ( empty($patron[$subfield]) && ! empty($fields[$field][$subfield][$age_group]) ) {
+                $patron[$subfield] = $fields[$field][$subfield][$age_group];
+            }
+
+            // Check for missing required fields
+            if ( empty($patron[$subfield]) && ! empty($fields[$subfield]['required']) && boolval($fields[$subfield]['required']) ) {
+                throw new Exception ("The $field $subfield field is required");
+            }
+
+            $address = [];
+            $address['resource'] = "/user/patron/$field";
+            $address['fields']['code']['resource'] = "/policy/patronAddress$num";
+            $address['fields']['code']['key'] = $subfield;
+            $address['fields']['data'] = $patron[$subfield];
+
+            // Add this subfield to the address one array
+            return $address;
+        }
     }
 
     /**
@@ -931,22 +1039,27 @@ class Libilsws
      * @return string $json       Complete Symphony patron record JSON
      */
 
-    public function create_register_json ($patron)
+    public function create_register_json ($patron, $token = null)
     {
-        $age_group = 'default';
+        $this->validate('token', $token, 's:20');
 
+        $age_group = 'default';
         $new = [];
+
+        // Get additional field metadata from Symphony
+        $this->get_field_desc($token, 'register');
 
         # Extract the field definitions from the configuration
         $fields = $this->config['symphony']['new_fields'];
 
         // Check if patron is a youth
-        if ( ! empty($fields['birthDate']['alias']) ) {
-            $dob = $patron[$fields['birthDate']['alias']];
-        } else {
-            $dob = $patron['birthDate'];
+        $dob = '';
+        if ( ! empty($fields['birthDate']['alias']) && ! empty($patron[$fields['birthDate']['alias']]) ) {
+            $dob = $this->create_field_date('birthDate', $patron[$fields['birthDate']['alias']]);
+        } elseif ( ! empty($patron['birthDate']) ) {
+            $dob = $this->create_field_date('birthDate', $patron['birthDate']);
         }
-        if ( $this->is_youth($dob) ) {
+        if ( $dob && $this->is_youth($dob) ) {
             $age_group = 'youth';
         }
 
@@ -975,22 +1088,14 @@ class Libilsws
             if( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
                 $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
-           
-            if ( preg_match('/category/', $field) ) {
+         
+            if ( ! empty($this->field_desc[$field]) ) {
 
-                // Determine the category number
-                $num = substr($field, -2, 2);
+                // Create field structure based on field type
+                $new[$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
 
-                // Add category to $new
-                if ( ! empty($patron[$field]) ) {
-                    $new[$field]['resource'] = "/policy/patronCategory$num";
-                    $new[$field]['key'] = $patron[$field];
-                }
-
-            } elseif ( ! empty($patron[$field]) && preg_match('/^patron/', $field) ) {
-
-                // Store as regular field
-                $new[$field] = $patron[$field];
+            } else {
+                throw new Exception ("Unknown field: $field");
             }
         }
 
@@ -1017,7 +1122,7 @@ class Libilsws
         $response = [];
 
         // Create the required record structure for a registration
-        $json = $this->create_register_json($patron);
+        $json = $this->create_register_json($patron, $token);
         if ( self::DEBUG_REGISTER ) {
             print "$json\n";
         }
@@ -1032,15 +1137,14 @@ class Libilsws
             $update = [];
             $fields = $this->config['symphony']['new_fields'];
             foreach ($fields as $field => $value) {
-                if ( ! empty($fields[$field]['alias']) && ! empty($patron[$fields[$field]['alias']]) ) {
-                    $update[$field] = $patron[$fields[$field]['alias']];
-                } elseif ( ! empty($patron[$field]) ) {
+                preg_match('/^patron/', $field, $matches);
+                if ( ! $matches ) {
                     $update[$field] = $patron[$field];
                 }
             }
 
             // Create a record structure with the update fields 
-            $json = $this->create_patron_json($update, $patron_key);
+            $json = $this->create_patron_json('new_fields', $update, $token, $patron_key);
             if ( self::DEBUG_REGISTER ) {
                 print "$json\n";
             }
@@ -1087,53 +1191,35 @@ class Libilsws
     }
 
     /**
-     * Create phone structure for use in patron_update, when a phoneList is supplied for use
-     * with SMS messaging. Note: this function only supports a single number for SMS, although
-     * individual types of messages may be turned on or off.
-     *
-     * @access private
-     * @param  string $token      The session token returned by ILSWS
-     * @param  string $patron_key The patron key
-     * @param  string $telephone  The telephone number to update
-     * @return object $structure  Associative array containing result
+     * Get access-point field metadata from Symphony
+     * 
+     * @param string $name The access point metadata to retrieve
+     * @return             Updates $this->field_desc
      */
 
-    public function create_phone_structure ($patron_key = null, $telephone = null, $params = null)
+    private function get_field_desc ($token, $name) 
     {
-        $params = [
-            'countryCode' => $params['countryCode'] ?? 'US',
-            'bills'       => $params['bills'] ?? true,
-            'general'     => $params['general'] ?? true,
-            'holds'       => $params['holds'] ?? true,
-            'manual'      => $params['manual'] ?? true,
-            'overdues'    => $params['overdues'] ?? true,
-            ];
+        if ( $name = 'patron' ) {
+            $field_arrays = $this->send_get("$this->base_url/user/patron/describe", $token, []);
+        } else {
+            $field_arrays = $this->send_get("$this->base_url/user/patron/$name/describe", $token, []);
+        }
 
-        $this->validate('patron_key', $patron_key, 'i:1,999999');
-        $this->validate('telephone', $telephone, 'i:1000000000,9999999999');
-        
-        $structure = [[
-            'resource' => '/user/patron/phone',
-            'fields' => [
-                'patron' => [
-                    'resource' => '/user/patron',
-                    'key' => $patron_key,
-                    ],
-                'countryCode' => [
-                    'resource' => '/policy/countryCode',
-                    'key' => $params['countryCode'],
-                    ],
-                'number' => $telephone,
-                'bills' => $params['bills'],
-                'general' => $params['general'],
-                'holds' => $params['holds'],
-                'manual' => $params['manual'],
-                'overdues' => $params['overdues'],
-                ],
-            ]];
+        // Make the fields descriptions accessible by name
+        foreach ($field_arrays['fields'] as $object) {
+            $name = $object['name'];
+            foreach ($object as $key => $value) {
+                $this->field_desc[$name][$key] = $object[$key];
+                print "$key: $object[$key]\n";
+            }
+        }
 
-        return $structure;
+        if ( self::DEBUG_FIELDS ) {
+            $json = json_encode($this->field_desc, JSON_PRETTY_PRINT);
+            print "$json\n";
+        }
     }
+
 }
 
 // EOF

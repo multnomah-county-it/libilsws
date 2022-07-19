@@ -30,7 +30,6 @@ $patron = [
     'library_news' => 'YES',
     'middleName' => 'T',
     'notice_type' => 'PHONE',
-    'online_update' => 'YES',
     'postal_code' => '97209',
     'street' => '925 NW Hoyt St Apt 406',
     'telephone' => '215-534-6821',

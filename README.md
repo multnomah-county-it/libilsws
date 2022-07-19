@@ -45,6 +45,7 @@ or evaluating data from the Symphony system.
 - authenticate_id ($token, $patron_id, $password)
 - get_patron_attributes ($token, $patron_key)
 - patron_register ($patron, $token)
+- create_patron_json ($mode, $patron, $token, $patron_key)
 
 ## Examples
 

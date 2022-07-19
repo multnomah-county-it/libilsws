@@ -116,7 +116,7 @@ $patron = [
         ],
     ];
 
-$json = $ilsws->create_patron_json($patron, $patron_key);
+$json = $ilsws->create_patron_json('new_fields', $patron, $patron_key);
 $response = $ilsws->patron_update($token, $json, $patron_key);
 ```
 See the libilsws.yaml.sample file for field definitions and documentation

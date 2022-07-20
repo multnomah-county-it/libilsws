@@ -131,5 +131,5 @@ For a complete set of code examples see:
 `test/test.php`, `test/patron_describe.php`, `test/patron_register.php`, and `patron_reset_password.php`
 
 **Warning:** the test files may make real changes to the configured
-Symphony system. **Do use on a production system without carefully
+Symphony system. **Do not use on a production system without carefully
 reviewing what they do!**

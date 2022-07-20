@@ -1,16 +1,18 @@
-# libilsws
+# LibILSWS
 
-PHP package to support use of the SirsiDynix Symphony Web Services API (ILSWS)
+PHP package to support use of the SirsiDynix Symphony Web Services API (ILSWS) for patron functions
 
 John Houser
 john.houser@multco.us
 
 # Design Goals
-- Validate all inputs
+- Validate all inputs to public functions
 - Produce clean, clear error messages
-- Prevent or replace SirsiDynix error messages, which are sometimes obscure
+- Prevent or replace SirsiDynix error messages (which are sometimes obscure) as much as possible
 - Provide easy, high-level functions for creating, modifying, searching for, and authenticating patrons
-- Support easy reconfiguration to mirror changes to the Symphony configuration
+- Provide code examples for all functions
+- Support easy reconfiguration without code changes to mirror changes to the Symphony configuration
+- Support patron registrations or updates of any valid Symphony patron field without code changes
 - Allow easy adaptation by other libraries
 
 # Public Functions

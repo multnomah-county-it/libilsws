@@ -33,6 +33,7 @@ if presented with inappropriate inputs.
 - patron_authenticate ($token, $patron_id, $password)
 - patron_id_search ($token, $patron_id, $count) 
 - patron_describe ($token) 
+- patron_reset_password ($token, $patron_id, $url, $email)
 - patron_search ($token, $index, $search, $params)
 - patron_update ($token, $json, $patron_key) 
 
@@ -43,9 +44,10 @@ or evaluating data from the Symphony system.
 
 - authenticate_search ($token, $index, $search, $password)
 - authenticate_id ($token, $patron_id, $password)
+- create_patron_json ($patron, $mode, $token, $patron_key)
+- create_register_json ($patron, $token)
 - get_patron_attributes ($token, $patron_key)
 - patron_register ($patron, $token)
-- create_patron_json ($mode, $patron, $token, $patron_key)
 
 ## Examples
 
@@ -116,15 +118,16 @@ $patron = [
         ],
     ];
 
-$json = $ilsws->create_patron_json('new_fields', $patron, $patron_key);
+$json = $ilsws->create_patron_json($patron, 'overlay_fields', $token, $patron_key);
 $response = $ilsws->patron_update($token, $json, $patron_key);
 ```
+
 See the libilsws.yaml.sample file for field definitions and documentation
 of the YAML configuration options.
 
 For a complete set of code examples see:
-`test/test.php` and `test/register.php`
+`test/test.php`, `test/patron_describe.php`, `test/patron_register.php`, and `patron_reset_password.php`
 
-**Warning:** the test files make real changes to the configured
-Symphony system. Do use on a production system without carefully
-reviewing what they do!
+**Warning:** the test files may make real changes to the configured
+Symphony system. **Do use on a production system without carefully
+reviewing what they do!**

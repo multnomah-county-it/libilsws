@@ -34,7 +34,7 @@ print "authenticate_patron_id\n";
 $returned_patron_key = $ilsws->authenticate_patron_id($token, $patron_id, $password);
 print "patron_key: $returned_patron_key\n\n";
 
-// Get patron attributes
+// Authenticate search
 print "authenticate_search\n";
 $returned_patron_key = $ilsws->authenticate_search($token, 'EMAIL', $email, $password);
 print "patron_key: $returned_patron_key\n\n";

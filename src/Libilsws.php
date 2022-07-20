@@ -228,7 +228,7 @@ class Libilsws
 
     public function send_get ($url = null, $token = null, $params = null) 
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('url', $url, 'u');
  
         // Encode the query parameters, as they will be sent in the URL
@@ -317,7 +317,7 @@ class Libilsws
     public function send_query ($url = null, $token = null, $query_json = null, $query_type = null)
     {
         $this->validate('url', $url, 'u');
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('query_json', $query_json, 'j');
         $this->validate('query_type', $query_type, 'v:POST|PUT');
 
@@ -385,6 +385,41 @@ class Libilsws
     }
 
     /**
+     * Resets a user password via call-back to a web application and email
+     *
+     * @param  string $token      The session token returned by ILSWS
+     * @param  string $patron_id  The patron barcode
+     * @param  string $url        The call-back URL for the web application
+     * @param  string $email      Optional email address to use and validate
+     * @return string             JSON response string
+     */
+
+    public function patron_reset_password ($token = null, $patron_id = null, $url = null, $email = null)
+    {
+
+        $data = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('token', $patron_id, 'i:100000000,29999999999999');
+        $this->validate('url', $url, 'u');
+
+        $data = [
+            'barcode' => $patron_id,
+            'resetPasswordUrl' => $url,
+            ];
+
+        if ( $email ) {
+            $this->validate('email', $email, 'e');
+            $data['email'] = $email;
+        }
+
+        $json = json_encode($data);
+        print "$json\n";
+
+        return $this->send_query("$this->base_url/user/patron/resetMyPassword", $token, $json, 'POST');
+    } 
+
+    /**
      * Use an email, telephone or other value to retrieve a user barcode (ID)
      * and then see if we can authenticate with that barcode and the user password.
      *
@@ -398,9 +433,10 @@ class Libilsws
      * @param  string $password   The patron password
      * @return string $patron_key The patron ID (barcode)
      */
+
     public function authenticate_search ($token = null, $index = null, $search = null, $password = null)
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('search', $search, 's:40');
         $this->validate('password', $password, 's:40');
 
@@ -466,7 +502,7 @@ class Libilsws
      */
     public function authenticate_patron_id ($token = null, $patron_id = null, $password = null)
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_id', $patron_id, 'i:100000,29999999999999');
         $this->validate('password', $password, 's:20');
 
@@ -495,7 +531,7 @@ class Libilsws
      */
     public function get_patron_attributes ($token = null, $patron_key = null)
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
         
         $attributes = [];
@@ -581,7 +617,7 @@ class Libilsws
 
     public function patron_authenticate ($token = null, $patron_id = null, $password = null)
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_id', $patron_id, 'i:20000000000000,29999999999999');
 
         $json = "{ \"barcode\": \"$patron_id\", \"password\": \"$password\" }";
@@ -599,7 +635,7 @@ class Libilsws
 
     public function patron_describe ($token) 
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
         return $this->send_get("$this->base_url/user/patron/describe", $token, []);
     }
@@ -616,7 +652,7 @@ class Libilsws
 
     public function patron_search ($token = null, $index = null, $value = null, $params = null)
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('index', $index, "v:$this->valid_search_indexes");
         $this->validate('value', $value, 's:40');
 
@@ -652,7 +688,7 @@ class Libilsws
 
     public function patron_alt_id_search ($token = null, $alt_id = null, $count = null)
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('alt_id', $alt_id, 'i:1,99999999');
         $this->validate('count', $count, 'i:1,1000');
 
@@ -670,7 +706,7 @@ class Libilsws
 
     public function patron_id_search ($token = null, $patron_id = null, $count = null) 
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_id', $patron_id, 'i:20000000000000,29999999999999');
         $this->validate('count', $count, 'i:1,1000');
 
@@ -745,13 +781,16 @@ class Libilsws
      * Create patron data structure required by the patron_update function
      *
      * @param  object $patron     Associative array of patron data elements
+     * @param  string $mode       new_fields or overlay_fields
+     * @param  string $token      The sessions key returned by ILSWS
      * @param  string $patron_key Optional patron key to include if updating existing record
      * @return string $json       Complete Symphony patron record JSON
      */
 
-    public function create_patron_json ($mode, $patron, $token = null, $patron_key = null)
+    public function create_patron_json ($patron, $mode = null, $token = null, $patron_key = null)
     {
-        $this->validate('token', $token, 's:20');
+        $this->validate('mode', $mode, 'v:overlay_fields|new_fields');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 
         // Start building the object
@@ -794,12 +833,14 @@ class Libilsws
 
                 if ( isset($this->field_desc[$field]) ) {
 
+                    // If this is not a list type field, we can use a generic function to process it
                     if ( $this->field_desc[$field]['type'] !== 'list' ) {
 
                         $new['fields'][$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
 
                     } else {
 
+                        // $field is a list so we have specific functions for the types we support, address# and phoneList
                         if ( preg_match('/^address\d{1}$/', $field) && ! empty($patron[$field]) ) {
 
                             $new['fields'][$field] = $this->create_field_address($field, $fields[$field], $patron[$field]);
@@ -977,8 +1018,11 @@ class Libilsws
 
     private function create_field_phone ($patron_key = null, $params = null)
     {
+
+        // Remove non-digit characters from the number
         $telephone = preg_replace('/\D/', '', $params['number']);
 
+        // Validate everthing!
         $this->validate('patron_key', $patron_key, 'i:1,999999');
         $this->validate('telephone', $telephone, 'i:1000000000,9999999999');
         $this->validate('countryCode', $params['countryCode'], 'r:/^[A-Z]{2}$/');
@@ -988,6 +1032,7 @@ class Libilsws
         $this->validate('manual', $params['manual'], 'v:true|false');
         $this->validate('overdues', $params['overdues'], 'v:true|false');
 
+        // Assign default values as needed
         $params = [
             'countryCode' => $params['countryCode'] ?? 'US',
             'bills'       => $params['bills'] ?? true,
@@ -996,7 +1041,8 @@ class Libilsws
             'manual'      => $params['manual'] ?? true,
             'overdues'    => $params['overdues'] ?? true,
             ];
-        
+       
+        // Create the phoneList structure required by Symphony 
         $structure = [[
             'resource' => '/user/patron/phone',
             'fields' => [
@@ -1050,6 +1096,7 @@ class Libilsws
                 throw new Exception ("The $field $subfield field is required");
             }
 
+            // Create address structure
             $address = [];
             $address['resource'] = "/user/patron/$field";
             $address['fields']['code']['resource'] = "/policy/patronAddress$num";
@@ -1071,7 +1118,7 @@ class Libilsws
 
     public function create_register_json ($patron, $token = null)
     {
-        $this->validate('token', $token, 's:20');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
         $new = [];
 
@@ -1115,7 +1162,7 @@ class Libilsws
          
             if ( ! empty($this->field_desc[$field]) ) {
 
-                // Create field structure based on field type
+                // if we have a value in $patron for this field, Create field structure based on field type
                 if ( ! empty($patron[$field]) ) {
                     $new[$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
                 }
@@ -1125,15 +1172,15 @@ class Libilsws
             }
         }
 
-        // Return a JSON string suitable for use in patron_create
+        // Return a JSON string suitable for use in patron_register
         return json_encode($new, JSON_PRETTY_PRINT);
     }
 
     /**
      * Register a new patron (with email response and duplicate checking)
      * 
-     * The initial registration can't update all the fields we want to set,
-     * so we do the initial registration, then take the patron key returned
+     * The initial registration can't update all the fields we want to be able
+     * set, so we do the initial registration, then take the patron key returned
      * and perform an update of the remaining fields.
      *
      * @param  object $patron Associative array containing patron data
@@ -1143,7 +1190,7 @@ class Libilsws
 
     public function patron_register ($patron, $token = null)
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
         $response = [];
 
@@ -1154,12 +1201,12 @@ class Libilsws
         }
         $response = $this->send_query("$this->base_url/user/patron/register", $token, $json, 'POST');
 
-        // Assign the patron_id (barcode) from the initial registration to the update array
+        // Assign the patron_key from the initial registration to the update array
         $patron_key = $response['patron']['key'];
 
         if ( strlen($patron_key) > 0 ) { 
 
-            // Assign the new values from the patron array, checking for aliases
+            // Assign the new values from the patron array
             $update = [];
             $fields = $this->config['symphony']['new_fields'];
             foreach ($fields as $field => $value) {
@@ -1171,14 +1218,15 @@ class Libilsws
             }
 
             // Create a record structure with the update fields 
-            $json = $this->create_patron_json('new_fields', $update, $token, $patron_key);
+            $json = $this->create_patron_json($update, 'new_fields', $token, $patron_key);
             if ( self::DEBUG_REGISTER ) {
                 print "$json\n";
             }
+
+            // Update Symphony
             $response = $this->patron_update($token, $json, $patron_key);
         }
 
-        // Update the fields
         return $response;
     }
 
@@ -1192,7 +1240,7 @@ class Libilsws
 
     public function patron_update ($token = null, $json = null, $patron_key = null) 
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('json', $json, 'j');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 
@@ -1209,7 +1257,7 @@ class Libilsws
 
     public function patron_activity_update ($token = null, $patron_id = null)
     {
-        $this->validate('token', $token, 's:40');
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_id', $patron_id, 'i:10000000,29999999999999');
 
         $json = "{\"patronBarcode\": \"$patron_id\"}";

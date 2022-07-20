@@ -564,41 +564,41 @@ class Libilsws
                     if ( isset($response['fields']['address1']) ) {
                         foreach ($response['fields']['address1'] as &$i) {
                             if ( $i['fields']['code']['key'] == 'EMAIL' ) {
-                                $attributes['email'][] = $i['fields']['data'];
+                                $attributes['email'] = $i['fields']['data'];
                             } elseif ( $i['fields']['code']['key'] == 'CITY/STATE' ) {
                                 $parts = preg_split("/,\s*/", $i['fields']['data']);
-                                $attributes['city'][] = $parts[0];
-                                $attributes['state'][] = $parts[1];
+                                $attributes['city'] = $parts[0];
+                                $attributes['state'] = $parts[1];
                             } elseif ( $i['fields']['code']['key'] == 'ZIP' ) {
-                                $attributes['zip'][] = $i['fields']['data'];
+                                $attributes['zip'] = $i['fields']['data'];
                             } elseif ( $i['fields']['code']['key'] == 'PHONE' ) {
-                                $attributes['telephone'][] = $i['fields']['data'];
+                                $attributes['telephone'] = $i['fields']['data'];
                             }
                         }
                     }
                 } elseif ( isset($response['fields'][$field]['key']) ) {
-                    $attributes[$field][] = $response['fields'][$field]['key'];
+                    $attributes[$field] = $response['fields'][$field]['key'];
                 } elseif ( isset($response['fields'][$field]) ) {
-                    $attributes[$field][] = $response['fields'][$field];
+                    $attributes[$field] = $response['fields'][$field];
                 } else {
-                    $attributes[$field][] = '';
+                    $attributes[$field] = '';
                 }
             }
         }
         // Generate a displayName
         if ( isset($response['fields']['lastName']) && isset($response['fields']['firstName']) ) {
-            $attributes['displayName'][] = $response['fields']['firstName'] . ' ' . $response['fields']['lastName'];
+            $attributes['displayName'] = $response['fields']['firstName'] . ' ' . $response['fields']['lastName'];
         }
         // Generate a commonName
         if ( isset($response['fields']['lastName']) && isset($response['fields']['firstName']) ) {
             if ( isset($response['fields']['middleName']) ) {
-                $attributes['commonName'][] = $response['fields']['lastName'] 
+                $attributes['commonName'] = $response['fields']['lastName'] 
                   . ', ' 
                   . $response['fields']['firstName'] 
                   . ' ' 
                   . $response['fields']['middleName'];
             } else {
-                $attributes['commonName'][] = $response['fields']['lastName'] 
+                $attributes['commonName'] = $response['fields']['lastName'] 
                   . ', ' 
                   . $response['fields']['firstName'];
             }

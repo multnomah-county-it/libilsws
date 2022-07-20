@@ -126,6 +126,6 @@ $response = $ilsws->patron_update($token, $json, $patron_key);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
-// See test/register.php for patron registration example
+// See test/patron_register.php for patron registration example
 
 // EOF

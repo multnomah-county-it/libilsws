@@ -23,6 +23,7 @@ use \Exception;
  *
  * @package Libilsws
  */
+
 class APIException extends Exception 
 {
 
@@ -69,9 +70,9 @@ class Libilsws
 {
     // Turn these on to see various debug messages
     const DEBUG_CONFIG = 0;
-    const DEBUG_CONNECT = 0;
+    const DEBUG_CONNECT = 1;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 0;
+    const DEBUG_QUERY = 1;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -383,6 +384,41 @@ class Libilsws
         
         return json_decode($json, true);
     }
+
+    /**
+     * Resets a user pin via call-back to a web application and email
+     *
+     * @param  string $token      The session token returned by ILSWS
+     * @param  string $patron_id  The patron barcode
+     * @param  string $url        The call-back URL for the web application
+     * @param  string $email      Optional email address to use and validate
+     * @return string             JSON response string
+     */
+
+    public function patron_reset_pin ($token = null, $patron_id = null, $url = null, $email = null)
+    {
+
+        $data = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('token', $patron_id, 'i:100000000,29999999999999');
+        $this->validate('url', $url, 'u');
+
+        $data = [
+            'barcode' => $patron_id,
+            'resetPinUrl' => $url,
+            ];
+
+        if ( $email ) {
+            $this->validate('email', $email, 'e');
+            $data['email'] = $email;
+        }
+
+        $json = json_encode($data);
+        print "$json\n";
+
+        return $this->send_query("$this->base_url/user/patron/resetMyPin", $token, $json, 'POST');
+    } 
 
     /**
      * Resets a user password via call-back to a web application and email

@@ -27,7 +27,7 @@
 ilsws:
   username: 'USERNAME'
   password: 'PASSWORD'
-  hostname: 'hostname.domain'
+  hostname: 'HOSTNAME.DOMAIN'
   port: 443
   webapp: 'WEBAPP'
   app_id: 'APP_ID'
@@ -39,15 +39,15 @@ ilsws:
   default_include_fields: 'profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate'
 symphony:
   # The age_ranges are used to map a particular age range to a profile. If you don't use age based profiles, 
-  # set 1-120 to your default profile 
+  # you may delete age_ranges and set a default for the profile field
   age_ranges: 
     1-12: '1_MULT_Y'
     13-120: '0_MULT'
   valid_search_indexes: 'UKEY,ALIAS,STUD_ID,PREV_ID,PREV_ID2,ALT_NAME,COMMENT,PHONE,EMAIL,STREET,NAME,ID,ALT_ID,GROUP_ID,USERGROUP,BIRTHDATE'
   # The overlay_fields section defines the fields that may be used in the patron_modify and patron_register functions. 
-  # Note: new records are created with the patron_register function because that function utilizes Symphony to generate 
-  # a temporary patron_id (barcode). The order of fields does not matter, but the address fields must be grouped under 
-  # address1, address2, or address3. Empty fields sections or attributes will cause errors.
+  # Note: Symphony will assign new records a temporary patron_id (barcode). The patron_update function may be used to 
+  # update that later. The order of fields does not matter, but address fields must be grouped under address1, 
+  # address2, or address3. Delete unused fields. Empty fields sections or attributes may cause unexpected behavior.
   overlay_fields: 
     key:
       alias: 'patron_key'
@@ -91,7 +91,8 @@ symphony:
       PHONE:
         alias: 'telephone'
         validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
-    # This element is used to configure SMS phone numbers only, and requires a fixed params array
+    # This element is used to configure SMS telephone numbers only, and requires a fixed params array. See
+    # test/patron_register.php for an example.
     phoneList:
         alias: 'sms_phone_list'
     category01:
@@ -125,9 +126,10 @@ symphony:
     category12:
       alias: 'los'
   # This section defines the fields used by the patron_register function to create new patron records. 
-  # Note: the fields here *must* match those selected in the ILSWS Self-Registration Configuration. 
-  # However, you may make the aliases the same as those in the previous section. Fields in this section
-  # must include the boolean required attribute. The order of fields in the configuration does not matter.
+  # Note: fields here *must* match those selected in the ILSWS Self-Registration Configuration for those
+  # data elements. However, you may add additional valid Symphony fields if desired. If you assign aliases 
+  # they should match those used in the previous section. Fields in this section must include the boolean 
+  # required attribute (true/false). The order of fields in the configuration does not matter.
   new_fields: 
     profile:
       validation: "v:0_MULT|1_MULT_Y|2_METRO|3_METRO_Y|PASSPORT|PASSPORT_Y"
@@ -142,7 +144,8 @@ symphony:
       validation: 'v:ARABIC|CHINESE|DUTCH|ENGLISH|FRENCH|FRENCH-AF|GERMAN|HUNGARIAN|JAPANESE|ROMANIAN|RUSSIAN|SOMALI|SPANISH|VIETNAMESE'
       default: 'ENGLISH'
       required: false
-    # This element is used to configure SMS phone numbers only, and requires a fixed params array
+    # This element is used to configure SMS telephone numbers only, and requires a fixed params array. See
+    # test/patron_register.php.
     phoneList:
         alias: 'sms_phone_list'
     patron-pin:

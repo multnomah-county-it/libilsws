@@ -43,7 +43,7 @@ symphony:
   age_ranges: 
     1-12: '1_MULT_Y'
     13-120: '0_MULT'
-  valid_search_indexes: 'UKEY,ALIAS,STUD_ID,PREV_ID,PREV_ID2,ALT_NAME,COMMENT,PHONE,EMAIL,STREET,NAME,ID,ALT_ID,GROUP_ID,USERGROUP,BIRTHDATE'
+  valid_search_indexes: 'UKEY|ALIAS|STUD_ID|PREV_ID|PREV_ID2|ALT_NAME|COMMENT|PHONE|EMAIL|STREET|NAME|ID|ALT_ID|GROUP_ID|USERGROUP|BIRTHDATE'
   # The overlay_fields section defines the fields that may be used in the patron_modify and patron_register functions. 
   # Note: Symphony will assign new records a temporary patron_id (barcode). The patron_update function may be used to 
   # update that later. The order of fields does not matter, but address fields must be grouped under address1, 

@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 1;
+    const DEBUG_QUERY = 0;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 

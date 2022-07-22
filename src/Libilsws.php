@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 0;
+    const DEBUG_QUERY = 1;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -475,10 +475,10 @@ class Libilsws
             $search2 = preg_replace('/[^A-Za-z0-9\- ]/', '', $search2);
         }
         if ( preg_match('/date/i', $index1) ) {
-            $search1 = preg_replace('/\-]/', '', $this->create_field_date('index', $search1));
+            $search1 = preg_replace('/-/', '', $this->create_field_date('search', $search1));
         }
         if ( preg_match('/date/i', $index2) ) {
-            $search2 = preg_replace('/\-/', '', $this->create_field_date('index2', $search2));
+            $search2 = preg_replace('/-/', '', $this->create_field_date('search2', $search2));
         }
 
         $result1 = $this->patron_search($token, $index1, $search1, ['rw' => 1, 'ct' => 1000]);
@@ -501,7 +501,7 @@ class Libilsws
                 
                 while ( $result_rows >= $start_row ) {
 
-                    $result2 = $this->patron_search($token, $index2, $search2, ['rw' => $start_rowi, 'ct' => 1000]);
+                    $result2 = $this->patron_search($token, $index2, $search2, ['rw' => $start_row, 'ct' => 1000]);
 
                     if ( $this->compare_arrays($result1['result'], $result2['result']) ) {
                         

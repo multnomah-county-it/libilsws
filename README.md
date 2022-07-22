@@ -49,6 +49,7 @@ or evaluating data from the Symphony system.
 - authenticate_id ($token, $patron_id, $password)
 - create_patron_json ($patron, $mode, $token, $patron_key)
 - create_register_json ($patron, $token)
+- duplicate_check($token, $index1, $search1, $index2, $search2)
 - get_patron_attributes ($token, $patron_key)
 - patron_register ($patron, $token)
 

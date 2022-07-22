@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 0;
+    const DEBUG_QUERY = 1;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -84,13 +84,6 @@ class Libilsws
 
     // The ILSWS connection parameters and Symphony field configuration
     private $config;
-
-    /**
-     * Searchable indexes in Symphony. These are derived from the
-     * Symphony configuration and could change, so they are set 
-     * in the YAML configuration
-     */
-    private $valid_search_indexes;
 
     // Data handler instance
     private $dh;
@@ -115,8 +108,6 @@ class Libilsws
         } else {
             throw new Exception("Bad YAML file: $yaml_file");
         }
-
-        $this->valid_search_indexes = preg_replace('/,/', '|', $this->config['symphony']['valid_search_indexes']);
 
         $this->base_url = 'https://' 
             . $this->config['ilsws']['hostname'] 
@@ -456,6 +447,103 @@ class Libilsws
     } 
 
     /**
+     * Function to check for duplicate accounts by searching in two indexes
+     * and comparing the resulting arrays
+     *
+     * @param  string $token     The session token returned by ILSWS
+     * @param  string $index1    First search index
+     * @param  string $search1   First search string
+     * @param  string $index2    Second search index
+     * @param  string $search2   Second search string
+     * @return string            Boolean 1 or 0 depending on whether a duplicate is found
+     */
+
+    public function duplicate_check ($token = null, $index1 = null, $search1 = null, $index2 = null, $search2 = null)
+    {
+        $duplicate = 0;
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('index1', $index1, 'v:' . $this->config['symphony']['valid_search_indexes']);
+        $this->validate('search1', $search1, 's:40');
+        $this->validate('index2', $index2, 'v:' . $this->config['symphony']['valid_search_indexes']);
+        $this->validate('search2', $search2, 's:40');
+
+        if ( preg_match('/street/i', $index1) ) {
+            $search1 = preg_replace('/[^0-9A-Za-z\-]/g', '', $search1);
+        }
+        if ( preg_match('/street/i', $index2) ) {
+            $search2 = preg_replace('/[^0-9A-Za-z\-]/g', '', $search2);
+        }
+        if ( preg_match('/date/i', $index1) ) {
+            $search1 = preg_replace('/\-/', '', $this->create_field_date('index', $search1));
+        }
+        if ( preg_match('/date/i', $index2) ) {
+            $search2 = preg_replace('/\-/', '', $this->create_field_date('index2', $search2));
+        }
+
+        $result1 = $this->patron_search($token, $index1, $search1, ['rw' => 1, 'ct' => 1000]);
+
+        if ( $result1['totalResults'] >= 1 ) {
+
+            $start_row = 1;
+            $result_rows = 0;
+
+            $result2 = $this->patron_search($token, $index2, $search2, ['rw' => 1, 'ct' => 1000]);
+
+            if ( $result2['totalResults'] >= 1 && $this->compare_arrays($result1['result'], $result2['result']) ) {
+
+                $duplicate = 1;
+
+            } else {
+
+                $result_rows = $result2['totalResults'];
+                $start_row += 1000;
+                
+                while ( $result_rows >= $start_row ) {
+
+                    $result2 = $this->patron_search($token, $index2, $search2, ['rw' => $start_rowi, 'ct' => 1000]);
+
+                    if ( $this->compare_arrays($result1['result'], $result2['result']) ) {
+                        
+                        $duplicate = 1;
+                    }
+                    $start_row += 1000;
+                }
+            }
+        }
+
+        return $duplicate;
+    }
+
+    /**
+     * Compare two associative arrays to see if there are matches
+     *
+     * @param  array  $array1  The first array to compare
+     * @param  array  $array2  The second array to compare
+     * @return string $matches Count of matches
+     */
+
+    private function compare_arrays ($array1, $array2)
+    {
+
+        $array1 = array_filter($array1, 'array_filter');
+        $array2 = array_filter($array2, 'array_filter');
+
+        $matches = 0;
+
+        foreach ($array1 as $key => $value) {
+            foreach ($array2 as $key2 => $value) {
+                if ( $array1[$key] === $array2[$key2] ) {
+                    $matches++;
+                }
+            }
+        }
+
+        return $matches;
+    }
+
+    
+    /**
      * Use an email, telephone or other value to retrieve a user barcode (ID)
      * and then see if we can authenticate with that barcode and the user password.
      *
@@ -477,7 +565,7 @@ class Libilsws
         $this->validate('password', $password, 's:40');
 
         // These values are determined by the Symphony configuration 
-        $this->validate('index', $index, "v:$this->valid_search_indexes");
+        $this->validate('index', $index, 'v:' . $this->config['symphony']['valid_search_indexes']);
 
         $params = [
                 'rw'            => '1',
@@ -689,7 +777,7 @@ class Libilsws
     public function patron_search ($token = null, $index = null, $value = null, $params = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('index', $index, "v:$this->valid_search_indexes");
+        $this->validate('index', $index, 'v:' . $this->config['symphony']['valid_search_indexes']);
         $this->validate('value', $value, 's:40');
 
         /** 

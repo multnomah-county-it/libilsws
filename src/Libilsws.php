@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 1;
+    const DEBUG_QUERY = 0;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -469,13 +469,13 @@ class Libilsws
         $this->validate('search2', $search2, 's:40');
 
         if ( preg_match('/street/i', $index1) ) {
-            $search1 = preg_replace('/[\W\-]/', '', $search1);
+            $search1 = preg_replace('/[^A-Za-z0-9\- ]/', '', $search1);
         }
         if ( preg_match('/street/i', $index2) ) {
             $search2 = preg_replace('/[^A-Za-z0-9\- ]/', '', $search2);
         }
         if ( preg_match('/date/i', $index1) ) {
-            $search1 = preg_replace('/[^A-Za-z0-9\- ]/', '', $this->create_field_date('index', $search1));
+            $search1 = preg_replace('/\-]/', '', $this->create_field_date('index', $search1));
         }
         if ( preg_match('/date/i', $index2) ) {
             $search2 = preg_replace('/\-/', '', $this->create_field_date('index2', $search2));

@@ -198,9 +198,9 @@ class DataHandler
                 break;
             case preg_match('/^YYYYMMDD$/', $format):
                 if ( preg_match('/^\d{8}$/', $date) ) {
-                    $year = substr($format, 0, 4);
-                    $month = substr($format, 5, 2);
-                    $day = substr($format, 7, 2);
+                    $year = substr($date, 0, 4);
+                    $month = substr($date, 4, 2);
+                    $day = substr($date, 6, 2);
                     if ( checkdate($month, $day, $year) ) {
                         $retval = $year . '-' . sprintf("%02d", $month) . '-' . sprintf("%02d", $day);
                     }

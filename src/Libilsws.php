@@ -228,7 +228,7 @@ class Libilsws
             $url .= "?";
             foreach ($params as $key => $value) {
                 if ( ! empty($params[$key]) ) {
-                    $url .= "$key=" . htmlentities($params[$key]) . '&';
+                    $url .= "$key=" . urlencode($params[$key]) . '&';
                 }
             }
             $url = substr($url, 0, -1);
@@ -469,10 +469,10 @@ class Libilsws
         $this->validate('search2', $search2, 's:40');
 
         if ( preg_match('/street/i', $index1) ) {
-            $search1 = preg_replace('/[^0-9A-Za-z\-]/g', '', $search1);
+            $search1 = preg_replace('/\W/', '', $search1);
         }
         if ( preg_match('/street/i', $index2) ) {
-            $search2 = preg_replace('/[^0-9A-Za-z\-]/g', '', $search2);
+            $search2 = preg_replace('/\W/', '', $search2);
         }
         if ( preg_match('/date/i', $index1) ) {
             $search1 = preg_replace('/\-/', '', $this->create_field_date('index', $search1));

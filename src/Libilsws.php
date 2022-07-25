@@ -497,6 +497,9 @@ class Libilsws
                             $matches++;
                         }
                     }
+                    if ( $matches > 1 ) {
+                        break;
+                    }
                 }
                 if ( $matches > 1 ) {
                     $duplicate = 1;
@@ -516,6 +519,9 @@ class Libilsws
                             if ( $record1['key'] === $record2['key'] ) {
                                 $matches++;
                             }
+                        }
+                        if ( $matches > 1 ) {
+                            break;
                         }
                     }
                     if ( $matches > 1 ) {

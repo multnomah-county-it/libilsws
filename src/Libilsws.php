@@ -491,8 +491,8 @@ class Libilsws
 
             if ( $result2['totalResults'] > 1 ) {
 
-                foreach ($result1['result'] as $record1) {
-                    foreach ($result2['result'] as $record2) {
+                foreach (array_filter($result1['result']) as $record1) {
+                    foreach (array_filter($result2['result']) as $record2) {
                         if ( $record1['key'] === $record2['key'] ) {
                             $matches++;
                         }
@@ -511,8 +511,8 @@ class Libilsws
 
                     $result2 = $this->patron_search($token, $index2, $search2, ['rw' => $start_row, 'ct' => 1000, 'includeFields' => 'key']);
 
-                    foreach ($result1['result'] as $record1) {
-                        foreach ($result2['result'] as $record2) {
+                    foreach (array_filter($result1['result']) as $record1) {
+                        foreach (array_filter($result2['result']) as $record2) {
                             if ( $record1['key'] != $record2['key'] ) {
                                 $matches++;
                             }

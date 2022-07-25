@@ -459,6 +459,7 @@ class Libilsws
     public function duplicate_check ($token = null, $index1 = null, $search1 = null, $index2 = null, $search2 = null)
     {
         $duplicate = 0;
+        $matches = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('index1', $index1, 'v:' . $this->config['symphony']['valid_search_indexes']);
@@ -479,18 +480,27 @@ class Libilsws
             $search2 = preg_replace('/-/', '', $this->create_field_date('search2', $search2));
         }
 
-        $result1 = $this->patron_search($token, $index1, $search1, ['rw' => 1, 'ct' => 1000]);
+        $result1 = $this->patron_search($token, $index1, $search1, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
         if ( $result1['totalResults'] >= 1 ) {
 
             $start_row = 1;
             $result_rows = 0;
 
-            $result2 = $this->patron_search($token, $index2, $search2, ['rw' => 1, 'ct' => 1000]);
+            $result2 = $this->patron_search($token, $index2, $search2, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
-            if ( $result2['totalResults'] >= 1 && $this->compare_arrays($result1['result'], $result2['result']) ) {
+            if ( $result2['totalResults'] > 1 ) {
 
-                $duplicate = 1;
+                foreach ($result1['result'] as $record1) {
+                    foreach ($result2['result'] as $record2) {
+                        if ( $record1['key'] === $record2['key'] ) {
+                            $matches++;
+                        }
+                    }
+                }
+                if ( $matches > 1 ) {
+                    $duplicate = 1;
+                }
 
             } else {
 
@@ -499,11 +509,16 @@ class Libilsws
                 
                 while ( $result_rows >= $start_row ) {
 
-                    $result2 = $this->patron_search($token, $index2, $search2, ['rw' => $start_row, 'ct' => 1000]);
+                    $result2 = $this->patron_search($token, $index2, $search2, ['rw' => $start_row, 'ct' => 1000, 'includeFields' => 'key']);
 
-                    if ( $this->compare_arrays($result1['result'], $result2['result']) ) {
-                        
-                        $duplicate = 1;
+                    foreach ($result1['result'] as $record1) {
+                        foreach ($result2['result'] as $record2) {
+                            if ( $record1['key'] != $record2['key'] ) {
+                                $matches++;
+                            }
+                        }
+                    }
+                    if ( $matches > 1 ) {
                         break;
                     }
                     $start_row += 1000;
@@ -511,37 +526,13 @@ class Libilsws
             }
         }
 
+        if ( $matches > 1 ) {
+            $duplicate = 1;
+        }
+
         return $duplicate;
     }
 
-    /**
-     * Compare two associative arrays to see if there are matches
-     *
-     * @param  array  $array1  The first array to compare
-     * @param  array  $array2  The second array to compare
-     * @return string $matches Count of matches
-     */
-
-    private function compare_arrays ($array1, $array2)
-    {
-
-        $array1 = array_filter($array1, 'array_filter');
-        $array2 = array_filter($array2, 'array_filter');
-
-        $matches = 0;
-
-        foreach ($array1 as $key => $value) {
-            foreach ($array2 as $key2 => $value) {
-                if ( $array1[$key] === $array2[$key2] ) {
-                    $matches++;
-                }
-            }
-        }
-
-        return $matches;
-    }
-
-    
     /**
      * Use an email, telephone or other value to retrieve a user barcode (ID)
      * and then see if we can authenticate with that barcode and the user password.

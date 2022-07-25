@@ -406,7 +406,6 @@ class Libilsws
         }
 
         $json = json_encode($data);
-        print "$json\n";
 
         return $this->send_query("$this->base_url/user/patron/resetMyPin", $token, $json, 'POST');
     } 
@@ -441,7 +440,6 @@ class Libilsws
         }
 
         $json = json_encode($data);
-        print "$json\n";
 
         return $this->send_query("$this->base_url/user/patron/resetMyPassword", $token, $json, 'POST');
     } 
@@ -506,6 +504,7 @@ class Libilsws
                     if ( $this->compare_arrays($result1['result'], $result2['result']) ) {
                         
                         $duplicate = 1;
+                        break;
                     }
                     $start_row += 1000;
                 }

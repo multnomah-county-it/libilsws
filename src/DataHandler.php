@@ -172,7 +172,7 @@ class DataHandler
         $retval = '';
 
         switch (true) {
-            case preg_match('/^(YYYY)([\-\/]){1}(MM)([\-\/]){1}(DD\sHH:MM)$/', $format):
+            case preg_match('#^YYYY[\-\/]{1}MM[\-\/]{1}DD\sHH:MM$#', $format):
                 if ( preg_match('/^\d{4}[\-\/]{1}\d{2}[\-\/]{1}\d{2}\s\d{2}:\d{2}$/', $date) ) {
                     list($year, $month, $day, $time) = preg_split('/[\-\/\s]/', $date);
                     if ( checkdate($month, $day,$year) ) {
@@ -180,23 +180,23 @@ class DataHandler
                     }
                 }
                 break;
-            case preg_match('/^(YYYY)([\-\/]{1})(MM)([\-\/]{1})(DD)$/', $format):
-                if ( preg_match('/^\d{4}[\-\/]{1}\d{2}[\-\/]{1}\d{2}(\s\d{2}:\d{2}){0,1}$/', $date) ) {
+            case preg_match('#^YYYY[\-\/]{1}MM[\-\/]{1}DD$#', $format):
+                if ( preg_match('#^\d{4}[\-\/]{1}\d{2}[\-\/]{1}\d{2}(\s\d{2}:\d{2}){0,1}$#', $date) ) {
                     list($year, $month, $day) = preg_split('/[\-\/]/', $date);
                     if ( checkdate($month, $day, $year) ) {
                         $retval = $year . '-' . sprintf("%02d", $month) . '-' . sprintf("%02d", $day);
                     }
                 }
                 break;
-            case preg_match('/^(MM)([\-\/]{1})(DD)([\-\/]{1})(YYYY)$/', $format):
-                if ( preg_match('/^(\d{2})([\-\/]{1})(\d{2})([\-\/]{1})(\d{4})$/', $date) ) {
-                    list($year, $month, $day) = preg_split('/[\-\/]/', $date);
+            case preg_match('#^MM[\-\/]{1}DD[\-\/]{1}YYYY$#', $format):
+                if ( preg_match('#^\d{2}[\-\/]{1}\d{2}[\-\/]{1}\d{4}$#', $date) ) {
+                    list($month, $day, $year) = preg_split('/[\-\/]/', $date);
                     if ( checkdate($month, $day, $year) ) {
                         $retval = $year . '-' . sprintf("%02d", $month) . '-' . sprintf("%02d", $day);
                     }
                 }
                 break;
-            case preg_match('/^YYYYMMDD$/', $format):
+            case preg_match('#^YYYYMMDD$#', $format):
                 if ( preg_match('/^\d{8}$/', $date) ) {
                     $year = substr($date, 0, 4);
                     $month = substr($date, 4, 2);
@@ -206,8 +206,6 @@ class DataHandler
                     }
                 }
                 break;
-            default:
-                throw new Exception("Unsupported date format: $format");
         }
 
         return $retval;

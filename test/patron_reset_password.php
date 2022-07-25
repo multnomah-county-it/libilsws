@@ -14,7 +14,7 @@ print "Connecting\n\n";
 $token = $ilsws->connect();
 
 print "patron_reset_password\n\n";
-$url = 'https://multcolib.org?token=<RESET_PASSWORD_TOKEN>';
+$url = 'https://multcolib.org/reset-my-pin-callback';
 $response = $ilsws->patron_reset_password($token, $barcode, $url, $email);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";

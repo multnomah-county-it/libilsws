@@ -203,7 +203,6 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
-            exit;
         } 
 
         return $token;

@@ -94,7 +94,6 @@ class Libilsws
     // Constructor for this class
     public function __construct($yaml_file)
     {
-        include_once 'datahandler.php';
         $this->dh = new DataHandler();
 
         // Read the YAML configuration file and assign private varaibles

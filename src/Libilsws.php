@@ -495,7 +495,13 @@ class Libilsws
                     foreach (array_filter($result2['result']) as $record2) {
                         if ( $record1['key'] === $record2['key'] ) {
                             $matches++;
+                            if ( $matches > 1 ) {
+                                break;
+                            }
                         }
+                    }
+                    if ( $matches > 1 ) {
+                        break;
                     }
                 }
                 if ( $matches > 1 ) {
@@ -515,7 +521,13 @@ class Libilsws
                         foreach (array_filter($result2['result']) as $record2) {
                             if ( $record1['key'] === $record2['key'] ) {
                                 $matches++;
+                                if ( $matches > 1 ) {
+                                    break;
+                                }
                             }
+                        }
+                        if ( $matches > 1 ) {
+                            break;
                         }
                     }
                     if ( $matches > 1 ) {

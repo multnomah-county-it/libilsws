@@ -289,7 +289,6 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
-            exit;
         } 
 
         return json_decode($json, true);
@@ -369,7 +368,6 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
-            exit;
         }
         
         return json_decode($json, true);

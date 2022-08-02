@@ -53,6 +53,18 @@ or evaluating data from the Symphony system.
 - get_patron_attributes ($token, $patron_key)
 - patron_register ($patron, $token)
 
+## Date and Telephone Number Formats
+For the convenience of developers, the code library accepts
+dates in the following formats, wherever a date is accepted as a
+parameter: YYYYMMDD, YYYY-MM-DD, YYYY/MM/DD, MM-DD-YYYY, or 
+MM/DD/YYYY.
+
+The validation rules for telephone numbers are currently
+set to expect a string of digits with no punctuation. However,
+it would be easy to modify the validation rules at the top
+of any public function to accept punctuation in telephone
+numbers.
+
 ## Examples
 
 ### Initialize and Connect to ILSWS

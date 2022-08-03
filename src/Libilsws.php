@@ -92,7 +92,7 @@ class Libilsws
     private $field_desc = [];
     
     // Constructor for this class
-    public function __construct($yaml_file)
+    public function __construct($yaml_file, $token = '')
     {
         $this->dh = new DataHandler();
 
@@ -117,7 +117,9 @@ class Libilsws
 
 
         // Get the ILSWS patron field metadata and make it accessible by name
-        $token = $this->connect();
+        if (!$token) {
+            $token = $this->connect();
+        }
         $this->get_field_desc($token, 'patron');
     }
 

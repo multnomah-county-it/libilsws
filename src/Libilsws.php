@@ -114,11 +114,6 @@ class Libilsws
             . $this->config['ilsws']['port'] 
             . '/' 
             . $this->config['ilsws']['webapp'];
-
-
-        // Get the ILSWS patron field metadata and make it accessible by name
-        $token = $this->connect();
-        $this->get_field_desc($token, 'patron');
     }
 
     /**
@@ -915,6 +910,11 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 
+        // Go get field descriptions if they aren't already available
+        if ( empty($this->field_desc) ) {
+            $this->get_field_desc($token, 'patron');
+        }
+
         // Start building the object
         $new['resource'] = '/user/patron';
         $new['key'] = $patron_key;
@@ -1243,6 +1243,11 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
         $new = [];
+
+        // Go get field descriptions if they aren't already available
+        if ( empty($this->field_desc) ) {
+            $this->get_field_desc($token, 'patron');
+        }
 
         // Get additional field metadata from Symphony
         $this->get_field_desc($token, 'register');

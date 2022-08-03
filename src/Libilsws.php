@@ -473,14 +473,14 @@ class Libilsws
 
         $result1 = $this->patron_search($token, $index1, $search1, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
-        if ( isset($result1['totalResults'] && $result1['totalResults'] >= 1 ) {
+        if ( isset($result1['totalResults']) && $result1['totalResults'] >= 1 ) {
 
             $start_row = 1;
             $result_rows = 0;
 
             $result2 = $this->patron_search($token, $index2, $search2, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
-            if ( isset($result2['totalResults'] && $result2['totalResults'] > 1 ) {
+            if ( isset($result2['totalResults']) && $result2['totalResults'] > 1 ) {
 
                 foreach (array_filter($result1['result']) as $record1) {
                     foreach (array_filter($result2['result']) as $record2) {

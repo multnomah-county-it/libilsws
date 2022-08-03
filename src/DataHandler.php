@@ -26,6 +26,7 @@ class DataHandler
      *
      * %fields = (
      *     blank              => 'b',                  // must be blank
+     *     boolean            => 'o',                  // 1|0
      *     date1              => 'd:YYYY-MM-DD',
      *     date2              => 'd:YYYY/MM/DD',
      *     date3              => 'd:MM-DD-YYYY',
@@ -49,21 +50,18 @@ class DataHandler
 
     public function validate ($value, $validation_rule) {
 
+        $retval = 0;
+
         // A null value always returns 0
         if ( $value === null ) {
             return 0;
         }
 
-        $retval = 0;
         if ( strlen($validation_rule) > 1 ) {
             list($type, $param) = preg_split('/:/', $validation_rule, 2);
         } else {
             $type = $validation_rule;
             $param = '';
-        }
-
-        if ( ! $value ) {
-            return -1;
         }
 
         switch ($type) {
@@ -111,6 +109,12 @@ class DataHandler
                  */
                 list($min_range, $max_range) = preg_split('/\./', $param);
                 if ( filter_var($value, FILTER_VALIDATE_FLOAT, ['options' => ['min_range' => $min_range, 'max_range' => $max_range]]) ) {
+                    $retval = 1;
+                }
+                break;
+            case "o":
+                // 1|0
+                if ( $value == 1 || $value == 0 ) {
                     $retval = 1;
                 }
                 break;

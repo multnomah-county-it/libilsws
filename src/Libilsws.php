@@ -928,13 +928,17 @@ class Libilsws
          */
         $patron['profile'] = $this->get_profile($patron);
 
-        // Loop through each field
+        // Convert aliases to Symphony fields
         foreach ($fields as $field => $value) {
 
             // Check if the data is coming in with a different field name (alias)
-            if ( empty($patron[$field]) && ! empty($fields[$field]['alias']) && ! empty($patron[$fields[$field]['alias']]) ) {
+            if ( ! empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
                 $patron[$field] = $patron[$fields[$field]['alias']];
             }
+        }
+
+        // Loop through each field
+        foreach ($fields as $field => $value) {
 
             // Assign default values to empty fields, where appropriate
             if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
@@ -1148,11 +1152,11 @@ class Libilsws
         $this->validate('patron_key', $patron_key, 'i:1,999999');
         $this->validate('telephone', $telephone, 'i:1000000000,9999999999');
         $this->validate('countryCode', $params['countryCode'], 'r:/^[A-Z]{2}$/');
-        $this->validate('bills', $params['bills'], 'v:true|false');
-        $this->validate('general', $params['general'], 'v:true|false');
-        $this->validate('holds', $params['holds'], 'v:true|false');
-        $this->validate('manual', $params['manual'], 'v:true|false');
-        $this->validate('overdues', $params['overdues'], 'v:true|false');
+        $this->validate('bills', $params['bills'], 'o');
+        $this->validate('general', $params['general'], 'o');
+        $this->validate('holds', $params['holds'], 'o');
+        $this->validate('manual', $params['manual'], 'o');
+        $this->validate('overdues', $params['overdues'], 'o');
 
         // Assign default values as needed
         $params = [
@@ -1163,7 +1167,7 @@ class Libilsws
             'manual'      => $params['manual'] ?? true,
             'overdues'    => $params['overdues'] ?? true,
             ];
-       
+
         // Create the phoneList structure required by Symphony 
         $structure = [[
             'resource' => '/user/patron/phone',
@@ -1261,15 +1265,19 @@ class Libilsws
         # Extract the field definitions from the configuration
         $fields = $this->config['symphony']['new_fields'];
 
+        // Convert aliases to Symphony fields
+        foreach ($fields as $field => $value) {
+
+            // Check if the data is coming in with a different field name (alias)
+            if ( ! empty($fields[$field]['alias']) && ! empty($patron[$fields[$field]['alias']]) ) {
+                $patron[$field] = $patron[$fields[$field]['alias']];
+            }
+        }
+
         foreach ($fields as $field => $value) {
 
             if ( self::DEBUG_REGISTER && ! empty($patron[$field]) ) {
                 print "$field: $patron[$field]\n";
-            }
-
-            // Check if the data is coming in with a different field name (alias)
-            if ( empty($patron[$field]) && ! empty($fields[$field]['alias']) && ! empty($patron[$fields[$field]['alias']]) ) {
-                $patron[$field] = $patron[$fields[$field]['alias']];
             }
 
             // Assign default values to empty fields, where appropriate
@@ -1333,19 +1341,8 @@ class Libilsws
 
         if ( strlen($patron_key) > 0 ) { 
 
-            // Assign the new values from the patron array
-            $update = [];
-            $fields = $this->config['symphony']['new_fields'];
-            foreach ($fields as $field => $value) {
-                if ( ! preg_match('/^patron(.*)/', $field) ) {
-                    if ( ! empty($patron[$field]) ) {
-                        $update[$field] = $patron[$field];
-                    }
-                }
-            }
-
             // Create a record structure with the update fields 
-            $json = $this->create_patron_json($update, 'new_fields', $token, $patron_key);
+            $json = $this->create_patron_json($patron, 'new_fields', $token, $patron_key);
             if ( self::DEBUG_REGISTER ) {
                 print "$json\n";
             }

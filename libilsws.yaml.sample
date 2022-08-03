@@ -1,6 +1,7 @@
 # Validation types and rules used in field definitions
 #
 # blank              => 'b',                  // must be blank
+# boolean            => 'o',
 # date1              => 'd:YYYY-MM-DD',
 # date2              => 'd:YYYY/MM/DD',
 # date3              => 'd:MM-DD-YYYY',

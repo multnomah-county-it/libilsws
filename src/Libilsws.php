@@ -501,6 +501,11 @@ class Libilsws
             $search2 = preg_replace('/-/', '', $this->create_field_date('search2', $search2));
         }
 
+        if ( self::DEBUG_QUERY ) {
+            print "$index1:$search1\n";
+            print "$index2:$search2\n";
+        }
+
         $result1 = $this->patron_search($token, $index1, $search1, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
         if ( isset($result1['totalResults']) && $result1['totalResults'] >= 1 ) {

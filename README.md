@@ -39,7 +39,6 @@ if presented with inappropriate inputs.
 - patron_reset_password ($token, $patron_id, $url, $email)
 - patron_reset_pin ($token, $patron_id, $url, $email)
 - patron_search ($token, $index, $search, $params)
-- patron_update ($token, $json, $patron_key) 
 
 ## High-level
 These functions offer functionality not directly supported by
@@ -53,6 +52,7 @@ or evaluating data from the Symphony system.
 - duplicate_check($token, $index1, $search1, $index2, $search2)
 - get_patron_attributes ($token, $patron_key)
 - patron_register ($patron, $token)
+- patron_update ($token, $json, $patron_key) 
 
 ## Date and Telephone Number Formats
 For the convenience of developers, the code library accepts

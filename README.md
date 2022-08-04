@@ -33,6 +33,7 @@ if presented with inappropriate inputs.
 - patron_activity_update ($token, $patron_id)
 - patron_alt_id_search ($token, $alt_id, $count)
 - patron_authenticate ($token, $patron_id, $password)
+- patron_delete ($token, $patron_key)
 - patron_id_search ($token, $patron_id, $count) 
 - patron_describe ($token) 
 - patron_reset_password ($token, $patron_id, $url, $email)
@@ -141,8 +142,7 @@ $response = $ilsws->patron_update($token, $json, $patron_key);
 See the libilsws.yaml.sample file for field definitions and documentation
 of the YAML configuration options.
 
-For a complete set of code examples see:
-`test/test.php`, `test/patron_describe.php`, `test/patron_register.php`, and `patron_reset_password.php`
+For a complete set of code examples see the scripts in the ``test`` directory.
 
 **Warning:** the test files may make real changes to the configured
 Symphony system. **Do not use on a production system without carefully

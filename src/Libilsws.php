@@ -302,8 +302,11 @@ class Libilsws
     {
         $this->validate('url', $url, 'u');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('query_json', $query_json, 'j');
-        $this->validate('query_type', $query_type, 'v:POST|PUT');
+        $this->validate('query_type', $query_type, 'v:POST|PUT|DELETE');
+
+        if ( $query_json ) {
+            $this->validate('query_json', $query_json, 'j');
+        }
 
         $role = 'STAFF';
         if ( preg_match('/patron\/register/', $url) ) {
@@ -332,14 +335,17 @@ class Libilsws
             CURLOPT_SSL_VERIFYSTATUS => true,
             CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
             CURLOPT_HTTPHEADER       => $headers,
-            CURLOPT_POSTFIELDS       => $query_json,
             ];
 
         try {
 
             $ch = curl_init();
             curl_setopt_array($ch, $options);
-            
+
+            if ( $query_json ) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $query_json);
+            }
+
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
@@ -349,7 +355,7 @@ class Libilsws
             }
 
             // Check for errors
-            if ( $this->code != 200 ) {
+            if ( ! preg_match('/^2\d\d$/', $this->code) ) {
                 $this->error = curl_error($ch);
                 if ( ! $this->error ) {
                     $this->error = $json;
@@ -365,6 +371,30 @@ class Libilsws
         }
         
         return json_decode($json, true);
+    }
+
+    /**
+     * Deletes a patron
+     *
+     * @param  string $token       The session token returned by ILSWS
+     * @param  string $patron_key  The patron key of the user to delete
+     * @return string              Returns 1 if successful, 0 if not
+     */
+
+    public function patron_delete ($token = null, $patron_key = null)
+    {
+        $retval = 0;
+        $json = '';
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
+
+        $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'DELETE');
+        if ( $this->code == 204 ) {
+            $retval = 1;
+        }
+
+        return $retval;
     }
 
     /**

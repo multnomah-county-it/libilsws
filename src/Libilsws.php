@@ -183,7 +183,7 @@ class Libilsws
                 print "HTTP $this->code: $json\n";
             }
 
-            if ( $this->code != 200 ) {
+            if ( ! preg_match('/^2\d\d$/', $this->code) ) {
                 $obfuscated_url =  $this->base_url . "/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
                 $this->error = "Connect failure: $obfuscated_url: " . curl_error($ch);
                 throw new APIException($this->error);

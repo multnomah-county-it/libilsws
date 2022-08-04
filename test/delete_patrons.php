@@ -36,16 +36,26 @@ $response = $ilsws->patron_search($token, $index, $search, $params);
 
 if ( isset($response['totalResults']) && $response['totalResults'] >= 1 ) {
 
+    print $response['totalResults'] . " patrons found\n\n";
+
     foreach ($response['result'] as $patron) {
 
         if ( ! empty($patron) ) {
 
-            printf("%-12s", $patron['key']);
-            printf("%-12s", $patron['fields']['barcode']);
-            printf("%-12s", $patron['fields']['alternateID']);
-            printf("%-12s", $patron['fields']['firstName']);
-            printf("%-12s", $patron['fields']['middleName']);
-            printf("%-12s", $patron['fields']['lastName']);
+            print str_pad("Key", 8, ' ');
+            print str_pad("Barcode", 16, ' ');
+            print str_pad("Alt ID", 10, ' ');
+            print str_pad("First Name", 16, ' ');
+            print str_pad("Middle Name", 16, ' ');
+            print str_pad("Last Name", 16, ' ');
+            print "\n";
+
+            print str_pad($patron['key'], 8, ' ');
+            print str_pad($patron['fields']['barcode'], 16, ' ');
+            print str_pad($patron['fields']['alternateID'], 10, ' ');
+            print str_pad($patron['fields']['firstName'], 16, ' ');
+            print str_pad($patron['fields']['middleName'], 16, ' ');
+            print str_pad($patron['fields']['lastName'], 16, ' ');
             print "\n";
 
             $confirm = readline("Do want to delete this patron (y/N)? ");

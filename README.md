@@ -37,7 +37,7 @@ if presented with inappropriate inputs.
 - patron_id_search ($token, $patron_id, $count) 
 - patron_describe ($token) 
 - patron_reset_password ($token, $patron_id, $url, $email)
-- patron_reset_pin ($token, $patron_id, $url, $email)
+- patron_change_password ($token, $json)
 - patron_search ($token, $index, $search, $params)
 
 ## High-level

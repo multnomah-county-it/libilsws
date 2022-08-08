@@ -398,37 +398,21 @@ class Libilsws
     }
 
     /**
-     * Resets a user pin via call-back to a web application and email
+     * Resets a user password
      *
      * @param  string $token      The session token returned by ILSWS
-     * @param  string $patron_id  The patron barcode
-     * @param  string $url        The call-back URL for the web application
-     * @param  string $email      Optional email address to use and validate
+     * @param  string $json       JSON containing either currentPassword and newPassword or
+     *                            resetPasswordToken and newPassword
      * @return string             JSON response string
      */
 
-    public function patron_reset_pin ($token = null, $patron_id = null, $url = null, $email = null)
+    public function patron_change_password ($token = null, $json = null)
     {
 
-        $data = [];
-
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('token', $patron_id, 'i:100000000,29999999999999');
-        $this->validate('url', $url, 'u');
+        $this->validate('json', $json, 'j');
 
-        $data = [
-            'barcode' => $patron_id,
-            'resetPinUrl' => $url,
-            ];
-
-        if ( $email ) {
-            $this->validate('email', $email, 'e');
-            $data['email'] = $email;
-        }
-
-        $json = json_encode($data);
-
-        return $this->send_query("$this->base_url/user/patron/resetMyPin", $token, $json, 'POST');
+        return $this->send_query("$this->base_url/user/patron/changeMyPassword", $token, $json, 'POST');
     } 
 
     /**

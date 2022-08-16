@@ -403,7 +403,7 @@ class Libilsws
      * @param  string $token      The session token returned by ILSWS
      * @param  string $json       JSON containing either currentPassword and newPassword or
      *                            resetPasswordToken and newPassword
-     * @return array              Response object
+     * @return object             Associative array containing response from ILSWS
      */
 
     public function patron_change_password ($token = null, $json = null)
@@ -422,7 +422,7 @@ class Libilsws
      * @param  string $patron_id  The patron barcode
      * @param  string $url        The call-back URL for the web application
      * @param  string $email      Optional email address to use and validate
-     * @return array              Response object
+     * @return object             Associative array containing response from ILSWS
      */
 
     public function patron_reset_password ($token = null, $patron_id = null, $url = null, $email = null)
@@ -784,7 +784,7 @@ class Libilsws
      * @param  string $index    The index to search
      * @param  string $value    The value to search for
      * @param  object $params   Associative array of optional parameters
-     * @return object $response Associative array containing search results
+     * @return object           Associative array containing search results
      */
 
     public function patron_search ($token = null, $index = null, $value = null, $params = null)
@@ -1081,7 +1081,7 @@ class Libilsws
      * @access private
      * @param  string $name   The name of the field
      * @param  string $value  The incoming value
-     * @return string $return The outgoing validated date string
+     * @return string $date   The outgoing validated date string
      */
 
     private function create_field_date ($name, $value)
@@ -1116,7 +1116,7 @@ class Libilsws
      * @access private
      * @param  string $name   The name of the field
      * @param  string $value  The incoming value
-     * @return object $return The outgoing associative array object
+     * @return object $object The outgoing associative array object
      */
 
     private function create_field_resource ($name, $key, $data = '')
@@ -1138,7 +1138,7 @@ class Libilsws
      * @access private
      * @param  string $name   The name of the field
      * @param  string $value  The incoming value
-     * @return string $return The outgoing value
+     * @return string $value  The outgoing value
      */
 
     private function create_field_string ($name, $value)
@@ -1216,8 +1216,8 @@ class Libilsws
      * Create address structure for use in patron update
      * 
      * @access private
-     * @param  string $field Name of address field
-     * @return object        Address object for insertion into a patron record
+     * @param  string $field   Name of address field
+     * @return object $address Address object for insertion into a patron record
      */
 
     private function create_field_address ($field, $fields, $patron)
@@ -1258,8 +1258,8 @@ class Libilsws
      * Create patron data structure required by the patron_register
      * function
      *
-     * @param  object $patron     Associative array of patron data elements
-     * @return string $json       Complete Symphony patron record JSON
+     * @param  object $patron Associative array of patron data elements
+     * @return string         Complete Symphony patron record JSON
      */
 
     public function create_register_json ($patron, $token = null)

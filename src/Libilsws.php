@@ -403,7 +403,7 @@ class Libilsws
      * @param  string $token      The session token returned by ILSWS
      * @param  string $json       JSON containing either currentPassword and newPassword or
      *                            resetPasswordToken and newPassword
-     * @return string             JSON response string
+     * @return array              Response object
      */
 
     public function patron_change_password ($token = null, $json = null)
@@ -422,11 +422,12 @@ class Libilsws
      * @param  string $patron_id  The patron barcode
      * @param  string $url        The call-back URL for the web application
      * @param  string $email      Optional email address to use and validate
-     * @return string             JSON response string
+     * @return array              Response object
      */
 
     public function patron_reset_password ($token = null, $patron_id = null, $url = null, $email = null)
     {
+
 
         $data = [];
 

@@ -431,7 +431,7 @@ class Libilsws
         $data = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('token', $patron_id, 'i:100000000,29999999999999');
+        $this->validate('patron_id', $patron_id, 'i:100000,29999999999999');
         $this->validate('url', $url, 'u');
 
         $data = [

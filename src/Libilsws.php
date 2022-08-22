@@ -375,22 +375,6 @@ class Libilsws
         return json_decode($json, true);
     }
 
-   /**
-    * Generates random 29 digit token
-    *
-    * @return string $token 29-digit token
-    */
-
-    public function gen_reset_token ()
-    {
-        $token = '';
-        for ($i = 0; $i <= 28; $i++) {
-            $x = rand(0, 9);
-            $token = $token . $x;
-        }
-        return $token;
-    }
-
     /**
      * Deletes a patron
      *

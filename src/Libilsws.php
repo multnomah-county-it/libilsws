@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 0;
+    const DEBUG_QUERY = 1;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -145,7 +145,7 @@ class Libilsws
      * 
      * @return string $token The x-sirs-sessionToken to be used in all subsequent headers
      */
-    public function connect()
+    public function connect ()
     {
 
         $action = "rest/security/loginUser";
@@ -371,6 +371,22 @@ class Libilsws
         }
         
         return json_decode($json, true);
+    }
+
+   /**
+    * Generates random 29 digit token
+    *
+    * @return string $token 29-digit token
+    */
+
+    public function gen_reset_token ()
+    {
+        $token = '';
+        for ($i = 0; $i <= 28; $x++) {
+            $x = rand(0, 9);
+            $token = $token . $x;
+        }
+        return $token;
     }
 
     /**

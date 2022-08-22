@@ -382,7 +382,7 @@ class Libilsws
     public function gen_reset_token ()
     {
         $token = '';
-        for ($i = 0; $i <= 28; $x++) {
+        for ($i = 0; $i <= 28; $i++) {
             $x = rand(0, 9);
             $token = $token . $x;
         }

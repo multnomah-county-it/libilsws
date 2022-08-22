@@ -311,6 +311,8 @@ class Libilsws
         $role = 'STAFF';
         if ( preg_match('/patron\/register/', $url) ) {
             $role = 'PATRON';
+        } elseif ( preg_match('/patron\/changeMyPassword/', $url) ) {
+            $role = 'PATRON';
         }
 
         // Define a random request tracker

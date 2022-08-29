@@ -376,6 +376,156 @@ class Libilsws
     }
 
     /**
+     * Retrieves bib information
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $bib_key     Bib key
+     * @param  string $field_list  Comma or comma and space delimited list of fields
+     *                             to be returned
+     * @return object              Associative array containing bib information
+     */
+
+    public function get_bib ($token = null, $bib_key = null, $field_list = null) 
+    {
+        $bib = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
+        $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9, ]{3,256}$#');
+
+        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token);
+
+        if ( $field_list === 'raw' ) {
+            return $response;
+        }
+
+        if ( ! empty($response['fields']) ) {
+            foreach ($response['fields'] as $key => $value) {
+                
+                $field_data = [];
+
+                if ( ! empty($response['fields'][$key]['key']) ) {
+                    $field_data[$key] = $response['fields'][$key]['key'];
+                } elseif ( $key === 'bib' ) {
+
+                    $bib_fields = $response['fields']['bib']['fields'];
+                    print_r($bib_fields);
+
+                    foreach ($bib_fields as $bib_key => $bib_value) {
+                        if ( $bib_key === 'tag' ) {
+                            $subfields = $bib_fields[$bib_key]['subfields'];
+                            foreach ($subfields as $sub_key => $sub_value) {
+                                if ( $subfields[$sub_key]['code'] === '_' ) {
+                                    $field_data[$bib_key] = $bib_fields[$bib_key]['subfields'][$sub_key]['data'];
+                                } elseif ( ! empty($bib_fields['tag']) ) {
+                                    $field_data[$bib_value . $bib_fields[$bib_key]['subfields'][$sub_key]['code']] 
+                                        = $bib_fields[$bib_key]['subfields'][$sub_key]['data'];
+                                }
+                            }
+                        } else {
+                            $field_data[$bib_key] = $bib_value;
+                        }
+                    }
+
+                } else {
+                    $field_data[$key] = $value;
+                }
+
+                // Use $field_list to determine which fields to return
+                if ( $field_list) {
+                    $fields = preg_split("/,\s*/", $field_list);
+                    foreach ($fields as $field) {
+                        if ( isset($field_data[$field]) ) {
+                            array_push($bib, $field_data);
+                        }
+                    }
+                } else {
+                    array_push($bib, $field_data);
+                }
+            }
+        }
+
+        return $bib;
+    }
+
+    /**
+     * Retrieves item information
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $item_key    Item key
+     * @param  string $field_list  Comma or comma and space delimited list of fields
+     *                             to be returned
+     * @return object              Associative array containing item information
+     */
+
+    public function get_item ($token = null, $item_key = null, $field_list = null)
+    {
+        $item = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1}:\d{1}$#');
+        $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9, ]{3,256}$#');
+
+        $response = $this->send_get("$this->base_url/catalog/item/key/$item_key", $token);
+
+        if ( ! empty($response['fields']) ) {
+            foreach ($response['fields'] as $key => $value) {
+
+                $field_data = [];
+                if ( ! empty($response['fields'][$key]['key']) ) {
+                    $field_data[$key] = $response['fields'][$key]['key'];
+                } elseif ( $key === 'price' ) {
+                    $field_data[$key] = $response['fields'][$key]['currencyCode'] 
+                        . ' ' 
+                        . $response['fields'][$key]['amount'];
+                } else {
+                    $field_data[$key] = $value;
+                }
+
+                if ( $field_list) {
+                    $fields = preg_split("/,\s*/", $field_list);
+                    foreach ($fields as $field) {
+                        if ( isset($field_data[$field]) ) {
+                            array_push($item, $field_data);
+                        }
+                    }
+                } else {
+                    array_push($item, $field_data);
+                }
+            }
+        }
+
+        return $item;
+    }
+
+    /**
+     * Pulls a hold list for a given library
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $library_key Library key (three character)
+     * @return object              Associative array containing the response from ILSWS
+     */
+
+    public function circulation_library_pull_list ($token = null, $library_key = null)
+    {
+        $return = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
+
+        $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token);
+        
+        if ( ! empty($response['fields']['pullList']) ) {
+            foreach ($response['fields']['pullList'] as $hold) {
+                $record = ['hold_key' => $hold['fields']['holdRecord']['key'], 'item_key' => $hold['fields']['item']['key']];
+                array_push($return, $record);
+            }
+        }
+
+        return $return;
+    }
+
+    /**
      * Deletes a patron
      *
      * @param  string $token       The session token returned by ILSWS

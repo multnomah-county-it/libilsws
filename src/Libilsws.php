@@ -537,6 +537,24 @@ class Libilsws
     }
 
     /**
+     * Get policy returns a policy record
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $policy_name Policy name for policy
+     * @param  string $policy_key  Policy key for policy
+     * @return object              Associative array containing the response from ILSWS
+     */
+
+    public function get_policy ($token = null, $policy_name = null, $policy_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('policy_name', $policy_name, 'r:#^[A-Za-z0-9]{1,20}$#');
+        $this->validate('policy_key', $policy_key, 'r:#^[A-Za-z\- 0-9]{1,10}$#');
+        
+        return $this->send_get("$this->base_url/policy/$policy_name/key/$policy_key", $token, []);
+    }
+
+    /**
      * Pulls a hold list for a given library
      * 
      * @param  string $token       Session token returned by ILSWS
@@ -558,10 +576,7 @@ class Libilsws
 
                 $record = [];
 
-                $record['hold_key'] = $list_hold['fields']['holdRecord']['key'];
-                $record['item_key'] = $list_hold['fields']['item']['key'];
-
-                $hold = $this->get_hold($token, $record['hold_key']);
+                $hold = $this->get_hold($token, $list_hold['fields']['holdRecord']['key']);
                 
                 if ( $hold['fields']['status'] != 'EXPIRED' ) {
                     $record['holdType'] = $hold['fields']['holdType'];
@@ -569,19 +584,23 @@ class Libilsws
                     $record['placedLibrary'] = $hold['fields']['placedLibrary']['key'];
                     $record['status'] = $hold['fields']['status'];
 
-                    $item = $this->get_item($token, $record['item_key'], 'bib,call,barcode,currentLocation');
-                    $record['bib'] = $item['bib'];
-                    $record['call'] = $item['call'];
+                    $item = $this->get_item($token, $list_hold['fields']['item']['key'], 'barcode,bib,call,currentLocation,itemCategory3');
                     $record['barcode'] = $item['barcode'];
                     $record['currentLocation'] = $item['currentLocation'];
+                    $record['format'] = $item['itemCategory3'];
 
-                    $bib = $this->get_bib($token, $record['bib'], 'author,title,titleControlNumber');
+                    $bib = $this->get_bib($token, $item['bib'], 'author,title');
                     $record['author'] = $bib['author'];
                     $record['title'] = $bib['title'];
-                    $record['titleControlNumber'] = $bib['titleControlNumber'];
     
-                    $call = $this->get_call_number($token, $record['call']);
+                    $call = $this->get_call_number($token, $item['call']);
                     $record['callNumber'] = $call['fields']['callNumber'];
+
+                    $location = $this->get_policy($token, 'location', $record['currentLocation']);
+                    $record['locationDescription'] = $location['fields']['description'];
+
+                    $format = $this->get_policy($token, 'itemCategory3', $record['format']);
+                    $record['formatDescription'] = $format['fields']['description'];
 
                     array_push($list, $record);
                 }

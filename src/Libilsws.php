@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 1;
+    const DEBUG_QUERY = 0;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -382,12 +382,13 @@ class Libilsws
      * @param  string $bib_key     Bib key
      * @param  string $field_list  Comma or comma and space delimited list of fields
      *                             to be returned
-     * @return object              Associative array containing bib information
+     * @return object              Flat associative array containing bib information
      */
 
     public function get_bib ($token = null, $bib_key = null, $field_list = null) 
     {
         $bib = [];
+        $field_data = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
@@ -400,48 +401,46 @@ class Libilsws
         }
 
         if ( ! empty($response['fields']) ) {
+
+            // Extract the data from the structure so that it can be returned in a flat hash
             foreach ($response['fields'] as $key => $value) {
-                
-                $field_data = [];
 
                 if ( ! empty($response['fields'][$key]['key']) ) {
+
                     $field_data[$key] = $response['fields'][$key]['key'];
+
                 } elseif ( $key === 'bib' ) {
 
-                    $bib_fields = $response['fields']['bib']['fields'];
-                    print_r($bib_fields);
-
-                    foreach ($bib_fields as $bib_key => $bib_value) {
-                        if ( $bib_key === 'tag' ) {
-                            $subfields = $bib_fields[$bib_key]['subfields'];
-                            foreach ($subfields as $sub_key => $sub_value) {
-                                if ( $subfields[$sub_key]['code'] === '_' ) {
-                                    $field_data[$bib_key] = $bib_fields[$bib_key]['subfields'][$sub_key]['data'];
-                                } elseif ( ! empty($bib_fields['tag']) ) {
-                                    $field_data[$bib_value . $bib_fields[$bib_key]['subfields'][$sub_key]['code']] 
-                                        = $bib_fields[$bib_key]['subfields'][$sub_key]['data'];
-                                }
+                    for ($i = 0; $i < count($response['fields']['bib']['fields']); $i++) {
+                        $bibfield = $response['fields']['bib']['fields'][$i];
+                        for ($x = 0; $x < count($bibfield['subfields']); $x++) {
+                            $subfield = $bibfield['subfields'][$x];
+                            if ( $subfield['code'] === '_' ) {
+                                $field_data[$bibfield['tag']] = $subfield['data'];
+                            } else {
+                                $field_data[$bibfield['tag'] 
+                                    . '_' 
+                                    . $subfield['code']] 
+                                    = $subfield['data'];
                             }
-                        } else {
-                            $field_data[$bib_key] = $bib_value;
                         }
                     }
-
                 } else {
+
                     $field_data[$key] = $value;
                 }
+            }
 
-                // Use $field_list to determine which fields to return
-                if ( $field_list) {
-                    $fields = preg_split("/,\s*/", $field_list);
-                    foreach ($fields as $field) {
-                        if ( isset($field_data[$field]) ) {
-                            array_push($bib, $field_data);
-                        }
+            // Use $field_list to determine which fields to return
+            if ( $field_list ) {
+                $fields = preg_split("/,\s*/", $field_list);
+                foreach ($fields as $field) {
+                    if ( isset($field_data[$field]) ) {
+                        $bib[$field] = $field_data[$field];
                     }
-                } else {
-                    array_push($bib, $field_data);
                 }
+            } else {
+                $bib = $field_data;
             }
         }
 
@@ -455,23 +454,29 @@ class Libilsws
      * @param  string $item_key    Item key
      * @param  string $field_list  Comma or comma and space delimited list of fields
      *                             to be returned
-     * @return object              Associative array containing item information
+     * @return object              Flat associative array containing item information
      */
 
     public function get_item ($token = null, $item_key = null, $field_list = null)
     {
         $item = [];
+        $field_data = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1}:\d{1}$#');
+        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
         $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9, ]{3,256}$#');
 
         $response = $this->send_get("$this->base_url/catalog/item/key/$item_key", $token);
 
+        if ( $field_list === 'raw' ) {
+            return $response;
+        }
+
         if ( ! empty($response['fields']) ) {
+
+            // Extract the data from the structure so that it can be returned in a flat hash
             foreach ($response['fields'] as $key => $value) {
 
-                $field_data = [];
                 if ( ! empty($response['fields'][$key]['key']) ) {
                     $field_data[$key] = $response['fields'][$key]['key'];
                 } elseif ( $key === 'price' ) {
@@ -481,21 +486,54 @@ class Libilsws
                 } else {
                     $field_data[$key] = $value;
                 }
+            }
 
-                if ( $field_list) {
-                    $fields = preg_split("/,\s*/", $field_list);
-                    foreach ($fields as $field) {
-                        if ( isset($field_data[$field]) ) {
-                            array_push($item, $field_data);
-                        }
+            // Filter output to match the $field_list
+            if ( $field_list) {
+                $fields = preg_split("/,\s*/", $field_list);
+                foreach ($fields as $field) {
+                    if ( isset($field_data[$field]) ) {
+                        $item[$field] = $field_data[$field];
                     }
-                } else {
-                    array_push($item, $field_data);
                 }
+            } else {
+                $item = $field_data;
             }
         }
 
         return $item;
+    }
+
+    /**
+     * Get a hold record
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $hold_key    Hold record key
+     * @return object              Associative array containing the response from ILSWS
+     */
+
+    public function get_hold ($token = null, $hold_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('hold_key', $hold_key, 'r:#^\d{6,8}$#');
+
+        return $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token);
+    }
+
+    /**
+     * Get a call number
+     *
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $call_key    Call number key
+     * @return object              Flat associative array containing the response from ILSWS
+     */
+
+    public function get_call_number ($token = null, $call_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('call_key', $call_key, 'r:#^\d{6,8}:\d{1,2}$#');
+
+        return $this->send_get("$this->base_url/catalog/call/key/$call_key", $token);
     }
 
     /**
@@ -506,9 +544,9 @@ class Libilsws
      * @return object              Associative array containing the response from ILSWS
      */
 
-    public function circulation_library_pull_list ($token = null, $library_key = null)
+    public function library_paging_list ($token = null, $library_key = null)
     {
-        $return = [];
+        $list = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
@@ -516,13 +554,41 @@ class Libilsws
         $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token);
         
         if ( ! empty($response['fields']['pullList']) ) {
-            foreach ($response['fields']['pullList'] as $hold) {
-                $record = ['hold_key' => $hold['fields']['holdRecord']['key'], 'item_key' => $hold['fields']['item']['key']];
-                array_push($return, $record);
+            foreach ($response['fields']['pullList'] as $list_hold) {
+
+                $record = [];
+
+                $record['hold_key'] = $list_hold['fields']['holdRecord']['key'];
+                $record['item_key'] = $list_hold['fields']['item']['key'];
+
+                $hold = $this->get_hold($token, $record['hold_key']);
+                
+                if ( $hold['fields']['status'] != 'EXPIRED' ) {
+                    $record['holdType'] = $hold['fields']['holdType'];
+                    $record['pickupLibrary'] = $hold['fields']['pickupLibrary']['key'];
+                    $record['placedLibrary'] = $hold['fields']['placedLibrary']['key'];
+                    $record['status'] = $hold['fields']['status'];
+
+                    $item = $this->get_item($token, $record['item_key'], 'bib,call,barcode,currentLocation');
+                    $record['bib'] = $item['bib'];
+                    $record['call'] = $item['call'];
+                    $record['barcode'] = $item['barcode'];
+                    $record['currentLocation'] = $item['currentLocation'];
+
+                    $bib = $this->get_bib($token, $record['bib'], 'author,title,titleControlNumber');
+                    $record['author'] = $bib['author'];
+                    $record['title'] = $bib['title'];
+                    $record['titleControlNumber'] = $bib['titleControlNumber'];
+    
+                    $call = $this->get_call_number($token, $record['call']);
+                    $record['callNumber'] = $call['fields']['callNumber'];
+
+                    array_push($list, $record);
+                }
             }
         }
 
-        return $return;
+        return $list;
     }
 
     /**

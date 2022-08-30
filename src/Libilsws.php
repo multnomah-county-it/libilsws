@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 1;
+    const DEBUG_QUERY = 0;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -373,6 +373,241 @@ class Libilsws
         }
         
         return json_decode($json, true);
+    }
+
+    /**
+     * Retrieves bib information
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $bib_key     Bib key
+     * @param  string $field_list  Comma or comma and space delimited list of fields
+     *                             to be returned
+     * @return object              Flat associative array containing bib information
+     */
+
+    public function get_bib ($token = null, $bib_key = null, $field_list = null) 
+    {
+        $bib = [];
+        $field_data = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
+        $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9, ]{3,256}$#');
+
+        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token);
+
+        if ( $field_list === 'raw' ) {
+            return $response;
+        }
+
+        if ( ! empty($response['fields']) ) {
+
+            // Extract the data from the structure so that it can be returned in a flat hash
+            foreach ($response['fields'] as $key => $value) {
+
+                if ( ! empty($response['fields'][$key]['key']) ) {
+
+                    $field_data[$key] = $response['fields'][$key]['key'];
+
+                } elseif ( $key === 'bib' ) {
+
+                    for ($i = 0; $i < count($response['fields']['bib']['fields']); $i++) {
+                        $bibfield = $response['fields']['bib']['fields'][$i];
+                        for ($x = 0; $x < count($bibfield['subfields']); $x++) {
+                            $subfield = $bibfield['subfields'][$x];
+                            if ( $subfield['code'] === '_' ) {
+                                $field_data[$bibfield['tag']] = $subfield['data'];
+                            } else {
+                                $field_data[$bibfield['tag'] 
+                                    . '_' 
+                                    . $subfield['code']] 
+                                    = $subfield['data'];
+                            }
+                        }
+                    }
+                } else {
+
+                    $field_data[$key] = $value;
+                }
+            }
+
+            // Use $field_list to determine which fields to return
+            if ( $field_list ) {
+                $fields = preg_split("/,\s*/", $field_list);
+                foreach ($fields as $field) {
+                    if ( isset($field_data[$field]) ) {
+                        $bib[$field] = $field_data[$field];
+                    }
+                }
+            } else {
+                $bib = $field_data;
+            }
+        }
+
+        return $bib;
+    }
+
+    /**
+     * Retrieves item information
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $item_key    Item key
+     * @param  string $field_list  Comma or comma and space delimited list of fields
+     *                             to be returned
+     * @return object              Flat associative array containing item information
+     */
+
+    public function get_item ($token = null, $item_key = null, $field_list = null)
+    {
+        $item = [];
+        $field_data = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
+        $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9, ]{3,256}$#');
+
+        $response = $this->send_get("$this->base_url/catalog/item/key/$item_key", $token);
+
+        if ( $field_list === 'raw' ) {
+            return $response;
+        }
+
+        if ( ! empty($response['fields']) ) {
+
+            // Extract the data from the structure so that it can be returned in a flat hash
+            foreach ($response['fields'] as $key => $value) {
+
+                if ( ! empty($response['fields'][$key]['key']) ) {
+                    $field_data[$key] = $response['fields'][$key]['key'];
+                } elseif ( $key === 'price' ) {
+                    $field_data[$key] = $response['fields'][$key]['currencyCode'] 
+                        . ' ' 
+                        . $response['fields'][$key]['amount'];
+                } else {
+                    $field_data[$key] = $value;
+                }
+            }
+
+            // Filter output to match the $field_list
+            if ( $field_list) {
+                $fields = preg_split("/,\s*/", $field_list);
+                foreach ($fields as $field) {
+                    if ( isset($field_data[$field]) ) {
+                        $item[$field] = $field_data[$field];
+                    }
+                }
+            } else {
+                $item = $field_data;
+            }
+        }
+
+        return $item;
+    }
+
+    /**
+     * Get a hold record
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $hold_key    Hold record key
+     * @return object              Associative array containing the response from ILSWS
+     */
+
+    public function get_hold ($token = null, $hold_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('hold_key', $hold_key, 'r:#^\d{6,8}$#');
+
+        return $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token);
+    }
+
+    /**
+     * Get a call number
+     *
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $call_key    Call number key
+     * @return object              Flat associative array containing the response from ILSWS
+     */
+
+    public function get_call_number ($token = null, $call_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('call_key', $call_key, 'r:#^\d{6,8}:\d{1,2}$#');
+
+        return $this->send_get("$this->base_url/catalog/call/key/$call_key", $token);
+    }
+
+    /**
+     * Get policy returns a policy record
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $policy_name Policy name for policy
+     * @param  string $policy_key  Policy key for policy
+     * @return object              Associative array containing the response from ILSWS
+     */
+
+    public function get_policy ($token = null, $policy_name = null, $policy_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('policy_name', $policy_name, 'r:#^[A-Za-z0-9]{1,20}$#');
+        $this->validate('policy_key', $policy_key, 'r:#^[A-Za-z\- 0-9]{1,10}$#');
+        
+        return $this->send_get("$this->base_url/policy/$policy_name/key/$policy_key", $token, []);
+    }
+
+    /**
+     * Pulls a hold list for a given library
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $library_key Library key (three character)
+     * @return object              Associative array containing the response from ILSWS
+     */
+
+    public function library_paging_list ($token = null, $library_key = null)
+    {
+        $list = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
+
+        $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token);
+        
+        if ( ! empty($response['fields']['pullList']) ) {
+            foreach ($response['fields']['pullList'] as $list_hold) {
+
+                $record = [];
+
+                $hold = $this->get_hold($token, $list_hold['fields']['holdRecord']['key']);
+                
+                if ( $hold['fields']['status'] != 'EXPIRED' ) {
+                    $record['holdType'] = $hold['fields']['holdType'];
+                    $record['pickupLibrary'] = $hold['fields']['pickupLibrary']['key'];
+                    $record['placedLibrary'] = $hold['fields']['placedLibrary']['key'];
+                    $record['status'] = $hold['fields']['status'];
+
+                    $item = $this->get_item($token, $list_hold['fields']['item']['key'], 'barcode,bib,call,currentLocation,itemCategory3');
+                    $record['barcode'] = $item['barcode'];
+                    $record['currentLocation'] = $item['currentLocation'];
+                    $record['format'] = $item['itemCategory3'];
+
+                    $bib = $this->get_bib($token, $item['bib'], 'author,title');
+                    $record['author'] = $bib['author'];
+                    $record['title'] = $bib['title'];
+    
+                    $call = $this->get_call_number($token, $item['call']);
+                    $record['callNumber'] = $call['fields']['callNumber'];
+
+                    $location = $this->get_policy($token, 'location', $record['currentLocation']);
+                    $record['locationDescription'] = $location['fields']['description'];
+
+                    $format = $this->get_policy($token, 'itemCategory3', $record['format']);
+                    $record['formatDescription'] = $format['fields']['description'];
+
+                    array_push($list, $record);
+                }
+            }
+        }
+
+        return $list;
     }
 
     /**

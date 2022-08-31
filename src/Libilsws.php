@@ -101,7 +101,7 @@ class Libilsws
             $this->config = Yaml::parseFile($yaml_file);
 
             if ( self::DEBUG_CONFIG ) {
-                print json_encode($this->config, JSON_PRETTY_PRINT) . "\n";
+                error_log('DEBUG_CONFIG ' . json_encode($this->config, JSON_PRETTY_PRINT), 0);
             }
 
         } else {
@@ -180,7 +180,7 @@ class Libilsws
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
             if ( self::DEBUG_CONNECT ) {
-                print "HTTP $this->code: $json\n";
+                error_log("DEBUG_CONNECT HTTP $this->code: $json", 0);
             }
 
             if ( ! preg_match('/^2\d\d$/', $this->code) ) {
@@ -236,7 +236,7 @@ class Libilsws
          * in debug mode, when there is no error
          */
         if ( self::DEBUG_QUERY ) {
-            print "$url\n";
+            error_log("DEBUG_QUERY $url", 0);
         }
 
         $headers = [
@@ -265,8 +265,8 @@ class Libilsws
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
             if ( self::DEBUG_QUERY ) {
-                print "Request number: $req_num\n";
-                print "HTTP $this->code: $json\n";
+                error_log("DEBUG_QUERY Request number: $req_num", 0);
+                error_log("DEBUG_QUERY HTTP $this->code: $json", 0);
             }
             
             // Check for errors
@@ -352,8 +352,8 @@ class Libilsws
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
             if ( self::DEBUG_QUERY ) {
-                print "Request number: $req_num\n";
-                print "HTTP $this->code: $json\n";
+                error_log("DEBUG_QUERY Request number: $req_num", 0);
+                error_log("DEBUG_QUERY HTTP $this->code: $json", 0);
             }
 
             // Check for errors
@@ -724,8 +724,8 @@ class Libilsws
         }
 
         if ( self::DEBUG_QUERY ) {
-            print "$index1:$search1\n";
-            print "$index2:$search2\n";
+            error_log("DEBUG_QUERY $index1:$search1", 0);
+            error_log("DEBUG_QUERY $index2:$search2", 0);
         }
 
         $result1 = $this->patron_search($token, $index1, $search1, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
@@ -1534,7 +1534,7 @@ class Libilsws
         foreach ($fields as $field => $value) {
 
             if ( self::DEBUG_REGISTER && ! empty($patron[$field]) ) {
-                print "$field: $patron[$field]\n";
+                error_log("DEBUG_REGISTER $field: $patron[$field]", 0);
             }
 
             // Assign default values to empty fields, where appropriate
@@ -1589,7 +1589,7 @@ class Libilsws
         // Create the required record structure for a registration
         $json = $this->create_register_json($patron, $token);
         if ( self::DEBUG_REGISTER ) {
-            print "$json\n";
+            error_log("DEBUG_REGISTER $json", 0);
         }
         $response = $this->send_query("$this->base_url/user/patron/register", $token, $json, 'POST');
 
@@ -1601,7 +1601,7 @@ class Libilsws
             // Create a record structure with the update fields 
             $json = $this->create_patron_json($patron, 'new_fields', $token, $patron_key);
             if ( self::DEBUG_REGISTER ) {
-                print "$json\n";
+                error_log("DEBUG_REGISTER $json", 0);
             }
 
             // Update Symphony
@@ -1674,7 +1674,7 @@ class Libilsws
 
         if ( self::DEBUG_FIELDS ) {
             $json = json_encode($this->field_desc, JSON_PRETTY_PRINT);
-            print "$json\n";
+            error_log("DEBUG_FIELDS $json", 0);
         }
     }
 

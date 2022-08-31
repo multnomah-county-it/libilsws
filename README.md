@@ -30,6 +30,9 @@ These functions correspond with ILSWS access points, but
 they valididate all inputs and will throw exceptions
 if presented with inappropriate inputs.
 
+- get_call_number ($token, $call_key)
+- get_hold ($token, $hold_key)
+- get_policy ($token, $policy_key)
 - patron_activity_update ($token, $patron_id)
 - patron_alt_id_search ($token, $alt_id, $count)
 - patron_authenticate ($token, $patron_id, $password)
@@ -50,7 +53,10 @@ or evaluating data from the Symphony system.
 - create_patron_json ($patron, $mode, $token, $patron_key)
 - create_register_json ($patron, $token)
 - duplicate_check($token, $index1, $search1, $index2, $search2)
+- get_item ($token, $item_key, $field_list)
+- get_bib ($token, $bib_key, $field_list)
 - get_patron_attributes ($token, $patron_key)
+- library_paging_list ($token, $library_key)
 - patron_register ($patron, $token)
 - patron_update ($token, $json, $patron_key) 
 

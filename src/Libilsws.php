@@ -376,10 +376,34 @@ class Libilsws
     }
 
     /**
+     * Retrieves the items associated with a bib record
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $bib_key     Bibliographic record key
+     * @return object              Associative array containing item information
+     */
+
+    public function get_bib_items ($token = null, $bib_key = null)
+    {
+        $items = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
+        
+        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=callList{*,itemList{*}}", $token);
+
+        if ( ! empty($response['fields']['callList']) ) {
+            $items = $response['fields']['callList'];
+        }
+
+        return $items;
+    }
+        
+    /**
      * Retrieves bib information
      * 
      * @param  string $token       Session token returned by ILSWS
-     * @param  string $bib_key     Bib key
+     * @param  string $bib_key     Bibliographic record key
      * @param  string $field_list  Comma or comma and space delimited list of fields
      *                             to be returned
      * @return object              Flat associative array containing bib information
@@ -425,6 +449,7 @@ class Libilsws
                             }
                         }
                     }
+
                 } else {
 
                     $field_data[$key] = $value;

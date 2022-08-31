@@ -50,6 +50,7 @@ or evaluating data from the Symphony system.
 
 - authenticate_search ($token, $index, $search, $password)
 - authenticate_id ($token, $patron_id, $password)
+- catalog_search ($token, $index, $value, $params)
 - create_patron_json ($patron, $mode, $token, $patron_key)
 - create_register_json ($patron, $token)
 - duplicate_check($token, $index1, $search1, $index2, $search2)

@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 0;
+    const DEBUG_QUERY = 1;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -435,8 +435,12 @@ class Libilsws
             if ( $field_list ) {
                 $fields = preg_split("/,\s*/", $field_list);
                 foreach ($fields as $field) {
-                    if ( isset($field_data[$field]) ) {
-                        $bib[$field] = $field_data[$field];
+                    if ( $field != 'key' ) {
+                        if ( isset($field_data[$field]) ) {
+                            $bib[$field] = $field_data[$field];
+                        }
+                    } else {
+                        $bib[$field] = $response['key'];
                     }
                 }
             } else {
@@ -608,6 +612,97 @@ class Libilsws
         }
 
         return $list;
+    }
+
+    /**
+     * Describes the bib record (used to determine available indexes for bib search)
+     * 
+     * @param  string $token The session token returned by ILSWS
+     * @return object        Associative array of response from ILSWS
+     */
+
+    public function catalog_describe ($token = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+     
+        return $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
+    }
+
+    /**
+     * Search the catalog for bib records
+     * 
+     * @param  string $token    The session token returned by ILSWS
+     * @param  string $index    The index to search
+     * @param  string $value    The value to search for
+     * @param  object $params   Associative array of optional parameters
+     * @return object           Associative array containing search results
+     */
+
+    public function catalog_search ($token = null, $index = null, $value = null, $params = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('value', $value, 's:40');
+
+        // Validate the index specified
+        $describe = $this->catalog_describe($token);
+        $indexes = [];
+        for ($i = 0; $i < count($describe['searchIndexList']); $i++) {
+            array_push($indexes, $describe['searchIndexList'][$i]['name']);
+        }
+        $index_list = implode('|', $indexes);
+        $this->validate('index', $index, "v:$index_list");
+
+        // Validate the include fields specified
+        $valid_field_list = '';
+        if ( ! empty($params['includeFields']) ) {
+            $fields = [];
+            for ($i = 0; $i < count($describe['fields']); $i++) {
+                array_push($fields, $describe['fields'][$i]['name']);
+            }
+            array_push($fields, 'key');
+            $field_list = implode('|', $fields);
+            $include_fields = preg_split("/,\s*/", $params['includeFields']);
+            foreach ($include_fields as $include_field) {
+                if ( ! preg_match("/\d{3}_[a-z0-9]{1}$/", $include_field) ) {
+                    $this->validate('include field', $include_field, "v:$field_list");
+                }
+            }
+            $valid_field_list = $params['includeFields'];
+        }
+
+
+        /** 
+         * Valid incoming params are: 
+         * ct            = number of results to return,
+         * rw            = row to start on (so you can page through results),
+         * j             = boolean AND or OR to use with multiple search terms, and
+         * includeFields = fields to return in result.
+         *
+         * Any incoming q will be replaced by the values $index and $value.
+         */
+
+        $params = [
+            'q'             => "$index:$value",
+            'ct'            => $params['ct'] ?? '1000',
+            'rw'            => $params['rw'] ?? '1',
+            'j'             => $params['j'] ?? 'AND',
+            'includeFields' => 'key'
+            ];
+
+        $result = $this->send_get("$this->base_url/catalog/bib/search", $token, $params);
+
+        $records = [];
+        if ( ! empty($result['totalResults']) && $result['totalResults'] > 0 ) {
+            for ($i = 0; $i < count($result['result']); $i++) {
+                if ( ! is_null($result['result'][$i]) ) {
+                    $bib = $this->get_bib($token, $result['result'][$i]['key'], $valid_field_list);
+                    array_push($records, $bib);
+                }
+            }
+            return $records;
+        } else {
+            return $result;
+        }
     }
 
     /**

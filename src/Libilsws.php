@@ -660,6 +660,7 @@ class Libilsws
                 array_push($fields, $describe['fields'][$i]['name']);
             }
             array_push($fields, 'key');
+            array_push($fields, 'raw');
             $field_list = implode('|', $fields);
             $include_fields = preg_split("/,\s*/", $params['includeFields']);
             foreach ($include_fields as $include_field) {

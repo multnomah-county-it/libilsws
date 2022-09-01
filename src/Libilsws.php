@@ -524,7 +524,7 @@ class Libilsws
 
         // Validate the $field_list
         $valid_list = '*';
-        if ( $field_list && $field_list !== 'raw' ) {
+        if ( $field_list && $field_list != 'raw' ) {
 
             // Requested fields
             $fields = preg_split("/,\s*/", $field_list);
@@ -571,6 +571,10 @@ class Libilsws
             if ( ! empty($temp['items']) ) {
                 $bib['items'] = $temp['items'];
             }
+
+        } else {
+
+            $bib = $temp;
         }
 
         return $bib;

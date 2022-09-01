@@ -3,13 +3,15 @@
 require_once 'vendor/autoload.php';
 
 $field_list = $argv[1];
+if ( ! $field_list ) {
+    $field_list = '';
+}
 
 // Initialize
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 
 // Connect and get token
 $token = $ilsws->connect();
-print "token: $token\n";
 
 // Describe patron register function
 $item_key = '1051686:1:2';

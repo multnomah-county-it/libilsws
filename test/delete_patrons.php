@@ -32,7 +32,7 @@ $params = [
     'j'             => 'AND',
     'includeFields' => 'key,barcode,alternateID,firstName,middleName,lastName',
     ];
-$response = $ilsws->patron_search($token, $index, $search, $params);
+$response = $ilsws->search_patron($token, $index, $search, $params);
 
 if ( isset($response['totalResults']) && $response['totalResults'] >= 1 ) {
 
@@ -62,7 +62,7 @@ if ( isset($response['totalResults']) && $response['totalResults'] >= 1 ) {
 
             if ( preg_match('/^[Yy]$/', $confirm) ) {
 
-                if ( $ilsws->patron_delete($token, $patron['key']) ) {
+                if ( $ilsws->delete_patron($token, $patron['key']) ) {
                     print "Patron successfully deleted\n\n";
                 } else {
                     print "Error deleting patron\n\n";

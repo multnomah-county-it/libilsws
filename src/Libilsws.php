@@ -376,6 +376,120 @@ class Libilsws
     }
 
     /**
+     * Flattens callList structure into simple hash
+     * 
+     * @access private 
+     * @param  object  $callList Complex object with call list
+     * @return array             Flat associative array
+     */
+
+    private function flatten_call_list ($call_list)
+    {
+        $item_list = [];
+
+        for ($i = 0; $i < count($call_list); $i++) {
+    
+            $item_key = $call_list[$i]['key'];
+
+            foreach ($call_list[$i]['fields'] as $key => $value) {
+
+                if ( ! empty($call_list[$i]['fields'][$key]['key']) ) {
+                    $item_list[$item_key][$key] = $call_list[$i]['fields'][$key]['key'];
+                } elseif ( $key = 'itemList' ) {
+
+                    for ($x = 0; $x < count($call_list[$i]['fields']['itemList']); $x++) {
+                        foreach ($call_list[$i]['fields']['itemList'] as $item) {
+                            $item = $this->flatten_item($item);
+                            foreach ($item as $field => $field_value) {
+                                $item_list[$item_key][$field] = $field_value;
+                            }
+                        }
+                    }
+
+                } else {
+                    $item_list[$item_key][$key] = $value;
+                }
+            }
+        }
+
+        return $item_list;
+    }
+
+    /**
+     * Flattens item structure into simple hash
+     *
+     * @access private 
+     * @param  object  $record Complex object with item list
+     * @return array           Flat associative array
+     */
+
+    private function flatten_item ($record)
+    {
+        $item = [];
+
+        foreach ($record['fields'] as $key => $value) {
+
+            if ( ! empty($record['fields'][$key]['key']) ) {
+                $item[$key] = $record['fields'][$key]['key'];
+            } elseif ( $key === 'price' ) {
+                $item[$key] = $record['fields'][$key]['currencyCode'] 
+                    . ' ' 
+                    . $record['fields'][$key]['amount'];
+            } else {
+                $item[$key] = $value;
+            }
+        }
+
+        return $item;
+    }
+        
+    /**
+     * Flattens bib record into simple hash
+     * 
+     * @param  object $record Complex record object
+     * @return array          Flat asociative array
+     */
+
+    private function flatten_bib ($record)
+    {
+        $bib = [];
+
+        // Extract the data from the structure so that it can be returned in a flat hash
+        foreach ($record as $key => $value) {
+
+            if ( ! empty($record[$key]['key']) ) {
+
+                $bib[$key] = $record[$key]['key'];
+
+            } elseif ( $key === 'bib' ) {
+
+                for ($i = 0; $i < count($record['bib']['fields']); $i++) {
+                    for ($x = 0; $x < count($record['bib']['fields'][$i]['subfields']); $x++) {
+                        if ( $record['bib']['fields'][$i]['subfields'][$x]['code'] === '_' ) {
+                            $bib[$record['bib']['fields'][$i]['tag']] = $record['bib']['fields'][$i]['subfields'][$x]['data'];
+                        } else {
+                            $bib[$record['bib']['fields'][$i]['tag'] 
+                                . '_' 
+                                . $record['bib']['fields'][$i]['subfields'][$x]['code']] 
+                                = $record['bib']['fields'][$i]['subfields'][$x]['data'];
+                        }
+                    }
+                }
+
+            } elseif ( $key === 'callList' ) {
+    
+                $bib['items'] = $this->flatten_call_list($record['callList']);
+
+            } else {
+
+                $bib[$key] = $value;
+            }
+        }
+
+        return $bib;
+    }
+
+    /**
      * Retrieves the items associated with a bib record
      * 
      * @param  string $token       Session token returned by ILSWS
@@ -383,22 +497,13 @@ class Libilsws
      * @return object              Associative array containing item information
      */
 
-    public function get_bib_items ($token = null, $bib_key = null)
+    public function get_bib_items ($token = null, $bib_key = null, $field_list = '')
     {
-        $items = [];
+        $field_list = $field_list . ',callList';
 
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
-        
-        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=callList{*,itemList{*}}", $token);
-
-        if ( ! empty($response['fields']['callList']) ) {
-            $items = $response['fields']['callList'];
-        }
-
-        return $items;
+        return $this->get_bib($token, $bib_key, $field_list);
     }
-        
+
     /**
      * Retrieves bib information
      * 
@@ -409,67 +514,62 @@ class Libilsws
      * @return object              Flat associative array containing bib information
      */
 
-    public function get_bib ($token = null, $bib_key = null, $field_list = null) 
+    public function get_bib ($token = null, $bib_key = null, $field_list = '') 
     {
         $bib = [];
-        $field_data = [];
+        $filter_fields = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
-        $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9, ]{3,256}$#');
 
-        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token);
+        // Validate the $field_list
+        $valid_list = '*';
+        if ( $field_list && $field_list !== 'raw' ) {
 
-        if ( $field_list === 'raw' ) {
-            return $response;
-        }
+            // Requested fields
+            $fields = preg_split("/,\s*/", $field_list);
 
-        if ( ! empty($response['fields']) ) {
+            // Get the fields to test against
+            $test_fields = [];
+            $describe = $this->describe_bib($token);
+            for ($i = 0; $i < count($describe['fields']); $i++) {
+                array_push($test_fields, $describe['fields'][$i]['name']);
+            }
 
-            // Extract the data from the structure so that it can be returned in a flat hash
-            foreach ($response['fields'] as $key => $value) {
-
-                if ( ! empty($response['fields'][$key]['key']) ) {
-
-                    $field_data[$key] = $response['fields'][$key]['key'];
-
-                } elseif ( $key === 'bib' ) {
-
-                    for ($i = 0; $i < count($response['fields']['bib']['fields']); $i++) {
-                        $bibfield = $response['fields']['bib']['fields'][$i];
-                        for ($x = 0; $x < count($bibfield['subfields']); $x++) {
-                            $subfield = $bibfield['subfields'][$x];
-                            if ( $subfield['code'] === '_' ) {
-                                $field_data[$bibfield['tag']] = $subfield['data'];
-                            } else {
-                                $field_data[$bibfield['tag'] 
-                                    . '_' 
-                                    . $subfield['code']] 
-                                    = $subfield['data'];
-                            }
-                        }
-                    }
-
-                } else {
-
-                    $field_data[$key] = $value;
+            // Check for special fields and add bib
+            $valid_fields = ['bib'];
+            foreach ($fields as $field) {
+                if ( preg_match("/^\d{3}_[a-z0-9]{1}$/", $field) ) {
+                    array_push($filter_fields, $field);
+                } elseif ( in_array($field, $test_fields) ) {
+                    array_push($valid_fields, $field);
                 }
             }
 
-            // Use $field_list to determine which fields to return
-            if ( $field_list ) {
-                $fields = preg_split("/,\s*/", $field_list);
-                foreach ($fields as $field) {
-                    if ( $field != 'key' ) {
-                        if ( isset($field_data[$field]) ) {
-                            $bib[$field] = $field_data[$field];
-                        }
-                    } else {
-                        $bib[$field] = $response['key'];
-                    }
+            // Make array into list 
+            $valid_list = implode(',', $valid_fields);
+
+            // Check if we're supposed to be pulling items
+            if ( in_array('callList', $valid_fields) ) {
+                $valid_list = preg_replace("/callList/", 'callList{callNumber,library,itemList{barcode,copyNumber,currentLocation,itemType}}', $valid_list);
+            }
+        }
+
+        $temp = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=$valid_list", $token);
+
+        if ( ! empty($temp['fields']) && $field_list != 'raw' ) {
+   
+            // Flatten the structure to a simple hash 
+            $temp = $this->flatten_bib($temp['fields']);
+
+            // Filter out fields that were not requested
+            foreach ($fields as $field) {
+                if ( ! empty($temp[$field]) ) {
+                    $bib[$field] = $temp[$field];
                 }
-            } else {
-                $bib = $field_data;
+            }
+            if ( ! empty($temp['items']) ) {
+                $bib['items'] = $temp['items'];
             }
         }
 
@@ -486,48 +586,37 @@ class Libilsws
      * @return object              Flat associative array containing item information
      */
 
-    public function get_item ($token = null, $item_key = null, $field_list = null)
+    public function get_item ($token = null, $item_key = null, $field_list = '')
     {
         $item = [];
         $field_data = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
-        $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9, ]{3,256}$#');
 
-        $response = $this->send_get("$this->base_url/catalog/item/key/$item_key", $token);
+        // Validate the $field_list
+        $valid_list = '*';
+        if ( $field_list && $field_list != 'raw' ) {
 
-        if ( $field_list === 'raw' ) {
-            return $response;
-        }
+            $fields = preg_split("/,\s*/", $field_list);
 
-        if ( ! empty($response['fields']) ) {
-
-            // Extract the data from the structure so that it can be returned in a flat hash
-            foreach ($response['fields'] as $key => $value) {
-
-                if ( ! empty($response['fields'][$key]['key']) ) {
-                    $field_data[$key] = $response['fields'][$key]['key'];
-                } elseif ( $key === 'price' ) {
-                    $field_data[$key] = $response['fields'][$key]['currencyCode'] 
-                        . ' ' 
-                        . $response['fields'][$key]['amount'];
-                } else {
-                    $field_data[$key] = $value;
-                }
+            // Get the fields to test against
+            $test_fields = [];
+            $describe = $this->describe_item($token);
+            for ($i = 0; $i < count($describe['fields']); $i++) {
+                array_push($test_fields, $describe['fields'][$i]['name']);
             }
 
-            // Filter output to match the $field_list
-            if ( $field_list) {
-                $fields = preg_split("/,\s*/", $field_list);
-                foreach ($fields as $field) {
-                    if ( isset($field_data[$field]) ) {
-                        $item[$field] = $field_data[$field];
-                    }
-                }
-            } else {
-                $item = $field_data;
-            }
+            $valid_fields = array_intersect($test_fields, $fields);
+            $valid_list = implode(',', $valid_fields);
+        } 
+
+        print "$valid_list\n";
+
+        $item = $this->send_get("$this->base_url/catalog/item/key/$item_key?includeFields=$valid_list", $token);
+
+        if ( ! empty($item['fields']) && $field_list != 'raw' ) {
+            $item = $this->flatten_item($item);
         }
 
         return $item;
@@ -591,7 +680,7 @@ class Libilsws
      * @return object              Associative array containing the response from ILSWS
      */
 
-    public function library_paging_list ($token = null, $library_key = null)
+    public function get_library_paging_list ($token = null, $library_key = null)
     {
         $list = [];
 
@@ -640,13 +729,27 @@ class Libilsws
     }
 
     /**
-     * Describes the bib record (used to determine available indexes for bib search)
+     * Describes the item record (used to determine valid indexes and fields)
      * 
      * @param  string $token The session token returned by ILSWS
      * @return object        Associative array of response from ILSWS
      */
 
-    public function catalog_describe ($token = null)
+    public function describe_item ($token = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+     
+        return $this->send_get("$this->base_url/catalog/item/describe", $token, []);
+    }
+
+    /**
+     * Describes the bib record (used to determine valid indexes and fields)
+     * 
+     * @param  string $token The session token returned by ILSWS
+     * @return object        Associative array of response from ILSWS
+     */
+
+    public function describe_bib ($token = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
      
@@ -663,13 +766,13 @@ class Libilsws
      * @return object           Associative array containing search results
      */
 
-    public function catalog_search ($token = null, $index = null, $value = null, $params = null)
+    public function search_bib ($token = null, $index = null, $value = null, $params = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('value', $value, 's:40');
 
         // Validate the index specified
-        $describe = $this->catalog_describe($token);
+        $describe = $this->describe_bib($token);
         $indexes = [];
         for ($i = 0; $i < count($describe['searchIndexList']); $i++) {
             array_push($indexes, $describe['searchIndexList'][$i]['name']);
@@ -721,7 +824,7 @@ class Libilsws
         if ( ! empty($result['totalResults']) && $result['totalResults'] > 0 ) {
             for ($i = 0; $i < count($result['result']); $i++) {
                 if ( ! is_null($result['result'][$i]) ) {
-                    $bib = $this->get_bib($token, $result['result'][$i]['key'], $valid_field_list);
+                    $bib = $this->get_bib_items($token, $result['result'][$i]['key'], $valid_field_list);
                     array_push($records, $bib);
                 }
             }
@@ -739,7 +842,7 @@ class Libilsws
      * @return string              Returns 1 if successful, 0 if not
      */
 
-    public function patron_delete ($token = null, $patron_key = null)
+    public function delete_patron ($token = null, $patron_key = null)
     {
         $retval = 0;
         $json = '';
@@ -764,7 +867,7 @@ class Libilsws
      * @return object             Associative array containing response from ILSWS
      */
 
-    public function patron_change_password ($token = null, $json = null)
+    public function change_patron_password ($token = null, $json = null)
     {
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
@@ -783,7 +886,7 @@ class Libilsws
      * @return object             Associative array containing response from ILSWS
      */
 
-    public function patron_reset_password ($token = null, $patron_id = null, $url = null, $email = null)
+    public function reset_patron_password ($token = null, $patron_id = null, $url = null, $email = null)
     {
 
 
@@ -820,7 +923,7 @@ class Libilsws
      * @return string            Boolean 1 or 0 depending on whether a duplicate is found
      */
 
-    public function duplicate_check ($token = null, $index1 = null, $search1 = null, $index2 = null, $search2 = null)
+    public function check_duplicate ($token = null, $index1 = null, $search1 = null, $index2 = null, $search2 = null)
     {
         $duplicate = 0;
         $matches = 0;
@@ -929,7 +1032,7 @@ class Libilsws
      * @return string $patron_key The patron ID (barcode)
      */
 
-    public function authenticate_search ($token = null, $index = null, $search = null, $password = null)
+    public function search_authenticate ($token = null, $index = null, $search = null, $password = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('search', $search, 's:40');
@@ -1110,7 +1213,7 @@ class Libilsws
      * @return object            Associative array contain the response from ILSWS
      */
 
-    public function patron_authenticate ($token = null, $patron_id = null, $password = null)
+    public function authenticate_patron ($token = null, $patron_id = null, $password = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_id', $patron_id, 'i:20000000000000,29999999999999');
@@ -1128,7 +1231,7 @@ class Libilsws
      *                       structure used by SirsiDynix Symphony
      */
 
-    public function patron_describe ($token) 
+    public function describe_patron ($token) 
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
@@ -1181,7 +1284,7 @@ class Libilsws
      * @return object         Associative array containing search results
      */
 
-    public function patron_alt_id_search ($token = null, $alt_id = null, $count = null)
+    public function search_patron_alt_id ($token = null, $alt_id = null, $count = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('alt_id', $alt_id, 'i:1,99999999');
@@ -1199,13 +1302,13 @@ class Libilsws
      * @return object            Associative array containing search results
      */
 
-    public function patron_id_search ($token = null, $patron_id = null, $count = null) 
+    public function search_patron_id ($token = null, $patron_id = null, $count = null) 
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_id', $patron_id, 'i:20000000000000,29999999999999');
         $this->validate('count', $count, 'i:1,1000');
 
-        return $this->patron_search($token, 'ID', $patron_id, ['ct' => $count]);
+        return $this->search_patron($token, 'ID', $patron_id, ['ct' => $count]);
     }
 
     /**
@@ -1701,7 +1804,7 @@ class Libilsws
      * @return object $response Associative array containing response from ILSWS
      */
 
-    public function patron_register ($patron, $token = null)
+    public function register_patron ($patron, $token = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
@@ -1726,7 +1829,7 @@ class Libilsws
             }
 
             // Update Symphony
-            $response = $this->patron_update($token, $json, $patron_key);
+            $response = $this->update_patron($token, $json, $patron_key);
         }
 
         return $response;
@@ -1740,7 +1843,7 @@ class Libilsws
      * @return object        Associative array containing result
      */
 
-    public function patron_update ($token = null, $json = null, $patron_key = null) 
+    public function update_patron ($token = null, $json = null, $patron_key = null) 
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('json', $json, 'j');
@@ -1757,10 +1860,10 @@ class Libilsws
      * @return object            Associative array containing result
      */
 
-    public function patron_activity_update ($token = null, $patron_id = null)
+    public function update_patron_activity ($token = null, $patron_id = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'i:10000000,29999999999999');
+        $this->validate('patron_id', $patron_id, 'r:#^\d{6,14}$#');
 
         $json = "{\"patronBarcode\": \"$patron_id\"}";
 
@@ -1778,7 +1881,7 @@ class Libilsws
     {
         $field_arrays = [];
         if ( $name === 'patron' ) {
-            $field_arrays = $this->send_get("$this->base_url/user/patron/describe", $token, []);
+            $field_arrays = $this->describe_patron($token);
             $type = 'fields';
         } else {
             $field_arrays = $this->send_get("$this->base_url/user/patron/$name/describe", $token, []);

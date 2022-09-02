@@ -488,21 +488,6 @@ class Libilsws
     }
 
     /**
-     * Retrieves the items associated with a bib record
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $bib_key     Bibliographic record key
-     * @return object              Associative array containing item information
-     */
-
-    public function get_bib_items ($token = null, $bib_key = null, $field_list = '')
-    {
-        $field_list = $field_list . ',callList';
-
-        return $this->get_bib($token, $bib_key, $field_list);
-    }
-
-    /**
      * Validate field names using the API describe functions
      *
      * @param  string $token       Session token returned by ILSWS

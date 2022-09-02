@@ -8,11 +8,6 @@ $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 // Connect and get token
 $token = $ilsws->connect();
 
-// Describe patron register function
-$params = [];
-$response = $ilsws->send_get("$ilsws->base_url/user/patron/register/describe", $token, $params);
-print json_encode($response, JSON_PRETTY_PRINT) . "\n";
-
 /**
  * Not all of these are actually required. See the YAML configuration file to determine
  * which fields are required.
@@ -44,7 +39,7 @@ $patron = [
         ],
     ];
 
-$response = $ilsws->patron_register($patron, $token);
+$response = $ilsws->register_patron($patron, $token);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

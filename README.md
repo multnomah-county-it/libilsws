@@ -30,36 +30,39 @@ These functions correspond with ILSWS access points, but
 they valididate all inputs and will throw exceptions
 if presented with inappropriate inputs.
 
+- authenticate_patron ($token, $patron_id, $password)
+- change_patron_password ($token, $json)
+- delete_patron ($token, $patron_key)
+- describe_bib ($token) 
+- describe_item ($token) 
+- describe_patron ($token) 
 - get_call_number ($token, $call_key)
 - get_hold ($token, $hold_key)
 - get_policy ($token, $policy_key)
-- patron_activity_update ($token, $patron_id)
-- patron_alt_id_search ($token, $alt_id, $count)
-- patron_authenticate ($token, $patron_id, $password)
-- patron_delete ($token, $patron_key)
-- patron_id_search ($token, $patron_id, $count) 
-- patron_describe ($token) 
-- patron_reset_password ($token, $patron_id, $url, $email)
-- patron_change_password ($token, $json)
-- patron_search ($token, $index, $search, $params)
+- reset_patron_password ($token, $patron_id, $url, $email)
+- search_patron ($token, $index, $search, $params)
+- search_patron_alt_id ($token, $alt_id, $count)
+- search_patron_id ($token, $patron_id, $count) 
+- update_patron_activity ($token, $patron_id)
 
 ## High-level
 These functions offer functionality not directly supported by
 ILSWS by performing multiple queries or by combining, manipulating
 or evaluating data from the Symphony system.
 
-- authenticate_search ($token, $index, $search, $password)
-- authenticate_id ($token, $patron_id, $password)
-- catalog_search ($token, $index, $value, $params)
+- authenticate_patron_id ($token, $patron_id, $password)
+- check_duplicate ($token, $index1, $search1, $index2, $search2)
 - create_patron_json ($patron, $mode, $token, $patron_key)
 - create_register_json ($patron, $token)
-- duplicate_check($token, $index1, $search1, $index2, $search2)
-- get_item ($token, $item_key, $field_list)
 - get_bib ($token, $bib_key, $field_list)
+- get_bib_items ($token, $bib_key, $field_list)
+- get_item ($token, $item_key, $field_list)
+- get_library_paging_list ($token, $library_key)
 - get_patron_attributes ($token, $patron_key)
-- library_paging_list ($token, $library_key)
-- patron_register ($patron, $token)
-- patron_update ($token, $json, $patron_key) 
+- register_patron ($patron, $token)
+- search_authenticate ($token, $index, $search, $password)
+- search_bib ($token, $index, $value, $params)
+- update_patron ($token, $json, $patron_key) 
 
 ## Date and Telephone Number Formats
 For the convenience of developers, the code library accepts
@@ -105,12 +108,12 @@ $options = [
     'includeFields' => 'key,barcode']
     ];
 
-$response = $ilsws->patron_search($token, $index, $search, $options);
+$response = $ilsws->search_patron($token, $index, $search, $options);
 ```
 
 ### Get Patron Attributes
 ```
-$response = $ilsws->get_patron($token, $patron_key);
+$response = $ilsws->get_patron_attributes ($token, $patron_key);
 ```
 
 ### Update Patron Record
@@ -143,7 +146,7 @@ $patron = [
     ];
 
 $json = $ilsws->create_patron_json($patron, 'overlay_fields', $token, $patron_key);
-$response = $ilsws->patron_update($token, $json, $patron_key);
+$response = $ilsws->update_patron($token, $json, $patron_key);
 ```
 
 See the libilsws.yaml.sample file for field definitions and documentation

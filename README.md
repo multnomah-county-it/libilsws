@@ -55,7 +55,6 @@ or evaluating data from the Symphony system.
 - create_patron_json ($patron, $mode, $token, $patron_key)
 - create_register_json ($patron, $token)
 - get_bib ($token, $bib_key, $field_list)
-- get_bib_items ($token, $bib_key, $field_list)
 - get_item ($token, $item_key, $field_list)
 - get_library_paging_list ($token, $library_key)
 - get_patron_attributes ($token, $patron_key)

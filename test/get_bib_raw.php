@@ -2,6 +2,15 @@
 
 require_once 'vendor/autoload.php';
 
+if ( count($argv) < 3 ) {
+    print "Syntax: php $argv[0] BIB_KEY FIELD_LIST\n";
+    exit 0;
+}
+
+$bib_key = $argv[1];
+$field_list = $argv[2];
+# Use a field list of 'raw' to see unfiltered and unformatted output.
+
 // Initialize
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 
@@ -9,8 +18,6 @@ $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 $token = $ilsws->connect();
 
 // Describe patron register function
-$bib_key = '1051686';
-$field_list = 'raw';
 $response = $ilsws->get_bib($token, $bib_key, $field_list);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 

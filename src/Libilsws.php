@@ -389,21 +389,19 @@ class Libilsws
 
         for ($i = 0; $i < count($call_list); $i++) {
     
-            $item_key = $call_list[$i]['key'];
-
             foreach ($call_list[$i]['fields'] as $key => $value) {
 
                 if ( ! is_array($value) ) {
-                    $item_list[$item_key][$key] = $value;
+                    $item_list[$i][$key] = $value;
                 } elseif ( ! empty($call_list[$i]['fields'][$key]['key']) ) {
-                    $item_list[$item_key][$key] = $call_list[$i]['fields'][$key]['key'];
+                    $item_list[$i][$key] = $call_list[$i]['fields'][$key]['key'];
                 } elseif ( $key = 'itemList' ) {
 
                     for ($x = 0; $x < count($call_list[$i]['fields']['itemList']); $x++) {
                         foreach ($call_list[$i]['fields']['itemList'] as $item) {
                             $item = $this->flatten_item($item);
                             foreach ($item as $field => $field_value) {
-                                $item_list[$item_key][$field] = $field_value;
+                                $item_list[$i][$field] = $field_value;
                             }
                         }
                     }
@@ -428,6 +426,7 @@ class Libilsws
 
         foreach ($record['fields'] as $key => $value) {
 
+            $item['key'] = $record['key'];
             if ( ! empty($record['fields'][$key]['key']) ) {
                 $item[$key] = $record['fields'][$key]['key'];
             } elseif ( $key === 'price' ) {
@@ -477,7 +476,7 @@ class Libilsws
 
             } elseif ( $key === 'callList' ) {
     
-                $bib['items'] = $this->flatten_call_list($record['callList']);
+                $bib['itemList'] = $this->flatten_call_list($record['callList']);
 
             } else {
 
@@ -504,6 +503,81 @@ class Libilsws
     }
 
     /**
+     * Validate field names using the API describe functions
+     *
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $record_type Type of record to validate against (bib or item)
+     * @param  string $field_list  Comma-delimited list of fields to be validated
+     * @return array  $fields      Associative array of valid fields
+     */
+
+    public function validate_fields ($token = null, $record_type = null, $field_list = null)
+    {
+        $response = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('record_type', $record_type, 'v:bib|item');
+
+        $input_fields = preg_split("/,\s*/", $field_list);
+      
+        $test_fields = []; 
+        $describe = $this->send_get("$this->base_url/catalog/$record_type/describe", $token, []);
+        for ($i = 0; $i < count($describe['fields']); $i++) {
+            array_push($test_fields, $describe['fields'][$i]['name']);
+        }
+        $test_list = implode('|', $test_fields);
+
+        $valid_fields = [];
+        $filter_fields = [];
+        $item_flag = 0;
+        foreach ($input_fields as $field) {
+
+            if ( $record_type == 'bib' ) {
+
+                if ( preg_match("/^\d{3}_[a-z0-9]{1}$/", $field) ) {
+
+                    array_push($filter_fields, $field);
+
+                } elseif ( in_array($field, ['callList','itemList','callNumber','library','barcode','copyNumber','currentLocation','itemType']) ) {
+
+                    if ( ! $item_flag ) {
+                        array_push($valid_fields, 'callList{callNumber,library,itemList{barcode,copyNumber,currentLocation,itemType}}');
+                        array_push($filter_fields, 'itemList');
+                        $item_flag = 1;
+                    }
+
+                } else {
+
+                    $this->validate('include field', $field, "v:$test_list");
+                    array_push($valid_fields, $field);
+                }
+
+            } else {
+
+                $this->validate('include field', $field, "v:$test_list");
+                array_push($valid_fields, $field);
+            }
+        }
+        if ( count($filter_fields) ) {
+            array_push($valid_fields, 'bib');
+        }
+
+        $search_indexes = [];
+        if ( $record_type == 'bib' ) {
+            for ($i = 0; $i < count($describe['searchIndexList']); $i++) {
+                array_push($search_indexes, $describe['searchIndexList'][$i]['name']);
+            }
+        }
+    
+        $response['filter_fields'] = $filter_fields;
+        $response['include_fields'] = $valid_fields;
+        $response['include_list'] = implode(',', $valid_fields);
+        $response['index_list'] = implode('|', $search_indexes);
+    
+        return $response;
+    }
+
+    /**
      * Retrieves bib information
      * 
      * @param  string $token       Session token returned by ILSWS
@@ -516,64 +590,34 @@ class Libilsws
     public function get_bib ($token = null, $bib_key = null, $field_list = '') 
     {
         $bib = [];
-        $filter_fields = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
 
         // Validate the $field_list
-        $valid_list = '*';
-        if ( $field_list && $field_list != 'raw' ) {
-
-            // Requested fields
-            $fields = preg_split("/,\s*/", $field_list);
-
-            // Get the fields to test against
-            $test_fields = [];
-            $describe = $this->describe_bib($token);
-            for ($i = 0; $i < count($describe['fields']); $i++) {
-                array_push($test_fields, $describe['fields'][$i]['name']);
-            }
-
-            // Check for special fields and add bib
-            $valid_fields = ['bib'];
-            foreach ($fields as $field) {
-                if ( preg_match("/^\d{3}_[a-z0-9]{1}$/", $field) ) {
-                    array_push($filter_fields, $field);
-                } elseif ( in_array($field, $test_fields) ) {
-                    array_push($valid_fields, $field);
-                }
-            }
-
-            // Make array into list 
-            $valid_list = implode(',', $valid_fields);
-
-            // Check if we're supposed to be pulling items
-            if ( in_array('callList', $valid_fields) ) {
-                $valid_list = preg_replace("/callList/", 'callList{callNumber,library,itemList{barcode,copyNumber,currentLocation,itemType}}', $valid_list);
-            }
+        if ( ! empty($field_list) && $field_list != 'raw' ) {
+            $valid = $this->validate_fields($token, 'bib', $field_list);
         }
 
-        $temp = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=$valid_list", $token);
+        $bib = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=" . $valid['include_list'], $token, []);
 
-        if ( ! empty($temp['fields']) && $field_list != 'raw' ) {
+        if ( ! empty($bib['fields']) && $field_list != 'raw' ) {
    
             // Flatten the structure to a simple hash 
-            $temp = $this->flatten_bib($temp['fields']);
+            $temp = $this->flatten_bib($bib['fields']);
 
             // Filter out fields that were not requested
-            foreach ($fields as $field) {
+            $bib = [];
+            foreach ($valid['include_fields'] as $field) {
                 if ( ! empty($temp[$field]) ) {
                     $bib[$field] = $temp[$field];
                 }
             }
-            if ( ! empty($temp['items']) ) {
-                $bib['items'] = $temp['items'];
+            foreach ($valid['filter_fields'] as $field) {
+                if ( ! empty($temp[$field]) ) {
+                    $bib[$field] = $temp[$field];
+                }
             }
-
-        } else {
-
-            $bib = $temp;
         }
 
         return $bib;
@@ -592,30 +636,18 @@ class Libilsws
     public function get_item ($token = null, $item_key = null, $field_list = '')
     {
         $item = [];
-        $field_data = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
+        $this->validate('item_key', $item_key, 'r:#^(\d{6,8})(:\d{1,2}){0,2}$#');
 
         // Validate the $field_list
-        $valid_list = '*';
-        if ( $field_list && $field_list != 'raw' ) {
+        if ( ! empty($field_list) && $field_list != 'raw' ) {
+            $valid = $this->validate_fields($token, 'item', $field_list);
+        } else {
+            $valid['include_list'] = '*';
+        }
 
-            $fields = preg_split("/,\s*/", $field_list);
-
-            // Get the fields to test against
-            $test_fields = [];
-            $describe = $this->describe_item($token);
-            for ($i = 0; $i < count($describe['fields']); $i++) {
-                array_push($test_fields, $describe['fields'][$i]['name']);
-            }
-
-            // Get all fields that appear in both arrays
-            $valid_fields = array_intersect($test_fields, $fields);
-            $valid_list = implode(',', $valid_fields);
-        } 
-
-        $item = $this->send_get("$this->base_url/catalog/item/key/$item_key?includeFields=$valid_list", $token);
+        $item = $this->send_get("$this->base_url/catalog/item/key/$item_key?includeFields=" . $valid['include_list'], $token, []);
 
         if ( ! empty($item['fields']) && $field_list != 'raw' ) {
             $item = $this->flatten_item($item);
@@ -775,34 +807,16 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('value', $value, 's:40');
 
-        // Validate the index specified
-        $describe = $this->describe_bib($token);
-        $indexes = [];
-        for ($i = 0; $i < count($describe['searchIndexList']); $i++) {
-            array_push($indexes, $describe['searchIndexList'][$i]['name']);
-        }
-        $index_list = implode('|', $indexes);
-        $this->validate('index', $index, "v:$index_list");
-
-        // Validate the include fields specified
-        $valid_field_list = '';
-        if ( ! empty($params['includeFields']) ) {
-            $fields = [];
-            for ($i = 0; $i < count($describe['fields']); $i++) {
-                array_push($fields, $describe['fields'][$i]['name']);
-            }
-            array_push($fields, 'key');
-            array_push($fields, 'raw');
-            $field_list = implode('|', $fields);
-            $include_fields = preg_split("/,\s*/", $params['includeFields']);
-            foreach ($include_fields as $include_field) {
-                if ( ! preg_match("/\d{3}_[a-z0-9]{1}$/", $include_field) ) {
-                    $this->validate('include field', $include_field, "v:$field_list");
-                }
-            }
-            $valid_field_list = $params['includeFields'];
+        // Define default fields to include in output
+        if ( empty($params['includeFields']) ) {
+            $params['includeFields'] = 'author,title,650_a';
         }
 
+        // Validate fields and get valid search indexes
+        $valid = $this->validate_fields($token, 'bib', $params['includeFields']);
+       
+        // Validate the search index 
+        $this->validate('index', $index, 'v:' . $valid['index_list']);
 
         /** 
          * Valid incoming params are: 
@@ -819,23 +833,33 @@ class Libilsws
             'ct'            => $params['ct'] ?? '1000',
             'rw'            => $params['rw'] ?? '1',
             'j'             => $params['j'] ?? 'AND',
-            'includeFields' => 'key'
+            'includeFields' => $valid['include_list'],
             ];
 
-        $result = $this->send_get("$this->base_url/catalog/bib/search", $token, $params);
+        $response = $this->send_get("$this->base_url/catalog/bib/search", $token, $params);
 
         $records = [];
-        if ( ! empty($result['totalResults']) && $result['totalResults'] > 0 ) {
-            for ($i = 0; $i < count($result['result']); $i++) {
-                if ( ! is_null($result['result'][$i]) ) {
-                    $bib = $this->get_bib_items($token, $result['result'][$i]['key'], $valid_field_list);
-                    array_push($records, $bib);
+        if ( ! empty($response['totalResults']) && $response['totalResults'] > 0 ) {
+            for ($i = 0; $i < count($response['result']); $i++) {
+                if ( ! is_null($response['result'][$i]) ) {
+                    $bib = $this->flatten_bib($response['result'][$i]['fields']);
+                    $filtered_bib = [];
+                    foreach ($valid['include_fields'] as $field) {
+                        if ( ! empty($bib[$field]) ) {
+                            $filtered_bib[$field] = $bib[$field];
+                        }
+                    }
+                    foreach ($valid['filter_fields'] as $field) {
+                        if ( ! empty($bib[$field]) ) {
+                            $filtered_bib[$field] = $bib[$field];
+                        }
+                    }
+                    array_push($records, $filtered_bib);
                 }
             }
-            return $records;
-        } else {
-            return $result;
         }
+
+        return $records;
     }
 
     /**

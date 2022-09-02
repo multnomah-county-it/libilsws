@@ -3,12 +3,14 @@
 require_once 'vendor/autoload.php';
 
 if ( count($argv) < 3 ) {
-    print "Syntax: php $argv[0] INDEX SEARCH\n";
+    print "Syntax: php $argv[0] INDEX SEARCH INCLUDE_FIELDS\n";
+    print "Please supply include fields in a comma-delimited list.\n";
     exit;
 } 
 
 $index = $argv[1];
 $search = $argv[2];
+$include_fields = $argv[3];
 
 // Initialize
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
@@ -25,7 +27,7 @@ $params = [
     'ct'            => '50',
     'rw'            => '1',
     'j'             => 'AND',
-    'includeFields' => 'key,author,title,650_a,650_b,650_c,650_d,650_v,650_x,650_y,650_z,856_u'
+    'includeFields' => $include_fields
     ];
 $response = $ilsws->search_bib($token, $index, $search, $params);
 $json = json_encode($response, JSON_PRETTY_PRINT);

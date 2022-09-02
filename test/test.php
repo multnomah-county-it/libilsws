@@ -4,8 +4,7 @@ require_once 'vendor/autoload.php';
 
 if ( count($argv) < 7 ) {
     print "Syntax: php $argv[0] EMAIL TELEPHONE BARCODE ALT_ID PATRON_KEY PASSWORD\n";
-    exit 0;
-
+    exit;
 } 
 
 $email = $argv[1];

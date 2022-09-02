@@ -4,7 +4,7 @@ require_once 'vendor/autoload.php';
 
 if ( count($argv) < 2 ) {
     print "Syntax: php $argv[0] LIBRARY_CODE\n";
-    exit 0;
+    exit;
 }
 
 $library_code = $argv[1];

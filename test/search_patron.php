@@ -4,7 +4,7 @@ require_once 'vendor/autoload.php';
 
 if ( count($argv) < 3 ) {
     print "Syntax: php $argv[0] INDEX SEARCH\n";
-    exit 0;
+    exit;
 
 }
 

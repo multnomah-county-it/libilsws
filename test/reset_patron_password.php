@@ -4,7 +4,7 @@ require_once 'vendor/autoload.php';
 
 if ( count($argv) < 4 ) {
     print "Syntax: php $argv[0] BARCODE CALLBACK_URL EMAIL\n";
-    exit 0;
+    exit;
 }
 
 $barcode = $argv[1];

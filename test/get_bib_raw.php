@@ -4,7 +4,7 @@ require_once 'vendor/autoload.php';
 
 if ( count($argv) < 3 ) {
     print "Syntax: php $argv[0] BIB_KEY FIELD_LIST\n";
-    exit 0;
+    exit;
 }
 
 $bib_key = $argv[1];

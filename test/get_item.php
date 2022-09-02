@@ -5,7 +5,7 @@ require_once 'vendor/autoload.php';
 if ( count($argv) < 3 ) {
     print "Syntax: php $argv[0] ITEM_KEY FIELD_LIST\n";
     print "Use php test/describe_item.php to description of available fields\n";
-    exit 0;
+    exit;
 }
 
 $item_key = $argv[1];

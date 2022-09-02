@@ -727,7 +727,7 @@ class Libilsws
                     $record['format'] = $item['itemCategory3'];
 
                     $bib = $this->get_bib($token, $item['bib'], 'author,title');
-                    if ( defined($bib['author']) ) {
+                    if ( ! empty($bib['author']) ) {
                         $record['author'] = $bib['author'];
                     }
                     $record['title'] = $bib['title'];

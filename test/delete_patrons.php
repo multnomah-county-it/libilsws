@@ -3,22 +3,17 @@
 require_once 'vendor/autoload.php';
 
 if ( count($argv) < 3 ) {
-
     print "Syntax: php $argv[0] INDEX SEARCH\n";
-    exit;
-
-} else {
-
-    $index = $argv[1];
-    $search = $argv[2];
+    exit 0;
 }
 
+$index = $argv[1];
+$search = $argv[2];
+
 // Initialize
-print "Initializing\n\n";
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 
 // Connect and get token
-print "Connecting\n\n";
 $token = $ilsws->connect();
 
 /**

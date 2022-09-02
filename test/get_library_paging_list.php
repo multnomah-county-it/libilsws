@@ -2,10 +2,12 @@
 
 require_once 'vendor/autoload.php';
 
-$library_code = $argv[1];
-if ( ! $library_code ) {
-    $library_code = 'CEN';
+if ( count($argv) < 2 ) {
+    print "Syntax: php $argv[0] LIBRARY_CODE\n";
+    exit 0;
 }
+
+$library_code = $argv[1];
 
 // Initialize
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");

@@ -610,11 +610,10 @@ class Libilsws
                 array_push($test_fields, $describe['fields'][$i]['name']);
             }
 
+            // Get all fields that appear in both arrays
             $valid_fields = array_intersect($test_fields, $fields);
             $valid_list = implode(',', $valid_fields);
         } 
-
-        print "$valid_list\n";
 
         $item = $this->send_get("$this->base_url/catalog/item/key/$item_key?includeFields=$valid_list", $token);
 
@@ -711,7 +710,9 @@ class Libilsws
                     $record['format'] = $item['itemCategory3'];
 
                     $bib = $this->get_bib($token, $item['bib'], 'author,title');
-                    $record['author'] = $bib['author'];
+                    if ( defined($bib['author']) ) {
+                        $record['author'] = $bib['author'];
+                    }
                     $record['title'] = $bib['title'];
     
                     $call = $this->get_call_number($token, $item['call']);

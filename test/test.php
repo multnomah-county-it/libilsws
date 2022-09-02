@@ -3,19 +3,17 @@
 require_once 'vendor/autoload.php';
 
 if ( count($argv) < 7 ) {
-
     print "Syntax: php $argv[0] EMAIL TELEPHONE BARCODE ALT_ID PATRON_KEY PASSWORD\n";
-    exit;
+    exit 0;
 
-} else {
+} 
 
-    $email = $argv[1];
-    $telephone = $argv[2];
-    $patron_id = $argv[3];
-    $alt_id = $argv[4];
-    $patron_key = $argv[5];
-    $password = $argv[6];
-}
+$email = $argv[1];
+$telephone = $argv[2];
+$patron_id = $argv[3];
+$alt_id = $argv[4];
+$patron_key = $argv[5];
+$password = $argv[6];
 
 // Initialize
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");

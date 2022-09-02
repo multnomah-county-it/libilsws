@@ -393,7 +393,9 @@ class Libilsws
 
             foreach ($call_list[$i]['fields'] as $key => $value) {
 
-                if ( ! empty($call_list[$i]['fields'][$key]['key']) ) {
+                if ( ! is_array($value) ) {
+                    $item_list[$item_key][$key] = $value;
+                } elseif ( ! empty($call_list[$i]['fields'][$key]['key']) ) {
                     $item_list[$item_key][$key] = $call_list[$i]['fields'][$key]['key'];
                 } elseif ( $key = 'itemList' ) {
 
@@ -405,9 +407,6 @@ class Libilsws
                             }
                         }
                     }
-
-                } else {
-                    $item_list[$item_key][$key] = $value;
                 }
             }
         }

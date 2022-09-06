@@ -525,8 +525,6 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('record_type', $record_type, 'v:bib|item|call');
 
-        $input_fields = preg_split("/,\s*/", $field_list);
-      
         $test_fields = []; 
         $describe = $this->send_get("$this->base_url/catalog/$record_type/describe", $token, []);
         for ($i = 0; $i < count($describe['fields']); $i++) {
@@ -534,6 +532,11 @@ class Libilsws
         }
         $test_list = implode('|', $test_fields);
 
+        // Default to all fields
+        if ( ! $field_list ) {
+            $input_fields = $test_fields;
+        }
+      
         $valid_fields = [];
         $filter_fields = [];
         $item_flag = 0;
@@ -602,7 +605,7 @@ class Libilsws
         $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
 
         // Validate the $field_list
-        if ( ! empty($field_list) && $field_list != 'raw' ) {
+        if ( $field_list != 'raw' ) {
             $valid = $this->validate_fields($token, 'bib', $field_list);
         }
 
@@ -844,14 +847,9 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('value', $value, 's:40');
 
-        // Define default fields to include in output
-        if ( empty($params['includeFields']) ) {
-            $params['includeFields'] = 'author,title,650_a';
-        }
-
         // Validate fields and get valid search indexes
         $valid = $this->validate_fields($token, 'bib', $params['includeFields']);
-       
+
         // Validate the search index 
         $this->validate('index', $index, 'v:' . $valid['index_list']);
 

@@ -448,7 +448,7 @@ class Libilsws
      * @return array          Flat asociative array
      */
 
-    private function flatten_bib ($record)
+    private function flatten_bib ($token, $record)
     {
         $bib = [];
 
@@ -477,6 +477,12 @@ class Libilsws
             } elseif ( $key === 'callList' ) {
     
                 $bib['itemList'] = $this->flatten_call_list($record['callList']);
+
+            } elseif ( $key === 'holdRecordList' ) {
+   
+                for ($i = 0; $i < count($record['holdRecordList']); $i++) { 
+                    $bib['holdRecordList'][$i] = $this->get_hold($token, $record['holdRecordList'][$i]['key']);
+                }
 
             } else {
 
@@ -589,7 +595,7 @@ class Libilsws
         if ( ! empty($bib['fields']) && $field_list != 'raw' ) {
    
             // Flatten the structure to a simple hash 
-            $temp = $this->flatten_bib($bib['fields']);
+            $temp = $this->flatten_bib($token, $bib['fields']);
 
             // Filter out fields that were not requested
             $bib = [];
@@ -651,10 +657,25 @@ class Libilsws
 
     public function get_hold ($token = null, $hold_key = null)
     {
+        $hold = [];
+
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('hold_key', $hold_key, 'r:#^\d{6,8}$#');
 
-        return $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token);
+        $temp = $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token);
+
+        if ( ! empty($temp['fields']) ) {
+            $hold['key'] = $temp['key'];
+            foreach ($temp['fields'] as $field => $value) {
+                if ( ! empty($temp['fields'][$field]['key']) ) {
+                    $hold[$field] = $temp['fields'][$field]['key'];
+                } else {
+                    $hold[$field] = $value;
+                }
+            }
+        }
+
+        return $hold;
     }
 
     /**
@@ -827,7 +848,7 @@ class Libilsws
         if ( ! empty($response['totalResults']) && $response['totalResults'] > 0 ) {
             for ($i = 0; $i < count($response['result']); $i++) {
                 if ( ! is_null($response['result'][$i]) ) {
-                    $bib = $this->flatten_bib($response['result'][$i]['fields']);
+                    $bib = $this->flatten_bib($token, $response['result'][$i]['fields']);
                     $filtered_bib = [];
                     foreach ($valid['include_fields'] as $field) {
                         if ( ! empty($bib[$field]) ) {

@@ -388,21 +388,37 @@ class Libilsws
         $item_list = [];
 
         for ($i = 0; $i < count($call_list); $i++) {
-    
-            foreach ($call_list[$i]['fields'] as $key => $value) {
+            array_push($item_list, $this->flatten_call($call_list[$i]));
+        }
 
-                if ( ! is_array($value) ) {
-                    $item_list[$i][$key] = $value;
-                } elseif ( ! empty($call_list[$i]['fields'][$key]['key']) ) {
-                    $item_list[$i][$key] = $call_list[$i]['fields'][$key]['key'];
-                } elseif ( $key = 'itemList' ) {
+        return $item_list;
+    }
 
-                    for ($x = 0; $x < count($call_list[$i]['fields']['itemList']); $x++) {
-                        foreach ($call_list[$i]['fields']['itemList'] as $item) {
-                            $item = $this->flatten_item($item);
-                            foreach ($item as $field => $field_value) {
-                                $item_list[$i][$field] = $field_value;
-                            }
+    /**
+     * Flatten call number record into array of items
+     * 
+     * @access private
+     * @param  object $call Complex object with call number record
+     * @return array        Flat associative array
+     */
+
+    function flatten_call ($call)
+    {
+        $item_list = [];
+
+        foreach ($call['fields'] as $field => $value) {
+
+            if ( ! is_array($value) ) {
+                $item_list[$field] = $value;
+            } elseif ( ! empty($call['fields'][$field]['key']) ) {
+                $item_list[$field] = $call['fields'][$field]['key'];
+            } elseif ( $field == 'itemList' ) {
+
+                for ($i = 0; $i < count($call['fields']['itemList']); $i++) {
+                    foreach ($call['fields']['itemList'] as $item) {
+                        $item = $this->flatten_item($item);
+                        foreach ($item as $item_field => $field_value) {
+                            $item_list[$item_field] = $field_value;
                         }
                     }
                 }
@@ -507,7 +523,7 @@ class Libilsws
         $response = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('record_type', $record_type, 'v:bib|item');
+        $this->validate('record_type', $record_type, 'v:bib|item|call');
 
         $input_fields = preg_split("/,\s*/", $field_list);
       
@@ -686,12 +702,27 @@ class Libilsws
      * @return object              Flat associative array containing the response from ILSWS
      */
 
-    public function get_call_number ($token = null, $call_key = null)
+    public function get_call_number ($token = null, $call_key = null, $field_list = '')
     {
+        $call = [];
+
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('call_key', $call_key, 'r:#^\d{6,8}:\d{1,2}$#');
 
-        return $this->send_get("$this->base_url/catalog/call/key/$call_key", $token);
+        // Validate the $field_list
+        if ( ! empty($field_list) && $field_list != 'raw' ) {
+            $valid = $this->validate_fields($token, 'call', $field_list);
+        } else {
+            $valid['include_list'] = '*';
+        }
+
+        $call = $this->send_get("$this->base_url/catalog/call/key/$call_key?includeFields=" . $valid['include_list'], $token);
+
+        if ( ! empty($call['fields']) && $field_list != 'raw' ) {
+            $call = $this->flatten_call($call);
+        }
+
+        return $call;
     }
 
     /**
@@ -736,11 +767,11 @@ class Libilsws
 
                 $hold = $this->get_hold($token, $list_hold['fields']['holdRecord']['key']);
                 
-                if ( $hold['fields']['status'] != 'EXPIRED' ) {
-                    $record['holdType'] = $hold['fields']['holdType'];
-                    $record['pickupLibrary'] = $hold['fields']['pickupLibrary']['key'];
-                    $record['placedLibrary'] = $hold['fields']['placedLibrary']['key'];
-                    $record['status'] = $hold['fields']['status'];
+                if ( $hold['status'] != 'EXPIRED' ) {
+                    $record['holdType'] = $hold['holdType'];
+                    $record['pickupLibrary'] = $hold['pickupLibrary'];
+                    $record['placedLibrary'] = $hold['placedLibrary'];
+                    $record['status'] = $hold['status'];
 
                     $item = $this->get_item($token, $list_hold['fields']['item']['key'], 'barcode,bib,call,currentLocation,itemCategory3');
                     $record['barcode'] = $item['barcode'];
@@ -753,8 +784,8 @@ class Libilsws
                     }
                     $record['title'] = $bib['title'];
     
-                    $call = $this->get_call_number($token, $item['call']);
-                    $record['callNumber'] = $call['fields']['callNumber'];
+                    $call = $this->get_call_number($token, $item['call'], 'callNumber');
+                    $record['callNumber'] = $call['callNumber'];
 
                     $location = $this->get_policy($token, 'location', $record['currentLocation']);
                     $record['locationDescription'] = $location['fields']['description'];

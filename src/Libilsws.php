@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 0;
+    const DEBUG_QUERY = 1;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -383,12 +383,12 @@ class Libilsws
      * @return array             Flat associative array
      */
 
-    private function flatten_call_list ($call_list)
+    private function flatten_call_list ($token, $call_list)
     {
         $item_list = [];
 
         for ($i = 0; $i < count($call_list); $i++) {
-            array_push($item_list, $this->flatten_call($call_list[$i]));
+            array_push($item_list, $this->flatten_call($token, $call_list[$i]));
         }
 
         return $item_list;
@@ -402,7 +402,7 @@ class Libilsws
      * @return array        Flat associative array
      */
 
-    function flatten_call ($call)
+    function flatten_call ($token, $call)
     {
         $item_list = [];
 
@@ -416,7 +416,7 @@ class Libilsws
 
                 for ($i = 0; $i < count($call['fields']['itemList']); $i++) {
                     foreach ($call['fields']['itemList'] as $item) {
-                        $item = $this->flatten_item($item);
+                        $item = $this->flatten_item($token, $item);
                         foreach ($item as $item_field => $field_value) {
                             $item_list[$item_field] = $field_value;
                         }
@@ -436,19 +436,22 @@ class Libilsws
      * @return array           Flat associative array
      */
 
-    private function flatten_item ($record)
+    private function flatten_item ($token, $record)
     {
         $item = [];
 
+        $item['key'] = $record['key'];
+
         foreach ($record['fields'] as $key => $value) {
 
-            $item['key'] = $record['key'];
-            if ( ! empty($record['fields'][$key]['key']) ) {
-                $item[$key] = $record['fields'][$key]['key'];
+            if ( $key === 'itemCircInfo' ) {
+                $item['itemCircInfo'] = $this->get_item_circ_info($token, $record['fields']['itemCircInfo']['key']);
             } elseif ( $key === 'price' ) {
-                $item[$key] = $record['fields'][$key]['currencyCode'] 
+                $item['price'] = $record['fields']['price']['currencyCode'] 
                     . ' ' 
-                    . $record['fields'][$key]['amount'];
+                    . $record['fields']['price']['amount'];
+            } elseif ( ! empty($record['fields'][$key]['key']) ) {
+                $item[$key] = $record['fields'][$key]['key'];
             } else {
                 $item[$key] = $value;
             }
@@ -471,11 +474,7 @@ class Libilsws
         // Extract the data from the structure so that it can be returned in a flat hash
         foreach ($record as $key => $value) {
 
-            if ( ! empty($record[$key]['key']) ) {
-
-                $bib[$key] = $record[$key]['key'];
-
-            } elseif ( $key === 'bib' ) {
+            if ( $key === 'bib' ) {
 
                 for ($i = 0; $i < count($record['bib']['fields']); $i++) {
                     for ($x = 0; $x < count($record['bib']['fields'][$i]['subfields']); $x++) {
@@ -490,15 +489,23 @@ class Libilsws
                     }
                 }
 
+            } elseif ( $key === 'bibCircInfo' ) {
+
+                $bib['bibCircInfo'] = $this->get_bib_circ_info($token, $record[$key]['key']);
+
             } elseif ( $key === 'callList' ) {
-    
-                $bib['itemList'] = $this->flatten_call_list($record['callList']);
+   
+                $bib['itemList'] = $this->flatten_call_list($token, $record['callList']);
 
             } elseif ( $key === 'holdRecordList' ) {
    
                 for ($i = 0; $i < count($record['holdRecordList']); $i++) { 
                     $bib['holdRecordList'][$i] = $this->get_hold($token, $record['holdRecordList'][$i]['key']);
                 }
+
+            } elseif ( ! empty($record[$key]['key']) ) {
+
+                $bib[$key] = $record[$key]['key'];
 
             } else {
 
@@ -525,6 +532,7 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('record_type', $record_type, 'v:bib|item|call');
 
+        // Get the valid fields to test inputs against
         $test_fields = []; 
         $describe = $this->send_get("$this->base_url/catalog/$record_type/describe", $token, []);
         for ($i = 0; $i < count($describe['fields']); $i++) {
@@ -532,11 +540,16 @@ class Libilsws
         }
         $test_list = implode('|', $test_fields);
 
-        // Default to all fields
-        if ( ! $field_list ) {
-            $input_fields = $test_fields;
+        // Default to all fields if $field_list is empty
+        $input_fields = [];
+        if ( empty($field_list) ) {
+            foreach ($test_fields as $field => $value) {
+                $input_fields[$field] = $test_fields[$field];
+            }
+        } else {
+            $input_fields = preg_split("/,\s*/", $field_list);
         }
-      
+
         $valid_fields = [];
         $filter_fields = [];
         $item_flag = 0;
@@ -588,6 +601,32 @@ class Libilsws
     }
 
     /**
+     * Get bibliographic circulation statistics
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $bib_key     Bibliographic record key
+     * @return object              Flat associative array with circulation numbers
+     */
+
+    public function get_bib_circ_info ($token = null, $bib_key = null)
+    {
+        $stats = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
+        
+        $response = $this->send_get("$this->base_url/circulation/bibCircInfo/key/$bib_key", $token, []);
+
+        if ( ! empty($response['fields']) ) {
+            foreach ($response['fields'] as $field => $value) {
+                $stats[$field] = $value;
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
      * Retrieves bib information
      * 
      * @param  string $token       Session token returned by ILSWS
@@ -634,6 +673,36 @@ class Libilsws
     }
 
     /**
+     * Get item circulation statistics
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $item_key    Item record key
+     * @return object              Flat associative array with circulation numbers
+     */
+
+    public function get_item_circ_info ($token = null, $item_key = null)
+    {
+        $stats = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
+        
+        $response = $this->send_get("$this->base_url/circulation/itemCircInfo/key/$item_key", $token, []);
+
+        if ( ! empty($response['fields']) ) {
+            foreach ($response['fields'] as $field => $value) {
+                if ( ! empty($response['fields'][$field]['key']) ) {
+                    $stats[$field] = $response['fields'][$field]['key'];
+                } else {
+                    $stats[$field] = $value;
+                }
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
      * Retrieves item information
      * 
      * @param  string $token       Session token returned by ILSWS
@@ -660,7 +729,7 @@ class Libilsws
         $item = $this->send_get("$this->base_url/catalog/item/key/$item_key?includeFields=" . $valid['include_list'], $token, []);
 
         if ( ! empty($item['fields']) && $field_list != 'raw' ) {
-            $item = $this->flatten_item($item);
+            $item = $this->flatten_item($token, $item);
         }
 
         return $item;

@@ -2,7 +2,7 @@
 
 require_once 'vendor/autoload.php';
 
-if ( count($argv) < 3 ) {
+if ( count($argv) < 4 ) {
     print "Syntax: php $argv[0] INDEX SEARCH INCLUDE_FIELDS\n";
     print "Please supply include fields in a comma-delimited list.\n";
     exit;

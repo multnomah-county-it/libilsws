@@ -17,6 +17,8 @@ $token = $ilsws->connect();
 
 // Describe patron register function
 $response = $ilsws->get_bib_marc($token, $bib_key);
-print json_encode($response, JSON_PRETTY_PRINT) . "\n";
+foreach ($response as $tag => $value) {
+    print "$tag $value\n";
+}
 
 // EOF

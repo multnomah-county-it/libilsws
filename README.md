@@ -36,11 +36,7 @@ if presented with inappropriate inputs.
 - describe_bib ($token) 
 - describe_item ($token) 
 - describe_patron ($token) 
-- get_bib_circ_info($token, $bib_key)
-- get_call_number ($token, $call_key)
-- get_hold ($token, $hold_key)
 - get_policy ($token, $policy_key)
-- reset_patron_password ($token, $patron_id, $url, $email)
 - search_patron ($token, $index, $search, $params)
 - search_patron_alt_id ($token, $alt_id, $count)
 - search_patron_id ($token, $patron_id, $count) 
@@ -56,12 +52,17 @@ or evaluating data from the Symphony system.
 - create_patron_json ($patron, $mode, $token, $patron_key)
 - create_register_json ($patron, $token)
 - get_bib ($token, $bib_key, $field_list)
+- get_bib_circ_info($token, $bib_key)
 - get_bib_marc ($token, $bib_key)
+- get_call_number ($token, $call_key, $field_list)
+- get_catalog_search_indexes ($token)
+- get_hold ($token, $hold_key)
 - get_item ($token, $item_key, $field_list)
 - get_item_circ_info ($token, $item_key)
 - get_library_paging_list ($token, $library_key)
 - get_patron_attributes ($token, $patron_key)
 - register_patron ($patron, $token)
+- reset_patron_password ($token, $patron_id, $url, $email)
 - search_authenticate ($token, $index, $search, $password)
 - search_bib ($token, $index, $value, $params)
 - update_patron ($token, $json, $patron_key) 
@@ -151,6 +152,22 @@ $json = $ilsws->create_patron_json($patron, 'overlay_fields', $token, $patron_ke
 $response = $ilsws->update_patron($token, $json, $patron_key);
 ```
 
+### Search for bibliographic records
+```
+$params = [ 
+    'ct'            => '50',
+    'rw'            => '1',
+    'j'             => 'AND',
+    'includeFields' => 'author,title,bib{650_a,856_u},callList{callNumber,itemList{barcode,currentLocation}}'
+    ];
+$response = $ilsws->search_bib($token, $index, $search, $params);
+```
+Notes on the includeFields parameter: 
+* To include MARC data by tag, add a bib item. For example, to get the 650 tag, subfield a, add: ``bib{650_a}``
+* To get a call number or any item from the item record, you must include a callList item. For example, add ``callList{callNumber}``
+* To get any field from the item record, you must include an itemList entry within the callList item. For example, to get a barcode, add ``callList{itemList{barcode}}``
+
+## More Information
 See the libilsws.yaml.sample file for field definitions and documentation
 of the YAML configuration options.
 

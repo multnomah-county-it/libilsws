@@ -38,6 +38,10 @@ ilsws:
   max_retries: 3
   max_search_count: 20
   default_include_fields: 'profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate'
+  # Set the following item to true to make Libilsws validate each field included in a $field_list variable
+  # or includeFields parameter against the API. Set the item to false to increase performance for production
+  # systems.
+  validate_catalog_fields: true
 symphony:
   # The age_ranges are used to map a particular age range to a profile. If you don't use age based profiles, 
   # you may delete age_ranges and set a default for the profile field

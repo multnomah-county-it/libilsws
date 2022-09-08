@@ -25,6 +25,13 @@
 # For new_fields, you must also include the 
 #   required: true|false
 #
+debug:
+  config: false
+  connect: false
+  fields: false
+  query: false
+  register: false
+  update: false
 ilsws:
   username: 'USERNAME'
   password: 'PASSWORD'
@@ -37,18 +44,21 @@ ilsws:
   timeout: 20
   max_retries: 3
   max_search_count: 20
+symphony:
+  # Use this setting to determine the default fields to return from the search_patron function
   default_include_fields: 'profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate'
+  # Set the following item to true to validate patron search indexes against the API. Set the item to false for
+  # better performance with production code.
+  validate_patron_indexes: true
   # Set the following item to true to make Libilsws validate each field included in a $field_list variable
   # or includeFields parameter against the API. Set the item to false to increase performance for production
   # systems.
   validate_catalog_fields: true
-symphony:
   # The age_ranges are used to map a particular age range to a profile. If you don't use age based profiles, 
   # you may delete age_ranges and set a default for the profile field
   age_ranges: 
     1-12: '1_MULT_Y'
     13-120: '0_MULT'
-  valid_search_indexes: 'UKEY|ALIAS|STUD_ID|PREV_ID|PREV_ID2|ALT_NAME|COMMENT|PHONE|EMAIL|STREET|NAME|ID|ALT_ID|GROUP_ID|USERGROUP|BIRTHDATE'
   # The overlay_fields section defines the fields that may be used in the patron_modify and patron_register functions. 
   # Note: Symphony will assign new records a temporary patron_id (barcode). The patron_update function may be used to 
   # update that later. The order of fields does not matter, but address fields must be grouped under address1, 

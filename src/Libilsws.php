@@ -72,7 +72,7 @@ class Libilsws
     const DEBUG_CONFIG = 0;
     const DEBUG_CONNECT = 0;
     const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 1;
+    const DEBUG_QUERY = 0;
     const DEBUG_REGISTER = 0;
     const DEBUG_UPDATE = 0;
 
@@ -627,7 +627,7 @@ class Libilsws
 
         if ( ! empty($diff_fields) ) {
             foreach ($diff_fields as $field) {
-                if ( ! preg_match("/^\d{3}_[a-zA-Z0-9]{1}$/", $field) ) {
+                if ( ! $field == 'leader' and ! preg_match("/^\d{3}(_[a-zA-Z0-9]{1})*$/", $field) ) {
                     throw new Exception ("Invalid field \"$field\" in includeFields");
                 }
             }
@@ -641,6 +641,46 @@ class Libilsws
         $response['index_list'] = implode('|', $search_indexes);
 
         return $response;
+    }
+
+    /**
+     * Get bib MARC data
+     * 
+     * @param  string $token        Session token returned by ILSWS
+     * @param  string $bib_key      Bibliographic record key
+     * @return array                Flat associative array with MARC record
+     */
+
+    public function get_bib_marc ($token = null, $bib_key = null) 
+    {
+        $bib = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
+
+        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token, []);
+
+        if ( ! empty($response['fields']['bib']) ) {
+            foreach ($response['fields']['bib'] as $marc_key => $marc_value) {
+                if ( ! is_array($marc_value) ) {
+                    $bib[$marc_key] = $marc_value;
+                } else {
+                    foreach ($marc_value as $tag) {
+                        if ( ! empty($tag['tag']) ) {
+                            foreach ($tag['subfields'] as $subfield) {
+                                if ( $subfield['code'] == '_' ) {
+                                    $bib[$tag['tag']] = $subfield['data'];
+                                } else {
+                                    $bib[$tag['tag'] . ' ' . $tag['inds'] . ' _' . $subfield['code']] = $subfield['data'];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $bib;
     }
 
     /**

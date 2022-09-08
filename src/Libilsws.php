@@ -1163,14 +1163,14 @@ class Libilsws
             error_log("DEBUG_QUERY $index2:$search2", 0);
         }
 
-        $result1 = $this->patron_search($token, $index1, $search1, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
+        $result1 = $this->search_patron($token, $index1, $search1, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
         if ( isset($result1['totalResults']) && $result1['totalResults'] >= 1 ) {
 
             $start_row = 1;
             $result_rows = 0;
 
-            $result2 = $this->patron_search($token, $index2, $search2, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
+            $result2 = $this->search_patron($token, $index2, $search2, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
             if ( isset($result2['totalResults']) && $result2['totalResults'] > 1 ) {
 
@@ -1198,7 +1198,7 @@ class Libilsws
                 
                 while ( $result_rows >= $start_row ) {
 
-                    $result2 = $this->patron_search($token, $index2, $search2, ['rw' => $start_row, 'ct' => 1000, 'includeFields' => 'key']);
+                    $result2 = $this->search_patron($token, $index2, $search2, ['rw' => $start_row, 'ct' => 1000, 'includeFields' => 'key']);
 
                     foreach (array_filter($result1['result']) as $record1) {
                         foreach (array_filter($result2['result']) as $record2) {
@@ -1259,7 +1259,7 @@ class Libilsws
                 'includeFields' => 'barcode',
                 ];
 
-        $response = $this->patron_search($token, $index, $search, $params);
+        $response = $this->search_patron($token, $index, $search, $params);
 
         if ( $this->error ) {
             return 0;
@@ -1459,7 +1459,7 @@ class Libilsws
      * @return object           Associative array containing search results
      */
 
-    public function patron_search ($token = null, $index = null, $value = null, $params = null)
+    public function search_patron ($token = null, $index = null, $value = null, $params = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('index', $index, 'v:' . $this->config['symphony']['valid_search_indexes']);
@@ -1501,7 +1501,7 @@ class Libilsws
         $this->validate('alt_id', $alt_id, 'i:1,99999999');
         $this->validate('count', $count, 'i:1,1000');
 
-        return $this->patron_search($token, 'ALT_ID', $alt_id, ['ct' => $count]);
+        return $this->search_patron($token, 'ALT_ID', $alt_id, ['ct' => $count]);
     }
 
     /**

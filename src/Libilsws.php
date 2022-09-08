@@ -2141,7 +2141,7 @@ class Libilsws
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 
         if ( $this->config['debug']['update'] ) {
-            error_log("DEBUG_UPDATE $json, 0);
+            error_log("DEBUG_UPDATE $json", 0);
         }
         
         return $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');

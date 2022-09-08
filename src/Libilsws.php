@@ -627,7 +627,7 @@ class Libilsws
 
         if ( ! empty($diff_fields) ) {
             foreach ($diff_fields as $field) {
-                if ( ! $field == 'leader' and ! preg_match("/^\d{3}(_[a-zA-Z0-9]{1})*$/", $field) ) {
+                if ( ! preg_match("/^\d{3}(_[a-zA-Z0-9]{1})*$/", $field) ) {
                     throw new Exception ("Invalid field \"$field\" in includeFields");
                 }
             }

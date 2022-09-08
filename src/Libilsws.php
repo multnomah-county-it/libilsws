@@ -68,14 +68,6 @@ class APIException extends Exception
 
 class Libilsws
 {
-    // Turn these on to see various debug messages
-    const DEBUG_CONFIG = 0;
-    const DEBUG_CONNECT = 0;
-    const DEBUG_FIELDS = 0;
-    const DEBUG_QUERY = 0;
-    const DEBUG_REGISTER = 0;
-    const DEBUG_UPDATE = 0;
-
     // Public variable to share error information
     public $error;
 
@@ -100,7 +92,7 @@ class Libilsws
         if ( filesize($yaml_file) > 0 && substr($yaml_file, -4, 4) == 'yaml' ) {
             $this->config = Yaml::parseFile($yaml_file);
 
-            if ( self::DEBUG_CONFIG ) {
+            if ( $this->config['debug']['config'] ) {
                 error_log('DEBUG_CONFIG ' . json_encode($this->config, JSON_PRETTY_PRINT), 0);
             }
 
@@ -179,7 +171,7 @@ class Libilsws
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            if ( self::DEBUG_CONNECT ) {
+            if ( $this->config['debug']['connect'] ) {
                 error_log("DEBUG_CONNECT HTTP $this->code: $json", 0);
             }
 
@@ -235,7 +227,7 @@ class Libilsws
         /** Set $error to the URL being submitted so that it can be accessed 
          * in debug mode, when there is no error
          */
-        if ( self::DEBUG_QUERY ) {
+        if ( $this->config['debug']['query'] ) {
             error_log("DEBUG_QUERY $url", 0);
         }
 
@@ -264,7 +256,7 @@ class Libilsws
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            if ( self::DEBUG_QUERY ) {
+            if ( $this->config['debug']['query'] ) {
                 error_log("DEBUG_QUERY Request number: $req_num", 0);
                 error_log("DEBUG_QUERY HTTP $this->code: $json", 0);
             }
@@ -351,7 +343,7 @@ class Libilsws
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            if ( self::DEBUG_QUERY ) {
+            if ( $this->config['debug']['query'] ) {
                 error_log("DEBUG_QUERY Request number: $req_num", 0);
                 error_log("DEBUG_QUERY HTTP $this->code: $json", 0);
             }
@@ -565,7 +557,7 @@ class Libilsws
      * @return array  $search_indexes Array of valid index names
      */
 
-    public function get_catalog_search_indexes ($token = null)
+    public function get_catalog_indexes ($token = null)
     {
         $search_indexes = [];
 
@@ -573,10 +565,8 @@ class Libilsws
 
         $describe = $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
 
-        if ( ! empty($describe['searchIndexList']) ) {
-            for ($i = 0; $i < count($describe['searchIndexList']); $i++) {
-                array_push($search_indexes, $describe['searchIndexList'][$i]['name']);
-            }
+        foreach ($describe['searchIndexList'] as $index) {
+            array_push($search_indexes, $index['name']);
         }
 
         return $search_indexes;
@@ -604,8 +594,8 @@ class Libilsws
         // Get the fields to validate against
         $bib_fields = []; 
         $describe = $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
-        for ($i = 0; $i < count($describe['fields']); $i++) {
-            array_push($bib_fields, $describe['fields'][$i]['name']);
+        foreach ($describe['fields'] as $field) {
+            array_push($bib_fields, $field['name']);
         }
 
         /**
@@ -617,8 +607,8 @@ class Libilsws
         $call_fields = [];
         if ( ! empty($diff_fields) ) {
             $describe = $this->send_get("$this->base_url/catalog/call/describe", $token, []);
-            for ($i = 0; $i < count($describe['fields']); $i++) {
-                array_push($call_fields, $describe['fields'][$i]['name']);
+            foreach ($describe['fields'] as $field) {
+                array_push($call_fields, $field['name']);
             }
         }
 
@@ -631,8 +621,8 @@ class Libilsws
         $item_fields = [];
         if ( ! empty($diff_fields) ) {
             $describe = $this->send_get("$this->base_url/catalog/item/describe", $token, []);
-            for ($i = 0; $i < count($describe['fields']); $i++) {
-                array_push($item_fields, $describe['fields'][$i]['name']);
+            foreach ($describe['fields'] as $field) {
+                array_push($item_fields, $field['name']);
             }
         }
 
@@ -739,8 +729,10 @@ class Libilsws
         $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
 
         // Validate the $field_list
-        if ( $this->config['ilsws']['validate_catalog_fields'] ) {
+        if ( $this->config['symphony']['validate_catalog_fields'] ) {
             $this->validate_bib_fields($token, $fields);
+        } else {
+            $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},]{2,256}$#');
         }
 
         $bib = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=" . $field_list, $token, []);
@@ -810,8 +802,10 @@ class Libilsws
         $this->validate('item_key', $item_key, 'r:#^(\d{6,8})(:\d{1,2}){0,2}$#');
 
         // Validate the $field_list
-        if ( $this->config['ilsws']['validate_catalog_fields'] ) {
+        if ( $this->config['symphony']['validate_catalog_fields'] ) {
             $this->validate_fields($token, 'item', $field_list);
+        } else {
+            $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9_{},]{2,256}$#');
         }
 
         $item = $this->send_get("$this->base_url/catalog/item/key/$item_key?includeFields=$field_list", $token, []);
@@ -870,8 +864,10 @@ class Libilsws
         $this->validate('call_key', $call_key, 'r:#^\d{6,8}:\d{1,2}$#');
 
         // Validate the $field_list
-        if ( $this->config['ilsws']['validate_catalog_fields'] ) {
+        if ( $this->config['symphony']['validate_catalog_fields'] ) {
             $this->validate_fields($token, 'call', $field_list);
+        } else {
+            $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},]{2,256}$#');
         }
 
         $call = $this->send_get("$this->base_url/catalog/call/key/$call_key?includeFields=$field_list", $token);
@@ -1034,14 +1030,17 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('value', $value, 's:40');
 
-        if ( $this->config['ilsws']['validate_catalog_fields'] ) {
+        if ( $this->config['symphony']['validate_catalog_fields'] ) {
 
             // Validate fields and get valid search indexes
             $this->validate_bib_fields($token, $params['includeFields']);
 
             // Validate the search index 
-            $index_list = $this->get_catalog_search_indexes($token);
+            $index_list = $this->get_catalog_indexes($token);
             $this->validate('index', $index, 'v:' . implode('|', $index_list));
+
+        } else {
+            $this->validate('includeFields', $params['includeFields'], 'r:#^[A-Z0-9a-z_{},]{2,256}$#');
         }
 
         /** 
@@ -1165,6 +1164,28 @@ class Libilsws
     } 
 
     /**
+     * Get patron indexes
+     * 
+     * @param  string $token     The session token returned by ILSWS
+     * @return array             Array of valid patron indexes
+     */
+
+    public function get_patron_indexes ($token = null)
+    {
+        $indexes = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+
+        $describe = $this->send_get("$this->base_url/user/patron/describe", $token, []);
+
+        foreach ($describe['searchIndexList'] as $index) {
+            array_push($indexes, $index['name']);
+        }
+
+        return $indexes;
+    }
+
+    /**
      * Function to check for duplicate accounts by searching in two indexes
      * and comparing the resulting arrays
      *
@@ -1182,10 +1203,17 @@ class Libilsws
         $matches = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('index1', $index1, 'v:' . $this->config['symphony']['valid_search_indexes']);
         $this->validate('search1', $search1, 's:40');
-        $this->validate('index2', $index2, 'v:' . $this->config['symphony']['valid_search_indexes']);
         $this->validate('search2', $search2, 's:40');
+
+        if ( $this->config['symphony']['validate_patron_indexes'] ) {
+            $patron_indexes = $this->get_patron_indexes($token);
+            $this->validate('index1', $index1, 'v:' . implode('|', $patron_indexes));
+            $this->validate('index2', $index2, 'v:' . implode('|', $patron_indeses));
+        } else {
+            $this->validate('index1', $index1, 'r:#^[A-Z0-9a-z_]{2,9}$#');
+            $this->validate('index2', $index2, 'r:#^[A-Z0-9a-z_]{2,9}$#');
+        }
 
         if ( preg_match('/street/i', $index1) ) {
             $search1 = preg_replace('/[^A-Za-z0-9\- ]/', '', $search1);
@@ -1200,7 +1228,7 @@ class Libilsws
             $search2 = preg_replace('/-/', '', $this->create_field_date('search2', $search2));
         }
 
-        if ( self::DEBUG_QUERY ) {
+        if ( $this->config['debug']['query'] ) {
             error_log("DEBUG_QUERY $index1:$search1", 0);
             error_log("DEBUG_QUERY $index2:$search2", 0);
         }
@@ -1291,8 +1319,12 @@ class Libilsws
         $this->validate('search', $search, 's:40');
         $this->validate('password', $password, 's:40');
 
-        // These values are determined by the Symphony configuration 
-        $this->validate('index', $index, 'v:' . $this->config['symphony']['valid_search_indexes']);
+        if ( $this->config['symphony']['validate_patron_indexes'] ) {
+            $indexes = $this->get_patron_indexes($token);
+            $this->validate('index', $index, 'v:' . implode('|', $indexes));
+        } else {
+            $this->validate('index', $index, 'r:#^[A-Z0-9a-z_]{2,9}$#');
+        }
 
         $params = [
                 'rw'            => '1',
@@ -1504,8 +1536,14 @@ class Libilsws
     public function search_patron ($token = null, $index = null, $value = null, $params = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('index', $index, 'v:' . $this->config['symphony']['valid_search_indexes']);
         $this->validate('value', $value, 's:40');
+
+        if ( $this->config['symphony']['validate_patron_indexes'] ) {
+            $indexes = $this->get_patron_indexes($token);
+            $this->validate('index', $index, 'v:' . implode('|', $indexes));
+        } else {
+            $this->validate('index', $index, 'r:#^[A-Z0-9a-z_]{2,9}$#');
+        }
 
         /** 
          * Valid incoming params are: 
@@ -1522,7 +1560,7 @@ class Libilsws
             'ct'            => $params['ct'] ?? '1000',
             'rw'            => $params['rw'] ?? '1',
             'j'             => $params['j'] ?? 'AND',
-            'includeFields' => $params['includeFields'] ?? $this->config['ilsws']['default_include_fields'],
+            'includeFields' => $params['includeFields'] ?? $this->config['symphony']['default_patron_include_fields'],
             ];
 
         return $this->send_get("$this->base_url/user/patron/search", $token, $params);
@@ -2010,7 +2048,7 @@ class Libilsws
 
         foreach ($fields as $field => $value) {
 
-            if ( self::DEBUG_REGISTER && ! empty($patron[$field]) ) {
+            if ( $this->config['debug']['register'] && ! empty($patron[$field]) ) {
                 error_log("DEBUG_REGISTER $field: $patron[$field]", 0);
             }
 
@@ -2065,7 +2103,7 @@ class Libilsws
 
         // Create the required record structure for a registration
         $json = $this->create_register_json($patron, $token);
-        if ( self::DEBUG_REGISTER ) {
+        if ( $this->config['debug']['register'] ) {
             error_log("DEBUG_REGISTER $json", 0);
         }
         $response = $this->send_query("$this->base_url/user/patron/register", $token, $json, 'POST');
@@ -2077,7 +2115,7 @@ class Libilsws
 
             // Create a record structure with the update fields 
             $json = $this->create_patron_json($patron, 'new_fields', $token, $patron_key);
-            if ( self::DEBUG_REGISTER ) {
+            if ( $this->config['debug']['register'] ) {
                 error_log("DEBUG_REGISTER $json", 0);
             }
 
@@ -2102,6 +2140,10 @@ class Libilsws
         $this->validate('json', $json, 'j');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 
+        if ( $this->config['debug']['update'] ) {
+            error_log("DEBUG_UPDATE $json, 0);
+        }
+        
         return $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
     }
 
@@ -2149,7 +2191,7 @@ class Libilsws
             }
         }
 
-        if ( self::DEBUG_FIELDS ) {
+        if ( $this->config['debug']['fields'] ) {
             $json = json_encode($this->field_desc, JSON_PRETTY_PRINT);
             error_log("DEBUG_FIELDS $json", 0);
         }

@@ -21,52 +21,52 @@ john.houser@multco.us
 These functions can be used with any valid ILSWS access point. They will
 throw exceptions on error.
 
-- connect()
-- send_get ($url, $token, $params) 
-- send_query ($url, $token, $query_json, $query_type)
+- connect ()
+- send_get($url, $token, $params) 
+- send_query($url, $token, $query_json, $query_type)
 
 ## Convenience Functions
 These functions correspond with ILSWS access points, but
 they valididate all inputs and will throw exceptions
 if presented with inappropriate inputs.
 
-- authenticate_patron ($token, $patron_id, $password)
-- change_patron_password ($token, $json)
-- delete_patron ($token, $patron_key)
-- describe_bib ($token) 
-- describe_item ($token) 
-- describe_patron ($token) 
-- get_policy ($token, $policy_key)
-- search_patron ($token, $index, $search, $params)
-- search_patron_alt_id ($token, $alt_id, $count)
-- search_patron_id ($token, $patron_id, $count) 
-- update_patron_activity ($token, $patron_id)
+- authenticate_patron($token, $patron_id, $password)
+- change_patron_password($token, $json)
+- delete_patron($token, $patron_key)
+- describe_bib($token) 
+- describe_item($token) 
+- describe_patron($token) 
+- get_policy($token, $policy_key)
+- search_patron($token, $index, $search, $params)
+- search_patron_alt_id($token, $alt_id, $count)
+- search_patron_id($token, $patron_id, $count) 
+- update_patron_activity($token, $patron_id)
 
 ## High-level
 These functions offer functionality not directly supported by
 ILSWS by performing multiple queries or by combining, manipulating
 or evaluating data from the Symphony system.
 
-- authenticate_patron_id ($token, $patron_id, $password)
-- check_duplicate ($token, $index1, $search1, $index2, $search2)
-- create_patron_json ($patron, $mode, $token, $patron_key)
-- create_register_json ($patron, $token)
-- get_bib ($token, $bib_key, $field_list)
+- authenticate_patron_id($token, $patron_id, $password)
+- check_duplicate($token, $index1, $search1, $index2, $search2)
+- create_patron_json($patron, $mode, $token, $patron_key)
+- create_register_json($patron, $token)
+- get_bib($token, $bib_key, $field_list)
 - get_bib_circ_info($token, $bib_key)
-- get_bib_marc ($token, $bib_key)
-- get_call_number ($token, $call_key, $field_list)
-- get_catalog_indexes ($token)
-- get_hold ($token, $hold_key)
-- get_item ($token, $item_key, $field_list)
-- get_item_circ_info ($token, $item_key)
-- get_library_paging_list ($token, $library_key)
-- get_patron_attributes ($token, $patron_key)
-- get_patron_indexes ($token)
-- register_patron ($patron, $token)
-- reset_patron_password ($token, $patron_id, $url, $email)
-- search_authenticate ($token, $index, $search, $password)
-- search_bib ($token, $index, $value, $params)
-- update_patron ($token, $json, $patron_key) 
+- get_bib_marc($token, $bib_key)
+- get_call_number($token, $call_key, $field_list)
+- get_catalog_indexes($token)
+- get_hold($token, $hold_key)
+- get_item($token, $item_key, $field_list)
+- get_item_circ_info($token, $item_key)
+- get_library_paging_list($token, $library_key)
+- get_patron_attributes($token, $patron_key)
+- get_patron_indexes($token)
+- register_patron($patron, $token)
+- reset_patron_password($token, $patron_id, $url, $email)
+- search_authenticate($token, $index, $search, $password)
+- search_bib($token, $index, $value, $params)
+- update_patron($token, $json, $patron_key) 
 
 ## Date and Telephone Number Formats
 For the convenience of developers, the code library accepts
@@ -117,7 +117,7 @@ $response = $ilsws->search_patron($token, $index, $search, $options);
 
 ### Get Patron Attributes
 ```
-$response = $ilsws->get_patron_attributes ($token, $patron_key);
+$response = $ilsws->get_patron_attributes($token, $patron_key);
 ```
 
 ### Update Patron Record

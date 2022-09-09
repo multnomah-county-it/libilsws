@@ -950,7 +950,7 @@ class Libilsws
                 }
                 $record['title'] = $bib['title'];
 
-                if ( ! empty($bib['holdRecordList'][0]) ) {
+                if ( ! empty($bib['holdRecordList'][0]['key']) ) {
                     for ($i = 0; $i < count($bib['holdRecordList']); $i++) {
                         if ( $bib['holdRecordList'][$i]['key'] == $list_hold['fields']['holdRecord']['key'] ) {
                             $hold = $bib['holdRecordList'][$i];
@@ -964,7 +964,7 @@ class Libilsws
                     }
                 }
                 
-                if ( ! empty($bib['callList'][0]) ) {    
+                if ( ! empty($bib['callList'][0]['key']) ) {    
                     for ($i = 0; $i < count($bib['callList']); $i++) {
                         if ( $bib['callList'][$i]['key'] == $list_hold['fields']['item']['key'] ) {
                             $item = $bib['callList'][$i];

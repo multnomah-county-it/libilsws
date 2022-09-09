@@ -950,8 +950,8 @@ class Libilsws
                 }
                 $record['title'] = $bib['title'];
 
-                if ( ! empty($bib['holdRecordList'][0]['key']) ) {
-                    for ($i = 0; $i < count($bib['holdRecordList']); $i++) {
+                for ($i = 0; $i < count($bib['holdRecordList']); $i++) {
+                    if ( ! empty($bib['holdRecordList'][$i]['key']) ) {
                         if ( $bib['holdRecordList'][$i]['key'] == $list_hold['fields']['holdRecord']['key'] ) {
                             $hold = $bib['holdRecordList'][$i];
                             if ( $hold['status'] != 'EXPIRED' ) {
@@ -964,8 +964,8 @@ class Libilsws
                     }
                 }
                 
-                if ( ! empty($bib['callList'][0]['key']) ) {    
-                    for ($i = 0; $i < count($bib['callList']); $i++) {
+                for ($i = 0; $i < count($bib['callList']); $i++) {
+                    if ( ! empty($bib['callList'][$i]['key']) ) {    
                         if ( $bib['callList'][$i]['key'] == $list_hold['fields']['item']['key'] ) {
                             $item = $bib['callList'][$i];
                         

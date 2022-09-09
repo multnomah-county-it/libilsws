@@ -582,7 +582,7 @@ class Libilsws
      *                             of include fields, and index list.
      */
 
-    private function validate_bib_fields ($token = null, $field_list = null)
+    private function validate_bib_fields ($token = null, $field_list = '')
     {
         $response = [];
 
@@ -730,7 +730,7 @@ class Libilsws
 
         // Validate the $field_list
         if ( $this->config['symphony']['validate_catalog_fields'] ) {
-            $this->validate_bib_fields($token, $fields);
+            $this->validate_bib_fields($token, $field_list);
         } else {
             $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},]{2,256}$#');
         }

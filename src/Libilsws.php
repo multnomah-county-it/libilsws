@@ -405,16 +405,12 @@ class Libilsws
             } elseif ( ! empty($call['fields'][$field]['key']) ) {
                 $item_list[$field] = $call['fields'][$field]['key'];
             } elseif ( $field == 'itemList' ) {
-
-                // for ($i = 0; $i < count($call['fields']['itemList']); $i++) {
-                    foreach ($call['fields']['itemList'] as $item) {
-                        $item = $this->flatten_item($token, $item);
-                        foreach ($item as $item_field => $item_value) {
-                            $item_list[$item_field] = $item_value;
-                        }
+                foreach ($call['fields']['itemList'] as $item) {
+                    $item = $this->flatten_item($token, $item);
+                    foreach ($item as $item_field => $item_value) {
+                        $item_list[$item_field] = $item_value;
                     }
-                //}
-
+                }
             }
         }
 
@@ -440,10 +436,9 @@ class Libilsws
             if ( $key === 'itemCircInfo' ) {
                 $item['itemCircInfo'] = $this->get_item_circ_info($token, $record['fields']['itemCircInfo']['key']);
             } elseif ( $key === 'holdRecordList' ) {
-                $item['holdRecordList'] = [];
-                foreach ($record['fields']['holdRecordList'] as $hold) {
-                    if ( ! empty($hold['key']) ) {
-                        array_push($item['holdRecordList'], $this->get_hold($token, $hold['key']));
+                for ($i = 0; $i < count($record['fields']['holdRecordList']); $i++) {
+                    if ( ! empty($record['fields']['holdRecordList'][$i]['key']) ) {
+                        $item['holdRecordList'][$i] = $this->get_hold($token, $record['fields']['holdRecordList'][$i]['key']);
                     }
                 }
             } elseif ( $key === 'price' ) {

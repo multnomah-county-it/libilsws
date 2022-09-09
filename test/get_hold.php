@@ -3,12 +3,11 @@
 require_once 'vendor/autoload.php';
 
 if ( count($argv) < 2 ) {
-    print "Syntax: php $argv[0] BIB_KEY\n";
+    print "Syntax: php $argv[0] HOLD_KEY\n";
     exit;
 }
 
-$bib_key = $argv[1];
-# Use a field list of 'raw' to see unfiltered and unformatted output.
+$hold_key = $argv[1];
 
 // Initialize
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
@@ -17,7 +16,7 @@ $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 $token = $ilsws->connect();
 
 // Describe patron register function
-$response = $ilsws->send_get("$ilsws->base_url/catalog/bib/key/$bib_key", $token, []);
+$response = $ilsws->get_hold($token, $hold_key);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

@@ -406,14 +406,15 @@ class Libilsws
                 $item_list[$field] = $call['fields'][$field]['key'];
             } elseif ( $field == 'itemList' ) {
 
-                for ($i = 0; $i < count($call['fields']['itemList']); $i++) {
+                // for ($i = 0; $i < count($call['fields']['itemList']); $i++) {
                     foreach ($call['fields']['itemList'] as $item) {
                         $item = $this->flatten_item($token, $item);
-                        foreach ($item as $item_field => $field_value) {
-                            $item_list[$item_field] = $field_value;
+                        foreach ($item as $item_field => $item_value) {
+                            $item_list[$item_field] = $item_value;
                         }
                     }
-                }
+                //}
+
             }
         }
 
@@ -438,6 +439,13 @@ class Libilsws
 
             if ( $key === 'itemCircInfo' ) {
                 $item['itemCircInfo'] = $this->get_item_circ_info($token, $record['fields']['itemCircInfo']['key']);
+            } elseif ( $key === 'holdRecordList' ) {
+                $item['holdRecordList'] = [];
+                foreach ($record['fields']['holdRecordList'] as $hold) {
+                    if ( ! empty($hold['key']) ) {
+                        array_push($item['holdRecordList'], $this->get_hold($token, $hold['key']));
+                    }
+                }
             } elseif ( $key === 'price' ) {
                 $item['price'] = $record['fields']['price']['currencyCode'] 
                     . ' ' 
@@ -543,7 +551,7 @@ class Libilsws
             $valid_list = implode('|', $fields);
 
             foreach ($input_fields as $field) {
-                $this->validate('includeFields', $field, "v:$valid_list");
+                $this->validate('includeFields', $field, "v:$valid_list|*");
             }
         }
 
@@ -597,6 +605,7 @@ class Libilsws
         foreach ($describe['fields'] as $field) {
             array_push($bib_fields, $field['name']);
         }
+        array_push($bib_fields, '*');
 
         /**
          * Check if there are unvalidated fields left after checking against
@@ -657,7 +666,7 @@ class Libilsws
         $bib = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
 
         $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token, []);
 
@@ -697,7 +706,7 @@ class Libilsws
         $stats = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
         
         $response = $this->send_get("$this->base_url/circulation/bibCircInfo/key/$bib_key", $token, []);
 
@@ -726,13 +735,13 @@ class Libilsws
         $fields = preg_split("/[,{}]+/", $field_list, -1, PREG_SPLIT_NO_EMPTY);
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('bib_key', $bib_key, 'r:#^\d{6,8}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
 
         // Validate the $field_list
         if ( $this->config['symphony']['validate_catalog_fields'] ) {
             $this->validate_bib_fields($token, $field_list);
         } else {
-            $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},]{2,256}$#');
+            $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},*]{2,256}$#');
         }
 
         $bib = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=" . $field_list, $token, []);
@@ -805,7 +814,7 @@ class Libilsws
         if ( $this->config['symphony']['validate_catalog_fields'] ) {
             $this->validate_fields($token, 'item', $field_list);
         } else {
-            $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9_{},]{2,256}$#');
+            $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9_{},*]{2,256}$#');
         }
 
         $item = $this->send_get("$this->base_url/catalog/item/key/$item_key?includeFields=$field_list", $token, []);
@@ -815,6 +824,32 @@ class Libilsws
         }
 
         return $item;
+    }
+
+    /**
+     * Flatten hold record
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  object $record      Hold record object
+     * @return array               Flat associative array of hold fields
+     */
+
+    private function flatten_hold ($record)
+    {
+        $hold = [];
+
+        if ( ! empty($record['fields']) ) {
+            $hold['key'] = $record['key'];
+            foreach ($record['fields'] as $field => $value) {
+                if ( ! empty($record['fields'][$field]['key']) ) {
+                    $hold[$field] = $record['fields'][$field]['key'];
+                } else {
+                    $hold[$field] = $value;
+                }
+            }
+        }
+
+        return $hold;
     }
 
     /**
@@ -832,17 +867,10 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('hold_key', $hold_key, 'r:#^\d{6,8}$#');
 
-        $temp = $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token);
+        $hold = $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token, []);
 
-        if ( ! empty($temp['fields']) ) {
-            $hold['key'] = $temp['key'];
-            foreach ($temp['fields'] as $field => $value) {
-                if ( ! empty($temp['fields'][$field]['key']) ) {
-                    $hold[$field] = $temp['fields'][$field]['key'];
-                } else {
-                    $hold[$field] = $value;
-                }
-            }
+        if ( ! empty($hold['fields']) ) {
+            $hold = $this->flatten_hold($hold);
         }
 
         return $hold;
@@ -867,7 +895,7 @@ class Libilsws
         if ( $this->config['symphony']['validate_catalog_fields'] ) {
             $this->validate_fields($token, 'call', $field_list);
         } else {
-            $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},]{2,256}$#');
+            $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},*]{2,256}$#');
         }
 
         $call = $this->send_get("$this->base_url/catalog/call/key/$call_key?includeFields=$field_list", $token);
@@ -1209,7 +1237,7 @@ class Libilsws
         if ( $this->config['symphony']['validate_patron_indexes'] ) {
             $patron_indexes = $this->get_patron_indexes($token);
             $this->validate('index1', $index1, 'v:' . implode('|', $patron_indexes));
-            $this->validate('index2', $index2, 'v:' . implode('|', $patron_indeses));
+            $this->validate('index2', $index2, 'v:' . implode('|', $patron_indexes));
         } else {
             $this->validate('index1', $index1, 'r:#^[A-Z0-9a-z_]{2,9}$#');
             $this->validate('index2', $index2, 'r:#^[A-Z0-9a-z_]{2,9}$#');

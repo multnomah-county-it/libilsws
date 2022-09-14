@@ -950,58 +950,41 @@ class Libilsws
                 }
                 $record['title'] = $bib['title'];
 
-                for ($i = 0; $i < count($bib['holdRecordList']); $i++) {
-                    if ( ! empty($bib['holdRecordList'][$i]['key']) ) {
-                        if ( $bib['holdRecordList'][$i]['key'] == $list_hold['fields']['holdRecord']['key'] ) {
-                            $hold = $bib['holdRecordList'][$i];
-                            if ( $hold['status'] != 'EXPIRED' ) {
-                                $record['holdType'] = $hold['holdType'];
-                                $record['pickupLibrary'] = $hold['pickupLibrary'];
-                                $record['placedLibrary'] = $hold['placedLibrary'];
-                                $record['status'] = $hold['status'];
+                if ( ! empty($bib['holdRecordList']) ) {
+                    for ($i = 0; $i < count($bib['holdRecordList']); $i++) {
+                        if ( ! empty($bib['holdRecordList'][$i]['key']) ) {
+                            if ( $bib['holdRecordList'][$i]['key'] == $list_hold['fields']['holdRecord']['key'] ) {
+                                $hold = $bib['holdRecordList'][$i];
+                                if ( $hold['status'] != 'EXPIRED' ) {
+                                    $record['holdType'] = $hold['holdType'];
+                                    $record['pickupLibrary'] = $hold['pickupLibrary'];
+                                    $record['placedLibrary'] = $hold['placedLibrary'];
+                                    $record['status'] = $hold['status'];
+                                }
                             }
                         }
                     }
                 }
                 
-                for ($i = 0; $i < count($bib['callList']); $i++) {
-                    if ( ! empty($bib['callList'][$i]['key']) ) {    
-                        if ( $bib['callList'][$i]['key'] == $list_hold['fields']['item']['key'] ) {
-                            $item = $bib['callList'][$i];
-                        
-                            $record['callNumber'] = $item['callNumber'];
-                            $record['barcode'] = $item['barcode'];
-                            $record['currentLocation'] = $item['currentLocation'];
-                            $record['itemType'] = $item['itemType'];
+                if ( ! empty($bib['callList']) ) {
+                    for ($i = 0; $i < count($bib['callList']); $i++) {
+                        if ( ! empty($bib['callList'][$i]['key']) ) {    
+                            if ( $bib['callList'][$i]['key'] == $list_hold['fields']['item']['key'] ) {
+                                $item = $bib['callList'][$i];
+                            
+                                $record['callNumber'] = $item['callNumber'];
+                                $record['barcode'] = $item['barcode'];
+                                $record['currentLocation'] = $item['currentLocation'];
+                                $record['itemType'] = $item['itemType'];
 
-                            $location = $this->get_policy($token, 'location', $record['currentLocation']);
-                            $record['locationDescription'] = $location['fields']['description'];
+                                $location = $this->get_policy($token, 'location', $record['currentLocation']);
+                                $record['locationDescription'] = $location['fields']['description'];
+                            }
                         }
                     }
                 }
 
                 array_push($list, $record);
-
-                /*
-                $item = $this->get_item($token, $list_hold['fields']['item']['key'], 'barcode,bib,call,currentLocation,itemCategory3');
-                $record['barcode'] = $item['barcode'];
-                $record['currentLocation'] = $item['currentLocation'];
-                $record['format'] = $item['itemCategory3'];
-
-                if ( ! empty($bib['author']) ) {
-                    $record['author'] = $bib['author'];
-                }
-                $record['title'] = $bib['title'];
-    
-                $call = $this->get_call_number($token, $item['call'], 'callNumber');
-                $record['callNumber'] = $call['callNumber'];
-
-                $location = $this->get_policy($token, 'location', $record['currentLocation']);
-                $record['locationDescription'] = $location['fields']['description'];
-
-                $format = $this->get_policy($token, 'itemCategory3', $record['format']);
-                $record['formatDescription'] = $format['fields']['description'];
-                */
             }
         }
 

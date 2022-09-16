@@ -1082,6 +1082,7 @@ class Libilsws
                 if ( ! is_null($response['result'][$i]) ) {
 
                     $bib = $this->flatten_bib($token, $response['result'][$i]['fields']);
+                    $bib['key'] = $response['result'][$i]['key'];
 
                     $filtered_bib = [];
                     foreach ($fields as $field) {

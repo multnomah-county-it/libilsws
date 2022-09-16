@@ -469,7 +469,7 @@ class Libilsws
         // Extract the data from the structure so that it can be returned in a flat hash
         foreach ($record as $key => $value) {
 
-            if ( $key === 'bib' ) {
+            if ( $key == 'bib' ) {
 
                 for ($i = 0; $i < count($record['bib']['fields']); $i++) {
                     for ($x = 0; $x < count($record['bib']['fields'][$i]['subfields']); $x++) {
@@ -484,15 +484,15 @@ class Libilsws
                     }
                 }
 
-            } elseif ( $key === 'bibCircInfo' ) {
+            } elseif ( $key == 'bibCircInfo' ) {
 
                 $bib['bibCircInfo'] = $this->get_bib_circ_info($token, $record[$key]['key']);
 
-            } elseif ( $key === 'callList' ) {
+            } elseif ( $key == 'callList' ) {
    
                 $bib['callList'] = $this->flatten_call_list($token, $record['callList']);
 
-            } elseif ( $key === 'holdRecordList' ) {
+            } elseif ( $key == 'holdRecordList' ) {
    
                 for ($i = 0; $i < count($record['holdRecordList']); $i++) { 
                     $bib['holdRecordList'][$i] = $this->get_hold($token, $record['holdRecordList'][$i]['key']);
@@ -601,6 +601,7 @@ class Libilsws
             array_push($bib_fields, $field['name']);
         }
         array_push($bib_fields, '*');
+        array_push($bib_fields, 'key');
 
         /**
          * Check if there are unvalidated fields left after checking against
@@ -666,6 +667,7 @@ class Libilsws
         $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token, []);
 
         if ( ! empty($response['fields']['bib']) ) {
+            $bib['key'] = $response['key'];
             foreach ($response['fields']['bib'] as $marc_key => $marc_value) {
                 if ( ! is_array($marc_value) ) {
                     $bib[$marc_key] = $marc_value;
@@ -739,15 +741,16 @@ class Libilsws
             $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},*]{2,256}$#');
         }
 
-        $bib = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=" . $field_list, $token, []);
+        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=" . $field_list, $token, []);
 
-        if ( ! empty($bib['fields']) ) {
+        if ( ! empty($response['fields']) ) {
    
             // Flatten the structure to a simple hash 
-            $temp = $this->flatten_bib($token, $bib['fields']);
+            $temp = $this->flatten_bib($token, $response['fields']);
 
             // Filter out empty or not requested fields 
-            $bib = [];
+            
+            $bib['key'] = $response['key'];
             foreach ($fields as $field) {
                 if ( ! empty($temp[$field]) ) {
                     $bib[$field] = $temp[$field];
@@ -940,6 +943,8 @@ class Libilsws
         if ( ! empty($response['fields']['pullList']) ) {
             foreach ($response['fields']['pullList'] as $list_hold) {
 
+                print_r($list_hold);
+
                 $record = [];
 
                 $bib_key = preg_replace("/^(\d{1,8})(.*)$/", "$1", $list_hold['fields']['item']['key']);
@@ -971,7 +976,7 @@ class Libilsws
                         if ( ! empty($bib['callList'][$i]['key']) ) {    
                             if ( $bib['callList'][$i]['key'] == $list_hold['fields']['item']['key'] ) {
                                 $item = $bib['callList'][$i];
-                            
+
                                 $record['callNumber'] = $item['callNumber'];
                                 $record['barcode'] = $item['barcode'];
                                 $record['currentLocation'] = $item['currentLocation'];

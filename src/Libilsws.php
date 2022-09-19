@@ -939,7 +939,7 @@ class Libilsws
         $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
 
         $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, 
-            ['includeFields' => 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{title,author},callNumber},barcode,currentLocation{description}}}']);
+            ['includeFields' => 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{title,author},callNumber},barcode,currentLocation{description}itemType}}']);
         
         if ( ! empty($response['fields']['pullList']) ) {
             foreach ($response['fields']['pullList'] as $hold) {
@@ -957,7 +957,8 @@ class Libilsws
                 $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'];
                 $record['barcode'] = $hold['fields']['item']['fields']['barcode'];
                 $record['currentLocation'] = $hold['fields']['item']['fields']['currentLocation']['key'];
-                $record['locationdescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'];
+                $record['locationDescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'];
+                $record['itemType'] = $hold['fields']['item']['fields']['itemType']['key'];
                 
                 array_push($list, $record);
             }

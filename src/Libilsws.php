@@ -943,38 +943,23 @@ class Libilsws
         if ( ! empty($response['fields']['pullList']) ) {
             foreach ($response['fields']['pullList'] as $list_hold) {
 
-                print_r($list_hold);
-
                 $record = [];
+                $hold = $this->get_hold($token, $list_hold['fields']['holdRecord']['key']);
 
-                $bib_key = preg_replace("/^(\d{1,8})(.*)$/", "$1", $list_hold['fields']['item']['key']);
-                $bib = $this->get_bib($token, $bib_key, 'author,title,holdRecordList,callList{callNumber,itemList{barcode,currentLocation,itemType}}');
+                if ( $hold['status'] != 'EXPIRED' || isset($hold['inactiveDate']) || isset($hold['inactiveReason']) ) {
+                    $record['holdType'] = $hold['holdType'];
+                    $record['pickupLibrary'] = $hold['pickupLibrary'];
+                    $record['placedLibrary'] = $hold['placedLibrary'];
+                    $record['status'] = $hold['status'];
 
-                if ( ! empty($bib['author']) ) {
-                    $record['author'] = $bib['author'];
-                }
-                $record['title'] = $bib['title'];
+                    $bib = $this->get_bib($token, $hold['bib'], 'author,title,callList{callNumber,itemList{barcode,currentLocation,itemType}}');
 
-                if ( ! empty($bib['holdRecordList']) ) {
-                    for ($i = 0; $i < count($bib['holdRecordList']); $i++) {
-                        if ( ! empty($bib['holdRecordList'][$i]['key']) ) {
-                            if ( $bib['holdRecordList'][$i]['key'] == $list_hold['fields']['holdRecord']['key'] ) {
-                                $hold = $bib['holdRecordList'][$i];
-                                if ( $hold['status'] != 'EXPIRED' ) {
-                                    $record['holdType'] = $hold['holdType'];
-                                    $record['pickupLibrary'] = $hold['pickupLibrary'];
-                                    $record['placedLibrary'] = $hold['placedLibrary'];
-                                    $record['status'] = $hold['status'];
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                if ( ! empty($bib['callList']) ) {
-                    for ($i = 0; $i < count($bib['callList']); $i++) {
-                        if ( ! empty($bib['callList'][$i]['key']) ) {    
-                            if ( $bib['callList'][$i]['key'] == $list_hold['fields']['item']['key'] ) {
+                    isset($bib['author']) ? $record['author'] = $bib['author'] : $record['author'] = '';
+                    $record['title'] = $bib['title'];
+
+                    if ( ! empty($bib['callList']) ) {
+                        for ($i = 0; $i < count($bib['callList']); $i++) {
+                            if ( ! empty($bib['callList'][$i]['key']) && $bib['callList'][$i]['key'] == $hold['item'] ) {
                                 $item = $bib['callList'][$i];
 
                                 $record['callNumber'] = $item['callNumber'];

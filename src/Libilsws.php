@@ -938,42 +938,27 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
 
-        $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token);
+        $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, 
+            ['includeFields' => 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{title,author},callNumber},barcode,currentLocation{description}}}']);
         
         if ( ! empty($response['fields']['pullList']) ) {
-            foreach ($response['fields']['pullList'] as $list_hold) {
+            foreach ($response['fields']['pullList'] as $hold) {
 
                 $record = [];
-                $hold = $this->get_hold($token, $list_hold['fields']['holdRecord']['key']);
 
-                if ( $hold['status'] != 'EXPIRED' || isset($hold['inactiveDate']) || isset($hold['inactiveReason']) ) {
-                    $record['holdType'] = $hold['holdType'];
-                    $record['pickupLibrary'] = $hold['pickupLibrary'];
-                    $record['placedLibrary'] = $hold['placedLibrary'];
-                    $record['status'] = $hold['status'];
+                $record['holdType'] = $hold['fields']['holdRecord']['fields']['holdType'];
+                $record['status'] = $hold['fields']['holdRecord']['fields']['status'];
+                $record['pickupLibrary'] = $hold['fields']['holdRecord']['fields']['pickupLibrary']['key'];
 
-                    $bib = $this->get_bib($token, $hold['bib'], 'author,title,callList{callNumber,itemList{barcode,currentLocation,itemType}}');
-
-                    isset($bib['author']) ? $record['author'] = $bib['author'] : $record['author'] = '';
-                    $record['title'] = $bib['title'];
-
-                    if ( ! empty($bib['callList']) ) {
-                        for ($i = 0; $i < count($bib['callList']); $i++) {
-                            if ( ! empty($bib['callList'][$i]['key']) && $bib['callList'][$i]['key'] == $hold['item'] ) {
-                                $item = $bib['callList'][$i];
-
-                                $record['callNumber'] = $item['callNumber'];
-                                $record['barcode'] = $item['barcode'];
-                                $record['currentLocation'] = $item['currentLocation'];
-                                $record['itemType'] = $item['itemType'];
-
-                                $location = $this->get_policy($token, 'location', $record['currentLocation']);
-                                $record['locationDescription'] = $location['fields']['description'];
-                            }
-                        }
-                    }
-                }
-
+                $record['item'] = $hold['fields']['item']['key'];
+                $record['bib'] = $hold['fields']['item']['fields']['call']['fields']['bib']['key'];
+                $record['title'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['title'];
+                $record['author'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['author'];
+                $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'];
+                $record['barcode'] = $hold['fields']['item']['fields']['barcode'];
+                $record['currentLocation'] = $hold['fields']['item']['fields']['currentLocation']['key'];
+                $record['locationdescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'];
+                
                 array_push($list, $record);
             }
         }

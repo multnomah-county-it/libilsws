@@ -939,7 +939,7 @@ class Libilsws
         $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
 
         $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, 
-            ['includeFields' => 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{title,author},callNumber},barcode,currentLocation{description}itemType}}']);
+            ['includeFields' => 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{title,author},callNumber,sortCallNumber},barcode,currentLocation{description}itemType}}']);
         
         if ( ! empty($response['fields']['pullList']) ) {
             foreach ($response['fields']['pullList'] as $hold) {
@@ -955,6 +955,7 @@ class Libilsws
                 $record['title'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['title'];
                 $record['author'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['author'];
                 $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'];
+                $record['sortCallNumber'] = $hold['fields']['item']['fields']['call']['fields']['sortCallNumber'];
                 $record['barcode'] = $hold['fields']['item']['fields']['barcode'];
                 $record['currentLocation'] = $hold['fields']['item']['fields']['currentLocation']['key'];
                 $record['locationDescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'];

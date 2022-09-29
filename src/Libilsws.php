@@ -997,6 +997,44 @@ class Libilsws
     }
 
     /**
+     * Removes accents, punctuation, and non-ascii characters to
+     * create search string acceptable to ILSWS
+     *
+     * @param  string $terms
+     * @return string $terms
+     */
+
+    public function prepare_search ($terms = null)
+    {
+        // Trim leading and trailing whitespace
+        $terms = trim($terms);
+
+        // Validate
+        $this->validate('terms', $terms, 's:256');
+
+        // Change utf8 letters with accents to ascii characters
+        setlocale(LC_ALL, "en_US.utf8");
+        $terms = iconv("utf-8", "ASCII//TRANSLIT", $terms);
+
+        // Remove boolean operators
+        $terms = preg_replace("/(\s+)(and|or|not)(\s+)/", ' ', $terms);
+
+        // Replace certain characters with a space
+        $terms = preg_replace("/[.:;?!,\/]/", ' ', $terms);
+
+        // Remove most punctuation and other unwanted characters
+        $terms = preg_replace("/[&+=><%\'\"\|\{\}\(\)]/", '', $terms);
+
+        // Remove internal non-printing characters
+        $terms = preg_replace('/[^\x20-\x7E]/','', $terms);
+
+        // Replace multiple spaces with a single space
+        $terms = preg_replace('/\s+/', ' ', $terms);
+
+        return $terms;
+    }
+
+    /**
      * Search the catalog for bib records
      * 
      * @param  string $token    The session token returned by ILSWS

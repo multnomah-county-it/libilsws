@@ -18,6 +18,11 @@ $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 // Connect and get token
 $token = $ilsws->connect();
 
+// Remove unwanted characters from search string
+$search = $ilsws->prepare_search($search);
+
+print "$search\n";
+
 /**
  * Search for a patron. If the $params array is empty or any item is omitted,
  * default values will be supplied as shown, with the exception of the 

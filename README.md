@@ -106,6 +106,8 @@ $token = $ilsws->connect();
 
 $index = 'EMAIL';
 $search = 'john.houser@multco.us';
+
+// Prepare search parameters, including fields to return
 $options = [
     'rw' => 1, 
     'ct' => 10, 
@@ -113,6 +115,7 @@ $options = [
     'includeFields' => 'key,barcode']
     ];
 
+// Run search
 $response = $ilsws->search_patron($token, $index, $search, $options);
 ```
 
@@ -123,6 +126,7 @@ $response = $ilsws->get_patron_attributes($token, $patron_key);
 
 ### Update Patron Record
 ```
+// Define patron array
 $patron = [
     'firstName' => 'John',
     'middleName' => 'Rad',
@@ -150,18 +154,30 @@ $patron = [
         ],
     ];
 
+// Convert patron array into JSON structure required by API
 $json = $ilsws->create_patron_json($patron, 'overlay_fields', $token, $patron_key);
+
+// Update the patron record
 $response = $ilsws->update_patron($token, $json, $patron_key);
 ```
 
 ### Search for bibliographic records
 ```
+/**
+ * Convert UTF-8 characters with accents to ASCII and strip unwanted characters and 
+ * boolean operators from search terms
+ */
+$search = $ilsws->prepare_search($search);
+
+// Prepare search parameters and choose fields to return
 $params = [ 
     'ct'            => '50',
     'rw'            => '1',
     'j'             => 'AND',
     'includeFields' => 'author,title,bib{650_a,856_u},callList{callNumber,itemList{barcode,currentLocation}}'
     ];
+
+// Run search
 $response = $ilsws->search_bib($token, $index, $search, $params);
 ```
 Notes on the includeFields parameter: 
@@ -173,8 +189,8 @@ Notes on the includeFields parameter:
 See the libilsws.yaml.sample file for field definitions and documentation
 of the YAML configuration options.
 
-For a complete set of code examples see the scripts in the ``test`` directory.
+For a complete set of code examples see the example scripts in the ``test`` directory.
 
-**Warning:** the test files may make real changes to the configured
+**Warning:** the test scripts may make real changes to the configured
 Symphony system. **Do not use on a production system without carefully
 reviewing what they do!**

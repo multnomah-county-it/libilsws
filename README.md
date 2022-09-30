@@ -62,6 +62,7 @@ or evaluating data from the Symphony system.
 - get_library_paging_list($token, $library_key)
 - get_patron_attributes($token, $patron_key)
 - get_patron_indexes($token)
+- prepare_search($terms)
 - register_patron($patron, $token)
 - reset_patron_password($token, $patron_id, $url, $email)
 - search_authenticate($token, $index, $search, $password)

@@ -1020,7 +1020,7 @@ class Libilsws
         $terms = preg_replace("/(\s+)(and|or|not)(\s+)/", ' ', $terms);
 
         // Replace certain characters with a space
-        $terms = preg_replace("/[:;,\/]/\|", ' ', $terms);
+        $terms = preg_replace("/[:;,\/\|]/", ' ', $terms);
 
         // Remove most punctuation and other unwanted characters
         $terms = preg_replace("/[.!?&+=><%\'\"\{\}\(\)]/", '', $terms);

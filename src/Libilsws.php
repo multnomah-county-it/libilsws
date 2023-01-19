@@ -2170,6 +2170,104 @@ class Libilsws
     }
 
     /**
+     * Update patron extended information fields related to user IDs, specifically 
+     * ACTIVEID, INACTVID, PREV_ID, PREV_ID2, and STUDENT_ID
+     * 
+     * Please note: this function does not test to see if these fields are defined
+     * in your Symphony configuration. It will throw errors if they are not.
+     * 
+     * @param  string  $token      The sesions token returned by ILSWS
+     * @param  string  $patron_key Primary key of the patron record to be modified
+     * @param  string  $patron_id  The patron ID (barcode)
+     * @param  string  $option     Single character option:
+     *                               a = Add active ID
+     *                               i = Add inactive ID
+     *                               d = Delete an ID from the ACTIVEID, INACTVID, PREV_ID, PREV_ID2, or STUDENT_ID
+     * @return integer $retval     Return value:
+     *                               1 = Success
+     *                               0 = Failure
+     */
+
+    public function update_patron_activeid ($token = null, $patron_key = null, $patron_id = null, $option = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
+        $this->validate('patron_id', $patron_id, 'r:#^\d{6,14}$#');
+        $this->validate('option', $option, 'v:a|i|d');
+
+        $retval = 0;
+        $custom = [];
+
+        // Get the current customInformation from the patron record
+        $res = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, ['includeFields' => 'customInformation{*}']);
+
+        if ( $res ) {
+            if ( $option == 'a' ) {
+                if ( ! empty($res['fields']['customInformation']) ) {
+                    $custom = $res['fields']['customInformation'];
+                    for ( $i = 0; $i < count($custom); $i++ ) {
+                        if ( $custom[$i]['fields']['code']['key'] == 'ACTIVEID' ) {
+                            $values = preg_split("/,/", $custom[$i]['fields']['data']);
+                            array_push($values, $patron_id);
+                            $custom[$i]['fields']['data'] = implode(',', $values);
+                        }
+                    }
+                }
+
+            } elseif ( $option == 'i' ) {
+
+                if ( ! empty($res['fields']['customInformation']) ) {
+                    $custom = $res['fields']['customInformation'];
+                    for ( $i = 0; $i < count($custom); $i++ ) {
+                        if ( $custom[$i]['fields']['code']['key'] == 'INACTVID' ) {
+                            $values = preg_split("/,/", $custom[$i]['fields']['data']);
+                            array_push($values, $patron_id);
+                            $custom[$i]['fields']['data'] = implode(',', $values);
+                        }
+                    }
+                }
+
+            } elseif ( $option == 'd' ) {
+
+                if ( ! empty($res['fields']['customInformation']) ) {
+                    $custom = $res['fields']['customInformation'];
+                    for ( $i = 0; $i < count($custom); $i++ ) {
+                        $fields = array('ACTIVEID','INACTVID','PREV_ID','PREV_ID2','STUDENT_ID');
+                        if ( in_array($custom[$i]['fields']['code']['key'], $fields) ) {
+                            $values = preg_split("/,/", $custom[$i]['fields']['data']);
+                            $new_values = [];
+                            foreach ( $values as $value ) {
+                                if ( $value != $patron_id ) {
+                                    array_push($new_values, $value);
+                                }
+                            }
+                            $custom[$i]['fields']['data'] = implode(',', $new_values);
+                        }
+                    }
+                }
+            }
+
+            $patron = [];
+            $patron['resource'] = '/user/patron';
+            $patron['key'] = $patron_key;
+            $patron['fields']['customInformation'] = $custom;
+ 
+            // Encode the %patron data structure as JSON
+            $json_str = json_encode($patron);
+
+            // Update the patron
+            $res = $this->update_patron($token, $json_str, $patron_key);
+ 
+            if ( $res ) {
+                $retval = 1;
+            }
+        }
+
+        return $retval;
+    }
+
+    /**
      * Update the patron lastActivityDate
      *
      * @param  string $token     The session token returned by ILSWS

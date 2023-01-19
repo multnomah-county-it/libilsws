@@ -68,6 +68,7 @@ or evaluating data from the Symphony system.
 - search_authenticate($token, $index, $search, $password)
 - search_bib($token, $index, $value, $params)
 - update_patron($token, $json, $patron_key) 
+- update_patron_activeid($token, $patron_key, $patron_id, $option)
 
 ## Date and Telephone Number Formats
 For the convenience of developers, the code library accepts

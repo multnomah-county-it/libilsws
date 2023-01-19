@@ -2173,13 +2173,19 @@ class Libilsws
      * Update patron extended information fields related to user IDs, specifically 
      * ACTIVEID, INACTVID, PREV_ID, PREV_ID2, and STUDENT_ID
      * 
+     * Please note: this function does not test to see if these fields are defined
+     * in your Symphony configuration. It will throw errors if they are not.
+     * 
      * @param  string  $token      The sesions token returned by ILSWS
      * @param  string  $patron_key Primary key of the patron record to be modified
      * @param  string  $patron_id  The patron ID (barcode)
-     * @param  string  $option     Single character option (a = Add active ID, i =
-     *                             Add inactive ID, d = Delete an ID from the ACTIVEID,
-     *                             INACTVID, PREV_ID, PREV_ID2, or STUDENT_ID)
-     * @return integer $retval     1 = Success, 0 = Failure
+     * @param  string  $option     Single character option:
+     *                               a = Add active ID
+     *                               i = Add inactive ID
+     *                               d = Delete an ID from the ACTIVEID, INACTVID, PREV_ID, PREV_ID2, or STUDENT_ID
+     * @return integer $retval     Return value:
+     *                               1 = Success
+     *                               0 = Failure
      */
 
     public function update_patron_activeid ($token = null, $patron_key = null, $patron_id = null, $option = null)
@@ -2194,7 +2200,7 @@ class Libilsws
         $custom = [];
 
         // Get the current customInformation from the patron record
-        $res = $this->send_get("$base_URL/user/patron/key/$key?includeFields=customInformation{*}", $token, ['includeFields' => 'customInformation{*}']);
+        $res = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, ['includeFields' => 'customInformation{*}']);
 
         if ( $res ) {
             if ( $option == 'a' ) {
@@ -2251,7 +2257,7 @@ class Libilsws
             $json_str = json_encode($patron);
 
             // Update the patron
-            $res = $this->patron_update($token, $json_str, $patron_key);
+            $res = $this->update_patron($token, $json_str, $patron_key);
  
             if ( $res ) {
                 $retval = 1;

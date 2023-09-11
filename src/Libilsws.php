@@ -2207,7 +2207,7 @@ class Libilsws
                 if ( ! empty($res['fields']['customInformation']) ) {
                     $custom = $res['fields']['customInformation'];
                     for ( $i = 0; $i < count($custom); $i++ ) {
-                        if ( $custom[$i]['fields']['code']['key'] == 'ACTIVEID' ) {
+                        if ( $custom[$i]['fields']['code']['key'] == 'ACTIVEID' && $custom[$i]['fields']['data'] ) {
                             $values = preg_split("/,/", $custom[$i]['fields']['data']);
                             array_push($values, $patron_id);
                             $custom[$i]['fields']['data'] = implode(',', $values);
@@ -2220,7 +2220,7 @@ class Libilsws
                 if ( ! empty($res['fields']['customInformation']) ) {
                     $custom = $res['fields']['customInformation'];
                     for ( $i = 0; $i < count($custom); $i++ ) {
-                        if ( $custom[$i]['fields']['code']['key'] == 'INACTVID' ) {
+                        if ( $custom[$i]['fields']['code']['key'] == 'INACTVID' && $custom[$i]['fields']['data'] ) {
                             $values = preg_split("/,/", $custom[$i]['fields']['data']);
                             array_push($values, $patron_id);
                             $custom[$i]['fields']['data'] = implode(',', $values);
@@ -2234,7 +2234,7 @@ class Libilsws
                     $custom = $res['fields']['customInformation'];
                     for ( $i = 0; $i < count($custom); $i++ ) {
                         $fields = array('ACTIVEID','INACTVID','PREV_ID','PREV_ID2','STUDENT_ID');
-                        if ( in_array($custom[$i]['fields']['code']['key'], $fields) ) {
+                        if ( in_array($custom[$i]['fields']['code']['key'], $fields) && $custom[$i]['fields']['data'] ) {
                             $values = preg_split("/,/", $custom[$i]['fields']['data']);
                             $new_values = [];
                             foreach ( $values as $value ) {

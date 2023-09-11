@@ -5,7 +5,7 @@
     "require": {
         "php": ">=5.6.0",
         "curl/curl": ">=2.3",
-        "symfony/yaml": "~4.0||~5.4"
+        "symfony/yaml": "~4||~5.4||~6"
     },
     "require-dev": {
         "symfony/var-dumper": "^6.0"

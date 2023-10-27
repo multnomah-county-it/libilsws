@@ -558,23 +558,36 @@ class Libilsws
      * Pulls list of items checked out to a patron
      * 
      * @access public
-     * @param  integer $patron_key Patron key of patron whose records we need to see
-     * @return array   $return     Associative array of item keys and libraries
+     * @param  string  $token          Session token returned by ILSWS
+     * @param  integer $patron_key     Patron key of patron whose records we need to see
+     * @param  string  $include_fields Optional 
+     * @return array   $return         Associative array of item keys and libraries
      */
 
-    public function get_patron_checkouts ($token = null, $patron_key = null)
+    public function get_patron_checkouts ($token = null, $patron_key = null, $include_fields = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 
-        $return = [];
-        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key?includeFields=*,blockList{*},circRecordList{*}", $token, []); 
+        if (! $include_fields) {
+            $include_fields = 'item,library';
+        }
 
+        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key?includeFields=circRecordList{*}", $token, []);
+        $fields = preg_split('/,/', $include_fields);
+
+        $return = [];
         $i = 0;
-        if (count($response['fields']['circRecordList']) > 0) {
+        if (count($response) > 0) {
             foreach ($response['fields']['circRecordList'] as $item) {
-                $return[$i]['item_key'] = $item['fields']['item']['key'];
-                $return[$i]['library'] = $item['fields']['library']['key'];
+                foreach ($fields as $field) {
+                    $data = $item['fields'][$field];
+                    if (is_array($data)) {
+                        $return[$i][$field] = $data['key'];
+                    } else {
+                        $return[$i][$field] = $data;
+                    }
+                }
                 $i++;
             }
         }

@@ -371,6 +371,7 @@ class Libilsws
      * Flattens callList structure into simple hash
      * 
      * @access private 
+     * @param  string  $token    Session token
      * @param  object  $callList Complex object with call list
      * @return array             Flat associative array
      */
@@ -554,8 +555,102 @@ class Libilsws
     }
 
     /**
+     * Pulls list of items checked out to a patron
+     * 
+     * @access public
+     * @param  integer $patron_key Patron key of patron whose records we need to see
+     * @return array   $return     Associative array of item keys and libraries
+     */
+
+    public function get_patron_checkouts ($token = null, $patron_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
+
+        $return = [];
+        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key?includeFields=*,blockList{*},circRecordList{*}", $token, []); 
+
+        $i = 0;
+        if (count($response['fields']['circRecordList']) > 0) {
+            foreach ($response['fields']['circRecordList'] as $item) {
+                $return[$i]['item_key'] = $item['fields']['item']['key'];
+                $return[$i]['library'] = $item['fields']['library']['key'];
+                $i++;
+            }
+        }
+
+        return $return;
+    }
+
+    /**
+     * Put item into transit
+     * 
+     * @access public
+     * @param  string $token    Session token returned by ILSWS
+     * @param  string $item_key Item record key
+     * @param  string $library  Library code
+     * @return object $response Response from API server
+     */
+
+    public function transit_item ($token = null, $library = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
+        $this->validate('library', $library, 'r:#^[A-Z]{3,9}$#');
+
+        $json = "{\"resource\":\"/circulation/transit\",\"fields\":{\"destinationLibrary\":{\"resource\":\"/policy/library\",\"key\":\"$new_library\"},\"item\":\"resource\":\"/catalog/item\",\"key\":\"$item_key\"},\"transitReason\":\"EXCHANGE\"}}";
+ 
+        // Describe patron register function
+        $response = $ilsws->send_query("$ilsws->base_url/circulation/transit", $token, $json, 'POST');
+
+        return $response;
+    }
+
+    /**
+     * Receive an intransit item
+     *
+     * @access public
+     * @param  string  $token    Session token returned by ILSWS
+     * @param  integer $item_id  Item record barcode
+     * @return object  $response Response from API server
+     */
+
+    public function untransit_item ($token = null, $item_id = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('item_id', $item_id, 'i:30000000000000,39999999999999');
+
+        $json = "{\"itemBarcode\":\"$item_barcode\"}";
+        $response = $ilsws->send_query("$ilsws->base_url/circulation/untransit", $token, $json, 'POST');
+
+        return $response;
+    }
+
+    /**
+     * Change item library
+     * 
+     * @access public
+     * @param  string $token    Session token returned by ILSWS
+     * @param  string $item_key Item record key
+     * @return object $response Response from API server
+     */
+
+    public function change_item_library ($token = null, $item_key = null, $library = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
+        $this->validate('library', $library, 'r:#^[A-Z]{3,9}$#');
+
+        $json = "{\"resource\":\"/catalog/item\",\"key\":\"$item_key\",\"fields\":{\"library\":{\"resource\":\"/policy/library\",\"key\":\"$library\"}}}";
+        $response = $this->send_query("$this->base_url/catalog/item/key/$item_key", $token, $json, 'PUT');
+
+        return $response;
+    }
+
+    /**
      * Get catalog search indexes
      *
+     * @access public
      * @param  string $token          Session token returned by ILSWS
      * @return array  $search_indexes Array of valid index names
      */

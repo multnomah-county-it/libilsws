@@ -2236,9 +2236,6 @@ class Libilsws
 
         // Create the required record structure for a registration
         $json = $this->create_register_json($patron, $token);
-        echo "<pre>\n";
-        print_r($json);
-        echo "</pre>\n";
 
         if ( $this->config['debug']['register'] ) {
             error_log("DEBUG_REGISTER $json", 0);

@@ -2150,6 +2150,9 @@ class Libilsws
 
         $new = [];
 
+        // Required for Web Services 6.3
+        $new['activationUrl'] = $this->config['ilsws']['activation_url'];
+
         // Go get field descriptions if they aren't already available
         if ( empty($this->field_desc) ) {
             $this->get_field_desc($token, 'patron');
@@ -2193,7 +2196,7 @@ class Libilsws
             }
 
             // Validate
-            if( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
+            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
                 $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
          
@@ -2233,6 +2236,7 @@ class Libilsws
 
         // Create the required record structure for a registration
         $json = $this->create_register_json($patron, $token);
+
         if ( $this->config['debug']['register'] ) {
             error_log("DEBUG_REGISTER $json", 0);
         }

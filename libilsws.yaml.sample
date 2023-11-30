@@ -44,6 +44,7 @@ ilsws:
   timeout: 20
   max_retries: 3
   max_search_count: 20
+  activation_url: 'https://multcolib.org'
 symphony:
   # Use this setting to determine the default fields to return from the search_patron function
   default_include_fields: 'profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate'

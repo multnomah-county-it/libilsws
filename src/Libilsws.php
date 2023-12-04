@@ -1887,7 +1887,7 @@ class Libilsws
      * @param  string $patron_key Optional patron key to include if updating existing record
      * @return string $json       Complete Symphony patron record JSON
      */
-    public function update_patron_address1_json ($patron, $addr_num, $token = null, $patron_key = null)
+    public function update_patron_address_json ($patron, $addr_num, $token = null, $patron_key = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');

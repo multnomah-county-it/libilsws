@@ -1883,12 +1883,14 @@ class Libilsws
      * Create patron data structure for overlays of address fields (overlay_fields)
      *
      * @param  object $patron     Associative array of patron data elements
+     * @param integer $addr_num   Address number to update
      * @param  string $token      The sessions key returned by ILSWS
      * @param  string $patron_key Optional patron key to include if updating existing record
      * @return string $json       Complete Symphony patron record JSON
      */
-    public function update_patron_address_json ($patron, $addr_num, $token = null, $patron_key = null)
+    public function update_patron_address_json ($patron, $addr_num = null, $token = null, $patron_key = null)
     {
+        $this->validate('addr_num', $addr_num, 'r:#^[123]$#');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 

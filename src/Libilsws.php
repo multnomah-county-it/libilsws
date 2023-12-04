@@ -1836,7 +1836,16 @@ class Libilsws
             // Check if the data is coming in with a different field name (alias)
             if ( ! empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
                 $patron[$field] = $patron[$fields[$field]['alias']];
+            } elseif ( ! empty($fields['address1'][$field]['alias']) && isset($patron[$fields['address1'][$field]['alias']]) ) {
+                $patron[$field] = $patron[$fields['address1'][$field]['alias']];
             }
+
+            /*
+            // Check if the data is coming in with a different field name (alias)
+            if ( ! empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
+                $patron[$field] = $patron[$fields[$field]['alias']];
+            }
+            */
         }
 
         // Loop through each field

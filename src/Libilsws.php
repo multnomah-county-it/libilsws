@@ -1797,18 +1797,15 @@ class Libilsws
     }
 
     /**
-     * Create patron data structure required by the patron_update function
+     * Create patron data structure for overlays (overlay_fields)
      *
      * @param  object $patron     Associative array of patron data elements
-     * @param  string $mode       new_fields or overlay_fields
      * @param  string $token      The sessions key returned by ILSWS
      * @param  string $patron_key Optional patron key to include if updating existing record
      * @return string $json       Complete Symphony patron record JSON
      */
-
-    public function create_patron_json ($patron, $mode = null, $token = null, $patron_key = null)
+    public function update_patron_json ($patron, $token = null, $patron_key = null)
     {
-        $this->validate('mode', $mode, 'v:overlay_fields|new_fields');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 
@@ -1822,7 +1819,7 @@ class Libilsws
         $new['key'] = $patron_key;
 
         // Extract the field definitions from the configuration
-        $fields = $this->config['symphony'][$mode];
+        $fields = $this->config['symphony']['overlay_fields'];
 
         /**
          * Get the patron profile based on (in priority order) the incoming value, the 
@@ -1836,16 +1833,153 @@ class Libilsws
             // Check if the data is coming in with a different field name (alias)
             if ( ! empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
                 $patron[$field] = $patron[$fields[$field]['alias']];
-            } elseif ( ! empty($fields['address1'][$field]['alias']) && isset($patron[$fields['address1'][$field]['alias']]) ) {
-                $patron[$field] = $patron[$fields['address1'][$field]['alias']];
+            }
+        }
+
+        // Loop through each field
+        foreach ($fields as $field => $value) {
+
+            // Assign default values to empty fields, where appropriate
+            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
+                $patron[$field] = $fields[$field]['default'];
             }
 
-            /*
+            // Check for missing required fields
+            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
+                throw new Exception ("The $field field is required");
+            }
+
+            // Validate
+            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
+                $this->validate($field, $patron[$field], $fields[$field]['validation']);
+            }
+
+            if ( ! empty($patron[$field]) ) {
+
+                if ( isset($this->field_desc[$field]) ) {
+
+                    // If this is not a list type field, we can use a generic function to process it
+                    if ( $this->field_desc[$field]['type'] !== 'list' ) {
+
+                        $new['fields'][$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
+
+                    } else {
+
+                        if ( $field === 'phoneList' ) {
+                            $new['fields'][$field] = $this->create_field_phone($patron_key, $patron[$field]);
+                        } else {
+                            throw new Exception ("Unknown list type: $field");
+                        }
+                    }
+                }
+            }
+        }
+
+        // Return a JSON string suitable for use in patron_create
+        return json_encode($new, JSON_PRETTY_PRINT);
+    }
+
+    /**
+     * Create patron data structure for overlays of address fields (overlay_fields)
+     *
+     * @param  object $patron     Associative array of patron data elements
+     * @param  string $token      The sessions key returned by ILSWS
+     * @param  string $patron_key Optional patron key to include if updating existing record
+     * @return string $json       Complete Symphony patron record JSON
+     */
+    public function update_patron_address1_json ($patron, $addr_num, $token = null, $patron_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
+
+        // Go get field descriptions if they aren't already available
+        if ( empty($this->field_desc) ) {
+            $this->get_field_desc($token, 'patron');
+        }
+
+        // Start building the object
+        $new['resource'] = '/user/patron';
+        $new['key'] = $patron_key;
+
+        // Extract the field definitions from the configuration
+        $fields = $this->config['symphony']['overlay_fields']['address' . $addr_num];
+
+        // Convert aliases to Symphony fields
+        foreach ($fields as $field => $value) {
+
             // Check if the data is coming in with a different field name (alias)
             if ( ! empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
                 $patron[$field] = $patron[$fields[$field]['alias']];
             }
-            */
+        }
+
+        // Loop through each field
+        foreach ($fields as $field => $value) {
+
+            // Assign default values to empty fields, where appropriate
+            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
+                $patron[$field] = $fields[$field]['default'];
+            }
+
+            // Check for missing required fields
+            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
+                throw new Exception ("The $field field is required");
+            }
+
+            // Validate
+            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
+                $this->validate($field, $patron[$field], $fields[$field]['validation']);
+            }
+
+            // Create structure
+            if ( ! empty($patron[$field]) && isset($this->field_desc[$field]) ) {
+                $new['fields'][$field] = $this->create_field_address($field, $fields[$field], $patron[$field]);
+            }
+        }
+
+        // Return a JSON string suitable for use in patron_create
+        return json_encode($new, JSON_PRETTY_PRINT);
+    }
+
+    /**
+     * Create patron data structure for new patron registrations (new_fields)
+     *
+     * @param  object $patron     Associative array of patron data elements
+     * @param  string $token      The sessions key returned by ILSWS
+     * @param  string $patron_key Optional patron key to include if updating existing record
+     * @return string $json       Complete Symphony patron record JSON
+     */
+
+    public function create_patron_json ($patron, $token = null, $patron_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
+
+        // Go get field descriptions if they aren't already available
+        if ( empty($this->field_desc) ) {
+            $this->get_field_desc($token, 'patron');
+        }
+
+        // Start building the object
+        $new['resource'] = '/user/patron';
+        $new['key'] = $patron_key;
+
+        // Extract the field definitions from the configuration
+        $fields = $this->config['symphony']['new_fields'];
+
+        /**
+         * Get the patron profile based on (in priority order) the incoming value, the 
+         * birthDate and age ranges defined in the YAML configuration.
+         */
+        $patron['profile'] = $this->get_profile($patron);
+
+        // Convert aliases to Symphony fields
+        foreach ($fields as $field => $value) {
+
+            // Check if the data is coming in with a different field name (alias)
+            if ( ! empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
+                $patron[$field] = $patron[$fields[$field]['alias']];
+            }
         }
 
         // Loop through each field

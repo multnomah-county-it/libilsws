@@ -1894,11 +1894,6 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
 
-        // Go get field descriptions if they aren't already available
-        if ( empty($this->field_desc) ) {
-            $this->get_field_desc($token, 'patron');
-        }
-
         // Start building the object
         $new['resource'] = '/user/patron';
         $new['key'] = $patron_key;
@@ -1916,6 +1911,7 @@ class Libilsws
         }
 
         // Loop through each field
+        $new['fields']["address$addr_num"] = [];
         foreach ($fields as $field => $value) {
 
             // Assign default values to empty fields, where appropriate
@@ -1933,9 +1929,9 @@ class Libilsws
                 $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
 
-            // Create structure
-            if ( ! empty($patron[$field]) && isset($this->field_desc[$field]) ) {
-                $new['fields'][$field] = $this->create_field_address($field, $fields[$field], $patron[$field]);
+            if ( ! empty($patron[$field]) ) {
+                // $new['fields'][$field] = $this->create_field_address($addr_num, $field, $fields[$field], $patron[$field]);
+                array_push($new['fields']["address$addr_num"], $this->create_field_address($addr_num, $field, $fields[$field], $patron[$field]));
             }
         }
 
@@ -2016,7 +2012,8 @@ class Libilsws
                         // $field is a list so we have specific functions for the types we support, address# and phoneList
                         if ( preg_match('/^address\d{1}$/', $field) && ! empty($patron[$field]) ) {
 
-                            $new['fields'][$field] = $this->create_field_address($field, $fields[$field], $patron[$field]);
+                            $addr_num = substr($field, -1, 1);
+                            $new['fields'][$field] = $this->create_field_address($addr_num, $field, $fields[$field], $patron[$field]);
 
                         } elseif ( $field === 'phoneList' ) {
 
@@ -2029,6 +2026,8 @@ class Libilsws
                 }
             }
         }
+
+        print_r($new);
 
         // Return a JSON string suitable for use in patron_create
         return json_encode($new, JSON_PRETTY_PRINT);
@@ -2247,11 +2246,8 @@ class Libilsws
      * @return object $address Address object for insertion into a patron record
      */
 
-    private function create_field_address ($field, $fields, $patron)
+    private function create_field_address ($addr_num, $field, $fields, $field_value)
     {
-        // Determine the address number
-        $num = substr($field, -1, 1);
-
         foreach ($fields as $subfield => $value) {
 
             // Check if the data is coming in with a different field name (alias)
@@ -2260,7 +2256,7 @@ class Libilsws
             }
 
             // Assign default values where appropriate
-            if ( empty($patron[$subfield]) ) {
+            if ( empty($patron[$subfield]) && ! empty($fields[$field][$subfield]['default']) ) {
                 $patron[$subfield] = $fields[$field][$subfield]['default'];
             }
 
@@ -2271,10 +2267,10 @@ class Libilsws
 
             // Create address structure
             $address = [];
-            $address['resource'] = "/user/patron/$field";
-            $address['fields']['code']['resource'] = "/policy/patronAddress$num";
-            $address['fields']['code']['key'] = $subfield;
-            $address['fields']['data'] = $patron[$subfield];
+            $address['resource'] = "/user/patron/address$addr_num";
+            $address['fields']['code']['resource'] = "/policy/patronAddress$addr_num";
+            $address['fields']['code']['key'] = $field;
+            $address['fields']['data'] = $field_value;
 
             // Add this subfield to the address one array
             return $address;
@@ -2393,7 +2389,7 @@ class Libilsws
         if ( strlen($patron_key) > 0 ) { 
 
             // Create a record structure with the update fields 
-            $json = $this->create_patron_json($patron, 'new_fields', $token, $patron_key);
+            $json = $this->create_patron_json($patron, $token, $patron_key);
             if ( $this->config['debug']['register'] ) {
                 error_log("DEBUG_REGISTER $json", 0);
             }

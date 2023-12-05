@@ -2027,8 +2027,6 @@ class Libilsws
             }
         }
 
-        print_r($new);
-
         // Return a JSON string suitable for use in patron_create
         return json_encode($new, JSON_PRETTY_PRINT);
     }

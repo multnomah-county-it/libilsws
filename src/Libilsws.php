@@ -1797,6 +1797,57 @@ class Libilsws
     }
 
     /**
+     * Check for field aliases
+     *
+     * @param object $patron Associative array of patron data elements
+     * @param  array $fields Associative array field data from YAML configuration
+     * @return array $patron Associative array of patron data elements
+     */
+    private function check_aliases ($patron, $fields)
+    {
+        foreach ($fields as $field => $value) {
+
+            // Check if the data is coming in with a different field name (alias)
+            if ( !empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
+                $patron[$field] = $patron[$fields[$field]['alias']];
+            }
+        }
+
+        return $patron;
+    }
+
+    /**
+     * Check for defaults and required fields and validate field values
+     * 
+     * @param object $patron Associative array of patron data elements
+     * @param  array $fields Associative array field data from YAML configuration
+     * @return array $patron Associative array of patron data elements
+     */
+    private function check_fields ($patron, $fields)
+    {
+        // Loop through each field
+        foreach ($fields as $field => $value) {
+
+            // Assign default values to empty fields, where appropriate
+            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
+                $patron[$field] = $fields[$field]['default'];
+            }
+
+            // Check for missing required fields
+            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
+                throw new Exception ("The $field field is required");
+            }
+
+            // Validate
+            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
+                $this->validate($field, $patron[$field], $fields[$field]['validation']);
+            }
+        }
+
+        return $patron;
+    }
+
+    /**
      * Create patron data structure for overlays (overlay_fields)
      *
      * @param  object $patron     Associative array of patron data elements
@@ -1828,31 +1879,13 @@ class Libilsws
         $patron['profile'] = $this->get_profile($patron);
 
         // Convert aliases to Symphony fields
-        foreach ($fields as $field => $value) {
+        $patron = $this->check_aliases($patron, $fields);
 
-            // Check if the data is coming in with a different field name (alias)
-            if ( ! empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
-                $patron[$field] = $patron[$fields[$field]['alias']];
-            }
-        }
+        // Check for defaults and required fields and validate
+        $patron = $this->check_fields($patron, $fields);
 
         // Loop through each field
         foreach ($fields as $field => $value) {
-
-            // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
-                $patron[$field] = $fields[$field]['default'];
-            }
-
-            // Check for missing required fields
-            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
-                throw new Exception ("The $field field is required");
-            }
-
-            // Validate
-            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
-                $this->validate($field, $patron[$field], $fields[$field]['validation']);
-            }
 
             if ( ! empty($patron[$field]) ) {
 
@@ -1882,11 +1915,11 @@ class Libilsws
     /**
      * Create patron data structure for overlays of address fields (overlay_fields)
      *
-     * @param  object $patron     Associative array of patron data elements
-     * @param integer $addr_num   Address number to update
-     * @param  string $token      The sessions key returned by ILSWS
-     * @param  string $patron_key Optional patron key to include if updating existing record
-     * @return string $json       Complete Symphony patron record JSON
+     * @param  object  $patron     Associative array of patron data elements
+     * @param  integer $addr_num   Address number to update
+     * @param  string  $token      The sessions key returned by ILSWS
+     * @param  string  $patron_key Optional patron key to include if updating existing record
+     * @return string  $json       Complete Symphony patron record JSON
      */
     public function update_patron_address_json ($patron, $addr_num = null, $token = null, $patron_key = null)
     {
@@ -1897,40 +1930,24 @@ class Libilsws
         // Start building the object
         $new['resource'] = '/user/patron';
         $new['key'] = $patron_key;
+        $new['fields']["address$addr_num"] = [];
 
         // Extract the field definitions from the configuration
         $fields = $this->config['symphony']['overlay_fields']['address' . $addr_num];
 
         // Convert aliases to Symphony fields
-        foreach ($fields as $field => $value) {
+        $patron = $this->check_aliases($patron, $fields);
 
-            // Check if the data is coming in with a different field name (alias)
-            if ( ! empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
-                $patron[$field] = $patron[$fields[$field]['alias']];
-            }
-        }
+        // Check for defaults and required fields and validate
+        $patron = $this->check_fields($patron, $fields);
+
+        // Check for defaults and required fields and validate
+        $patron = $this->check_fields($patron, $fields);
 
         // Loop through each field
-        $new['fields']["address$addr_num"] = [];
         foreach ($fields as $field => $value) {
 
-            // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
-                $patron[$field] = $fields[$field]['default'];
-            }
-
-            // Check for missing required fields
-            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
-                throw new Exception ("The $field field is required");
-            }
-
-            // Validate
-            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
-                $this->validate($field, $patron[$field], $fields[$field]['validation']);
-            }
-
             if ( ! empty($patron[$field]) ) {
-                // $new['fields'][$field] = $this->create_field_address($addr_num, $field, $fields[$field], $patron[$field]);
                 array_push($new['fields']["address$addr_num"], $this->create_field_address($addr_num, $field, $fields[$field], $patron[$field]));
             }
         }
@@ -1972,31 +1989,13 @@ class Libilsws
         $patron['profile'] = $this->get_profile($patron);
 
         // Convert aliases to Symphony fields
-        foreach ($fields as $field => $value) {
+        $patron = $this->check_aliases($patron, $fields);
 
-            // Check if the data is coming in with a different field name (alias)
-            if ( ! empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
-                $patron[$field] = $patron[$fields[$field]['alias']];
-            }
-        }
+        // Check for defaults and required fields and validate
+        $patron = $this->check_fields($patron, $fields);
 
         // Loop through each field
         foreach ($fields as $field => $value) {
-
-            // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
-                $patron[$field] = $fields[$field]['default'];
-            }
-
-            // Check for missing required fields
-            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
-                throw new Exception ("The $field field is required");
-            }
-
-            // Validate
-            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
-                $this->validate($field, $patron[$field], $fields[$field]['validation']);
-            }
 
             if ( ! empty($patron[$field]) ) {
 

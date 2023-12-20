@@ -2253,25 +2253,6 @@ class Libilsws
     }
 
     /**
-     * Filter fields
-     *
-     * @param  array  $fields  Array of field metadata from configuration
-     * @param  string $pattern Regular expression pattern to match
-     * @return array  $new_fields Array of fields that match pattern
-     */
-
-    private function filter_fields ($fields, $pattern)
-    {
-        $new_fields = [];
-        foreach ($fields as $field => $value) {
-            if ( preg_match($pattern, $field) ) {
-                $new_fields[$field] = $value;
-            }
-        }
-        return $new_fields;
-    }
-
-    /**
      * Create patron data structure required by the patron_register
      * function for initial account creation
      *
@@ -2288,7 +2269,7 @@ class Libilsws
 
         // Get field metadata from Symphony and config
         $this->get_field_desc($token, 'register');
-        $fields = $this->filter_fields($this->config['symphony']['new_fields'], "/^patron/");
+        $fields = $this->config['symphony']['new_fields']['registration'];
 
         // Convert aliases to Symphony fields
         $patron = $this->check_aliases($patron, $fields);
@@ -2322,7 +2303,7 @@ class Libilsws
 
         // Get field metadata from Symphony and config
         $this->get_field_desc($token, 'patron');
-        $fields = $this->filter_fields($this->config['symphony']['new_fields'], "/^(?!patron)/");
+        $fields = $this->config['symphony']['new_fields'];
 
         // Get patron profile based on age of patron
         if ( empty($patron['profile']) ) {

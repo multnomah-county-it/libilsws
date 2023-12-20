@@ -39,7 +39,8 @@ $patron = [
         ],
     ];
 
-$response = $ilsws->register_patron($patron, $token);
+$addr_num = 1;
+$response = $ilsws->register_patron($patron, $token, $addr_num);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

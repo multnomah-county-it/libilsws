@@ -49,8 +49,7 @@ or evaluating data from the Symphony system.
 
 - authenticate_patron_id($token, $patron_id, $password)
 - check_duplicate($token, $index1, $search1, $index2, $search2)
-- create_patron_json($patron, $mode, $token, $patron_key)
-- create_register_json($patron, $token)
+- create_register_json($patron, $token, $addr_num, $patron_key)
 - get_bib($token, $bib_key, $field_list)
 - get_bib_circ_info($token, $bib_key)
 - get_bib_marc($token, $bib_key)
@@ -69,6 +68,8 @@ or evaluating data from the Symphony system.
 - search_bib($token, $index, $value, $params)
 - update_patron($token, $json, $patron_key) 
 - update_patron_activeid($token, $patron_key, $patron_id, $option)
+- update_patron_address_json($patron, $token, $patron_key, $addr_num)
+- update_patron_json($patron, $token, $patron_key, $addr_num)
 
 ## Date and Telephone Number Formats
 For the convenience of developers, the code library accepts

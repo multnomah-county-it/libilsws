@@ -39,13 +39,15 @@ $patron = [
         ],
     ];
 
-$patron_key = '779207';
+$patron_key = '782439';
+$addr_num = 1;
+
 $json = $ilsws->update_patron_json($patron, $token, $patron_key);
 print "$json\n\n";
 $response = $ilsws->update_patron($token, $json, $patron_key);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
-$json = $ilsws->update_patron_address_json($patron, 1, $token, $patron_key);
+$json = $ilsws->update_patron_address_json($patron, $token, $patron_key, $addr_num);
 print "$json\n\n";
 $response = $ilsws->update_patron($token, $json, $patron_key);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";

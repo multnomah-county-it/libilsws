@@ -74,6 +74,9 @@ class Libilsws
     // Public variable to HTML return code
     public $code;
 
+    // Base URL constructed from config for convenience
+    public $base_url;
+    
     // The ILSWS connection parameters and Symphony field configuration
     private $config;
 
@@ -82,7 +85,7 @@ class Libilsws
 
     // ILSWS patron field description information
     private $field_desc = [];
-    
+
     // Constructor for this class
     public function __construct($yaml_file)
     {
@@ -189,6 +192,7 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
+            exit;
         } 
 
         return $token;
@@ -275,6 +279,7 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
+            exit;
         } 
 
         return json_decode($json, true);
@@ -362,6 +367,7 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
+            exit;
         }
         
         return json_decode($json, true);
@@ -1803,6 +1809,7 @@ class Libilsws
      * @param  array $fields Associative array field data from YAML configuration
      * @return array $patron Associative array of patron data elements
      */
+
     private function check_aliases ($patron, $fields)
     {
         foreach ($fields as $field => $value) {
@@ -1823,6 +1830,7 @@ class Libilsws
      * @param  array $fields Associative array field data from YAML configuration
      * @return array $patron Associative array of patron data elements
      */
+
     private function check_fields ($patron, $fields)
     {
         // Loop through each field
@@ -1848,6 +1856,67 @@ class Libilsws
     }
 
     /**
+     * Create new field structures for JSON
+     * 
+     * @param  object  $patron     Associative array of patron data elements
+     * @param  array   $fields     Associative array field data from YAML configuration
+     * @param  integer $addr_num   Address number 1, 2, or 3
+     * @param  integer $patron_key Internal SirsiDynix patron key
+     * @return object  $new        Patron data structure for conversion to JSON
+     */
+
+    private function create_fields ($patron, $fields, $addr_num, $patron_key = null)
+    {
+        $new = [];
+
+        // Loop through each field
+        foreach ($fields as $field => $value) {
+
+            if ( !empty($patron[$field]) ) {
+
+                if ( isset($this->field_desc[$field]) ) {
+                    if ( preg_match("/^patron/", $field) ) {
+                        $new[$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type'], $addr_num, $patron_key);
+                    } else {
+                        $new['fields'][$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type'], $addr_num, $patron_key);
+                    }
+                }
+            }
+        }
+    
+        return $new;
+    }
+
+    /**
+     * Create new field structures for JSON
+     * 
+     * @param  object  $patron     Associative array of patron data elements
+     * @param  array   $fields     Associative array field data from YAML configuration
+     * @param  integer $addr_num   Address number 1, 2, or 3
+     * @param  integer $patron_key Internal SirsiDynix patron key
+     * @return object  $new        Patron data structure for conversion to JSON
+     */
+
+    private function create_address_fields ($patron, $fields, $addr_num, $patron_key = null)
+    {
+        $new = [];
+
+        // Loop through each field
+        foreach ($fields as $field => $value) {
+
+            if ( !empty($patron[$field]) ) {
+
+                if ( isset($fields[$field]) ) {
+                    $new['fields']["address$addr_num"] = [];
+                    array_push($new['fields']["address$addr_num"], $this->create_field($field, $patron[$field], 'list', $addr_num, $patron_key, $fields[$field]));
+                }
+            }
+        }
+    
+        return $new;
+    }
+
+    /**
      * Create patron data structure for overlays (overlay_fields)
      *
      * @param  object $patron     Associative array of patron data elements
@@ -1855,58 +1924,24 @@ class Libilsws
      * @param  string $patron_key Optional patron key to include if updating existing record
      * @return string $json       Complete Symphony patron record JSON
      */
-    public function update_patron_json ($patron, $token = null, $patron_key = null)
+    public function update_patron_json ($patron, $token = null, $patron_key = null, $addr_num = 0)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
+        $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
 
         // Go get field descriptions if they aren't already available
         if ( empty($this->field_desc) ) {
             $this->get_field_desc($token, 'patron');
         }
 
-        // Start building the object
-        $new['resource'] = '/user/patron';
-        $new['key'] = $patron_key;
-
         // Extract the field definitions from the configuration
         $fields = $this->config['symphony']['overlay_fields'];
 
-        /**
-         * Get the patron profile based on (in priority order) the incoming value, the 
-         * birthDate and age ranges defined in the YAML configuration.
-         */
-        $patron['profile'] = $this->get_profile($patron);
-
-        // Convert aliases to Symphony fields
-        $patron = $this->check_aliases($patron, $fields);
-
-        // Check for defaults and required fields and validate
-        $patron = $this->check_fields($patron, $fields);
-
-        // Loop through each field
-        foreach ($fields as $field => $value) {
-
-            if ( ! empty($patron[$field]) ) {
-
-                if ( isset($this->field_desc[$field]) ) {
-
-                    // If this is not a list type field, we can use a generic function to process it
-                    if ( $this->field_desc[$field]['type'] !== 'list' ) {
-
-                        $new['fields'][$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
-
-                    } else {
-
-                        if ( $field === 'phoneList' ) {
-                            $new['fields'][$field] = $this->create_field_phone($patron_key, $patron[$field]);
-                        } else {
-                            throw new Exception ("Unknown list type: $field");
-                        }
-                    }
-                }
-            }
-        }
+        // Create the field structure
+        $new = $this->create_fields($patron, $fields, 0, $patron_key);
+        $new['resource'] = '/user/patron';
+        $new['key'] = $patron_key;
 
         // Return a JSON string suitable for use in patron_create
         return json_encode($new, JSON_PRETTY_PRINT);
@@ -1916,21 +1951,15 @@ class Libilsws
      * Create patron data structure for overlays of address fields (overlay_fields)
      *
      * @param  object  $patron     Associative array of patron data elements
-     * @param  integer $addr_num   Address number to update
      * @param  string  $token      The sessions key returned by ILSWS
      * @param  string  $patron_key Optional patron key to include if updating existing record
+     * @param  integer $addr_num   Address number to update
      * @return string  $json       Complete Symphony patron record JSON
      */
-    public function update_patron_address_json ($patron, $addr_num = null, $token = null, $patron_key = null)
+    public function update_patron_address_json ($patron, $token = null, $patron_key = null, $addr_num = 1)
     {
-        $this->validate('addr_num', $addr_num, 'r:#^[123]$#');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
-
-        // Start building the object
-        $new['resource'] = '/user/patron';
-        $new['key'] = $patron_key;
-        $new['fields']["address$addr_num"] = [];
 
         // Extract the field definitions from the configuration
         $fields = $this->config['symphony']['overlay_fields']['address' . $addr_num];
@@ -1941,90 +1970,9 @@ class Libilsws
         // Check for defaults and required fields and validate
         $patron = $this->check_fields($patron, $fields);
 
-        // Check for defaults and required fields and validate
-        $patron = $this->check_fields($patron, $fields);
-
-        // Loop through each field
-        foreach ($fields as $field => $value) {
-
-            if ( ! empty($patron[$field]) ) {
-                array_push($new['fields']["address$addr_num"], $this->create_field_address($addr_num, $field, $fields[$field], $patron[$field]));
-            }
-        }
-
-        // Return a JSON string suitable for use in patron_create
-        return json_encode($new, JSON_PRETTY_PRINT);
-    }
-
-    /**
-     * Create patron data structure for new patron registrations (new_fields)
-     *
-     * @param  object $patron     Associative array of patron data elements
-     * @param  string $token      The sessions key returned by ILSWS
-     * @param  string $patron_key Optional patron key to include if updating existing record
-     * @return string $json       Complete Symphony patron record JSON
-     */
-
-    public function create_patron_json ($patron, $token = null, $patron_key = null)
-    {
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'i:1,999999');
-
-        // Go get field descriptions if they aren't already available
-        if ( empty($this->field_desc) ) {
-            $this->get_field_desc($token, 'patron');
-        }
-
-        // Start building the object
+        $new = $this->create_address_fields($patron, $fields, $addr_num, $patron_key);
         $new['resource'] = '/user/patron';
         $new['key'] = $patron_key;
-
-        // Extract the field definitions from the configuration
-        $fields = $this->config['symphony']['new_fields'];
-
-        /**
-         * Get the patron profile based on (in priority order) the incoming value, the 
-         * birthDate and age ranges defined in the YAML configuration.
-         */
-        $patron['profile'] = $this->get_profile($patron);
-
-        // Convert aliases to Symphony fields
-        $patron = $this->check_aliases($patron, $fields);
-
-        // Check for defaults and required fields and validate
-        $patron = $this->check_fields($patron, $fields);
-
-        // Loop through each field
-        foreach ($fields as $field => $value) {
-
-            if ( ! empty($patron[$field]) ) {
-
-                if ( isset($this->field_desc[$field]) ) {
-
-                    // If this is not a list type field, we can use a generic function to process it
-                    if ( $this->field_desc[$field]['type'] !== 'list' ) {
-
-                        $new['fields'][$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
-
-                    } else {
-
-                        // $field is a list so we have specific functions for the types we support, address# and phoneList
-                        if ( preg_match('/^address\d{1}$/', $field) && ! empty($patron[$field]) ) {
-
-                            $addr_num = substr($field, -1, 1);
-                            $new['fields'][$field] = $this->create_field_address($addr_num, $field, $fields[$field], $patron[$field]);
-
-                        } elseif ( $field === 'phoneList' ) {
-
-                            $new['fields'][$field] = $this->create_field_phone($patron_key, $patron[$field]);
-
-                        } else {
-                            throw new Exception ("Unknown list type: $field");
-                        }
-                    }
-                }
-            }
-        }
 
         // Return a JSON string suitable for use in patron_create
         return json_encode($new, JSON_PRETTY_PRINT);
@@ -2039,19 +1987,30 @@ class Libilsws
      * @return               The output of the appropriate function
      */
 
-    private function create_field ($name, $value, $type)
+    private function create_field ($field, $value, $type, $addr_num = 0, $patron_key = null, $field_data = null)
     {
         switch ($type) {
             case 'boolean':
-                return $this->create_field_boolean($name, $value);
+                return $this->create_field_boolean($field, $value);
             case 'date':
-                return $this->create_field_date($name, $value);
+                return $this->create_field_date($field, $value);
             case 'resource':
-                return $this->create_field_resource($name, $value);
+                return $this->create_field_resource($field, $value);
             case 'set':
-                return $this->create_field_set($name, $value);
+                return $this->create_field_set($field, $value);
             case 'string':
-                return $this->create_field_string($name, $value);
+                return $this->create_field_string($field, $value);
+            case 'list':
+                switch ($field) {
+                    case 'phoneList':
+                        if ( $patron_key ) {
+                            return $this->create_field_phone($patron_key, $value);
+                        }
+                    default: 
+                        if ( $addr_num ) {
+                            return $this->create_field_address($field, $value, $field_data, $addr_num);
+                        }
+                }
         }
     }
 
@@ -2243,7 +2202,7 @@ class Libilsws
      * @return object $address Address object for insertion into a patron record
      */
 
-    private function create_field_address ($addr_num, $field, $fields, $field_value)
+    private function create_field_address ($field, $field_value, $fields, $addr_num)
     {
         foreach ($fields as $subfield => $value) {
 
@@ -2278,78 +2237,49 @@ class Libilsws
      * Create patron data structure required by the patron_register
      * function
      *
-     * @param  object $patron Associative array of patron data elements
-     * @return string         Complete Symphony patron record JSON
+     * @param  object  $patron     Associative array of patron data elements
+     * @param  string  $token      The session key returned by ILSWS
+     * @param  integer $addr_num   Optional Address number to update (1, 2, or 3, defaults to 1)
+     * @param  string  $patron_key Optional patron key to include if updating existing record
+     * @return string  $new        Symphony patron record JSON
      */
 
-    public function create_register_json ($patron, $token = null)
+    public function create_register_json ($patron, $token = null, $addr_num = 1, $patron_key = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
 
-        $new = [];
-
-        // Required for Web Services 6.3
-        $new['activationUrl'] = $this->config['ilsws']['activation_url'];
-
-        // Go get field descriptions if they aren't already available
-        if ( empty($this->field_desc) ) {
+        // Get field metadata from Symphony
+        if ( $patron_key ) {
             $this->get_field_desc($token, 'patron');
+        } else {
+            $this->get_field_desc($token, 'register');
         }
 
-        // Get additional field metadata from Symphony
-        $this->get_field_desc($token, 'register');
-
-        /**
-         * Get the patron profile based on (in priority order) the incoming value, the 
-         * birthDate and age ranges defined in the YAML configuration.
-         */
-        $patron['profile'] = $this->get_profile($patron);
+        // Get patron profile based on age of patron
+        if ( empty($patron['profile']) ) {
+            $patron['profile'] = $this->get_profile($patron);
+        }
 
         # Extract the field definitions from the configuration
         $fields = $this->config['symphony']['new_fields'];
 
         // Convert aliases to Symphony fields
-        foreach ($fields as $field => $value) {
+        $patron = $this->check_aliases($patron, $fields);
 
-            // Check if the data is coming in with a different field name (alias)
-            if ( ! empty($fields[$field]['alias']) && ! empty($patron[$fields[$field]['alias']]) ) {
-                $patron[$field] = $patron[$fields[$field]['alias']];
-            }
+        // Check fields for required and default values and validate
+        $patron = $this->check_fields($patron, $fields);
+
+        $new = $this->create_fields($patron, $fields, $addr_num, $patron_key);
+
+        if ( $patron_key ) {
+            $this->validate('patron_key', $patron_key, 'i:1,999999');
+            $new['resource'] = '/user/patron';
+            $new['key'] = $patron_key;
+        } else {
+            $new['activationUrl'] = $this->config['ilsws']['activation_url'];
         }
-
-        foreach ($fields as $field => $value) {
-
-            if ( $this->config['debug']['register'] && ! empty($patron[$field]) ) {
-                error_log("DEBUG_REGISTER $field: $patron[$field]", 0);
-            }
-
-            // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
-                $patron[$field] = $fields[$field]['default'];
-            }
-
-            // Check for missing required fields
-            if ( empty($patron[$field]) && boolval($fields[$field]['required']) ) {
-                throw new Exception ("The $field field is required");
-            }
-
-            // Validate
-            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
-                $this->validate($field, $patron[$field], $fields[$field]['validation']);
-            }
          
-            if ( ! empty($this->field_desc[$field]) ) {
-
-                // if we have a value in $patron for this field, Create field structure based on field type
-                if ( ! empty($patron[$field]) ) {
-                    $new[$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type']);
-                }
-
-            } else {
-                throw new Exception ("Unknown field: $field");
-            }
-        }
-
         // Return a JSON string suitable for use in patron_register
         return json_encode($new, JSON_PRETTY_PRINT);
     }
@@ -2361,23 +2291,26 @@ class Libilsws
      * set, so we do the initial registration, then take the patron key returned
      * and perform an update of the remaining fields.
      *
-     * @param  object $patron Associative array containing patron data
-     * @param  string $token The session token returned by ILSWS
-     * @return object $response Associative array containing response from ILSWS
+     * @param  object  $patron     Associative array containing patron data
+     * @param  string  $token      The session token returned by ILSWS
+     * @param  integer $addr_num   Optional Address number to update (1, 2, or 3, defaults to 1)
+     * @return object  $response   Associative array containing response from ILSWS
      */
 
-    public function register_patron ($patron, $token = null)
+    public function register_patron ($patron, $token = null, $addr_num = 1)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
 
         $response = [];
 
         // Create the required record structure for a registration
-        $json = $this->create_register_json($patron, $token);
-
+        $json = $this->create_register_json($patron, $token, $addr_num);
         if ( $this->config['debug']['register'] ) {
             error_log("DEBUG_REGISTER $json", 0);
         }
+
+        // Send initial registration (and generate email)
         $response = $this->send_query("$this->base_url/user/patron/register", $token, $json, 'POST');
 
         // Assign the patron_key from the initial registration to the update array
@@ -2385,8 +2318,8 @@ class Libilsws
 
         if ( strlen($patron_key) > 0 ) { 
 
-            // Create a record structure with the update fields 
-            $json = $this->create_patron_json($patron, $token, $patron_key);
+            // Create a record structure with the update fields that aren't part of the initial registration
+            $json = $this->create_register_json($patron, $token, $addr_num, $patron_key);
             if ( $this->config['debug']['register'] ) {
                 error_log("DEBUG_REGISTER $json", 0);
             }
@@ -2441,7 +2374,6 @@ class Libilsws
     public function update_patron_activeid ($token = null, $patron_key = null, $patron_id = null, $option = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'i:1,999999');
         $this->validate('patron_key', $patron_key, 'i:1,999999');
         $this->validate('patron_id', $patron_id, 'r:#^\d{6,14}$#');
         $this->validate('option', $option, 'v:a|i|d');

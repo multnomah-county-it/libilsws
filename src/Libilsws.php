@@ -192,7 +192,7 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
-            exit;
+            exit(1);
         } 
 
         return $token;
@@ -279,7 +279,7 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
-            exit;
+            exit(1);
         } 
 
         return json_decode($json, true);
@@ -367,7 +367,7 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
-            exit;
+            exit(1);
         }
         
         return json_decode($json, true);
@@ -2234,6 +2234,25 @@ class Libilsws
     }
 
     /**
+     * Calculate expiration date based on configuration
+     * 
+     * @param  integer $days            Number of days to add to today's date to calculate expiration
+     * @return date    $expiration_date Todays date plus the online account expiration (days)
+     */
+
+    public function get_expiration ($days = null)
+    {
+        $expiration = null;
+
+        if ( $days ) {
+            $today = date('Y-m-d');
+            $expiration = date('Y-m-d', strtotime($today . " + $days day"));
+        }
+
+        return $expiration;
+    }
+
+    /**
      * Create patron data structure required by the patron_register
      * function
      *
@@ -2276,6 +2295,7 @@ class Libilsws
             $this->validate('patron_key', $patron_key, 'i:1,999999');
             $new['resource'] = '/user/patron';
             $new['key'] = $patron_key;
+            $new['fields']['privilegeExpiresDate'] = $this->get_expiration($this->config['symphony']['online_account_expiration']);
         } else {
             $new['activationUrl'] = $this->config['ilsws']['activation_url'];
         }

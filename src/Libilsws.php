@@ -2253,35 +2253,81 @@ class Libilsws
     }
 
     /**
+     * Filter fields
+     *
+     * @param  array  $fields  Array of field metadata from configuration
+     * @param  string $pattern Regular expression pattern to match
+     * @return array  $new_fields Array of fields that match pattern
+     */
+
+    private function filter_fields ($fields, $pattern)
+    {
+        $new_fields = [];
+        foreach ($fields as $field => $value) {
+            if ( preg_match($pattern, $field) ) {
+                $new_fields[$field] = $value;
+            }
+        }
+        return $new_fields;
+    }
+
+    /**
      * Create patron data structure required by the patron_register
-     * function
+     * function for initial account creation
      *
      * @param  object  $patron     Associative array of patron data elements
      * @param  string  $token      The session key returned by ILSWS
      * @param  integer $addr_num   Optional Address number to update (1, 2, or 3, defaults to 1)
-     * @param  string  $patron_key Optional patron key to include if updating existing record
      * @return string  $new        Symphony patron record JSON
      */
 
-    public function create_register_json ($patron, $token = null, $addr_num = 1, $patron_key = null)
+    public function create_register_json ($patron, $token = null, $addr_num = 1)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
 
-        // Get field metadata from Symphony
-        if ( $patron_key ) {
-            $this->get_field_desc($token, 'patron');
-        } else {
-            $this->get_field_desc($token, 'register');
-        }
+        // Get field metadata from Symphony and config
+        $this->get_field_desc($token, 'register');
+        $fields = $this->filter_fields($this->config['symphony']['new_fields'], "/^patron/");
+
+        // Convert aliases to Symphony fields
+        $patron = $this->check_aliases($patron, $fields);
+
+        // Check fields for required and default values and validate
+        $patron = $this->check_fields($patron, $fields);
+
+        $new = $this->create_fields($patron, $fields, $addr_num);
+        $new['activationUrl'] = $this->config['ilsws']['activation_url'];
+         
+        // Return a JSON string suitable for use in patron_register
+        return json_encode($new, JSON_PRETTY_PRINT);
+    }
+
+    /**
+     * Create patron data structure required by the patron_register
+     * function for account update values (that can't be set initially)
+     *
+     * @param  object  $patron     Associative array of patron data elements
+     * @param  string  $token      The session key returned by ILSWS
+     * @param  string  $patron_key Symphony patron key
+     * @param  integer $addr_num   Optional Address number to update (1, 2, or 3, defaults to 1)
+     * @return string  $new        Symphony patron record JSON
+     */
+
+    public function create_update_json ($patron, $token = null, $patron_key = null, $addr_num = 1)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
+        $this->validate('patron_key', $patron_key, 'i:1,999999');
+
+        // Get field metadata from Symphony and config
+        $this->get_field_desc($token, 'patron');
+        $fields = $this->filter_fields($this->config['symphony']['new_fields'], "/^(?!patron)/");
 
         // Get patron profile based on age of patron
         if ( empty($patron['profile']) ) {
             $patron['profile'] = $this->get_profile($patron);
         }
-
-        # Extract the field definitions from the configuration
-        $fields = $this->config['symphony']['new_fields'];
 
         // Convert aliases to Symphony fields
         $patron = $this->check_aliases($patron, $fields);
@@ -2290,15 +2336,9 @@ class Libilsws
         $patron = $this->check_fields($patron, $fields);
 
         $new = $this->create_fields($patron, $fields, $addr_num, $patron_key);
-
-        if ( $patron_key ) {
-            $this->validate('patron_key', $patron_key, 'i:1,999999');
-            $new['resource'] = '/user/patron';
-            $new['key'] = $patron_key;
-            $new['fields']['privilegeExpiresDate'] = $this->get_expiration($this->config['symphony']['online_account_expiration']);
-        } else {
-            $new['activationUrl'] = $this->config['ilsws']['activation_url'];
-        }
+        $new['resource'] = '/user/patron';
+        $new['key'] = $patron_key;
+        $new['fields']['privilegeExpiresDate'] = $this->get_expiration($this->config['symphony']['online_account_expiration']);
          
         // Return a JSON string suitable for use in patron_register
         return json_encode($new, JSON_PRETTY_PRINT);
@@ -2339,7 +2379,7 @@ class Libilsws
         if ( strlen($patron_key) > 0 ) { 
 
             // Create a record structure with the update fields that aren't part of the initial registration
-            $json = $this->create_register_json($patron, $token, $addr_num, $patron_key);
+            $json = $this->create_update_json($patron, $token, $patron_key, $addr_num);
             if ( $this->config['debug']['register'] ) {
                 error_log("DEBUG_REGISTER $json", 0);
             }

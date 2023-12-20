@@ -60,6 +60,8 @@ symphony:
   age_ranges: 
     1-12: '1_MULT_Y'
     13-120: '0_MULT'
+  # Number of days until new accounts will expire
+  online_account_expiration: 90
   # The overlay_fields section defines the fields that may be used in the patron_modify and patron_register functions. 
   # Note: Symphony will assign new records a temporary patron_id (barcode). The patron_update function may be used to 
   # update that later. The order of fields does not matter, but address fields must be grouped under address1, 

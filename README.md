@@ -193,7 +193,7 @@ $patron = [
     ];
 
 $addr_num = 1;
-$patron_key = null;
+$patron_key = '782339';
 
 // Convert patron array into JSON structure required by API
 $json = $ilsws->update_patron_json($patron, $token, $patron_key, $addr_num);

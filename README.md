@@ -125,6 +125,42 @@ $response = $ilsws->search_patron($token, $index, $search, $options);
 ```
 $response = $ilsws->get_patron_attributes($token, $patron_key);
 ```
+### Register New Patron
+```
+/**
+ * Not all of these are actually required. See the YAML configuration file to determine
+ * which fields are required.
+ */
+$patron = [
+    'birthDate' => '1962-03-07',
+    'city_state' => 'Portland, OR',
+    'county' => '0_MULT',
+    'email' => 'johnchouser@gmail.com',
+    'firstName' => 'Bogus',
+    'friends_notices' => 'YES',
+    'home_library' => 'CEN',
+    'language' => 'ENGLISH',
+    'lastName' => 'Bogart',
+    'library_news' => 'YES',
+    'middleName' => 'T',
+    'notice_type' => 'PHONE',
+    'postal_code' => '97209',
+    'street' => '925 NW Hoyt St Apt 406',
+    'telephone' => '215-534-6821',
+    'sms_phone_list' => [
+        'number' => '215-534-6821',
+        'countryCode' => 'US',
+        'bills'       => true,
+        'general'     => true,
+        'holds'       => true,
+        'manual'      => true,
+        'overdues'    => true,
+        ],
+    ];
+
+$addr_num = 1;
+$response = $ilsws->register_patron($patron, $token, $addr_num);
+```
 
 ### Update Patron Record
 ```
@@ -156,8 +192,17 @@ $patron = [
         ],
     ];
 
+$addr_num = 1;
+$patron_key = null;
+
 // Convert patron array into JSON structure required by API
-$json = $ilsws->create_patron_json($patron, 'overlay_fields', $token, $patron_key);
+$json = $ilsws->update_patron_json($patron, $token, $patron_key, $addr_num);
+
+// Update the patron record
+$response = $ilsws->update_patron($token, $json, $patron_key);
+
+// Create JSON for address updates
+$json = $ilsws->update_patron_address_json($patron, $token, $patron_key, $addr_num);
 
 // Update the patron record
 $response = $ilsws->update_patron($token, $json, $patron_key);

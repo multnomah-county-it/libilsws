@@ -2319,7 +2319,9 @@ class Libilsws
         $new = $this->create_fields($patron, $fields, $addr_num, $patron_key);
         $new['resource'] = '/user/patron';
         $new['key'] = $patron_key;
-        $new['fields']['privilegeExpiresDate'] = $this->get_expiration($this->config['symphony']['online_account_expiration']);
+        if ( $patron['profile'] === 'ONLINE' ) {
+            $new['fields']['privilegeExpiresDate'] = $this->get_expiration($this->config['symphony']['online_account_expiration']);
+        }
          
         // Return a JSON string suitable for use in patron_register
         return json_encode($new, JSON_PRETTY_PRINT);

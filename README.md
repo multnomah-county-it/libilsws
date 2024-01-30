@@ -74,7 +74,6 @@ or evaluating data from the Symphony system.
 - search_bib($token, $index, $value, $params)
 - update_patron($patron, $token, $patron_key, $addr_num) 
 - update_patron_activeid($token, $patron_key, $patron_id, $option)
-- update_patron_address_json($patron, $token, $patron_key, $addr_num)
 - update_phone_list($phone_list, $token, $patron_key)
 
 ## Date and Telephone Number Formats

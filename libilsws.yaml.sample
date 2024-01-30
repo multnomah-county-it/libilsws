@@ -1,7 +1,6 @@
 # Validation types and rules used in field definitions
 #
 # blank              => 'b',                  // must be blank
-# boolean            => 'o',
 # date1              => 'd:YYYY-MM-DD',
 # date2              => 'd:YYYY/MM/DD',
 # date3              => 'd:MM-DD-YYYY',
@@ -12,7 +11,7 @@
 # integer            => 'i:1,99999999',       // integer between 1 and 99999999
 # JSON               => 'j',                  // JSON
 # number             => 'n:1,999',            // decimal number between 1 and 999
-# regex              => 'r:/^[A-Z]{2,4}$/'    // Regular expression pattern
+# regex              => '/^[A-Z]{2,4}$/'      // Regular expression pattern
 # string             => 's:256',              // string of length <= 256
 # url                => 'u',                  // URL
 # value_list         => 'v:01|11',            // list('01', '11')
@@ -20,11 +19,13 @@
 # List of fields to include in new and modified records. Do not include unused fields or user categories.
 # For every field there are five possible values:
 #   validation: Required validation rule
-#   alias: Optional name of the field in the patron array (if different)
-#   default: Optional default value in new records
+#   alias: Alternate name of the field in the patron array if different from the internal field name
+#   default: Default value in overlay or new records
+#   type: Use "address" to flag all address fields
 # For new_fields, you must also include the 
 #   required: true|false
 #
+# Set debug to true for various types of debug messages
 debug:
   config: false
   connect: false
@@ -32,40 +33,49 @@ debug:
   query: false
   register: false
   update: false
+# API connection parameters
 ilsws:
-  username: 'USERNAME'
-  password: 'PASSWORD'
-  hostname: 'HOSTNAME.DOMAIN'
-  port: 443
-  webapp: 'WEBAPP'
-  app_id: 'APP_ID'
-  client_id: 'CLIENT_ID'
-  user_privilege_override: 'OVERRIDE'
-  timeout: 20
+  username: USERNAME
+  password: PASSWORD
+  hostname: HOSTNAME
+  port: PORT
+  webapp: WEBAPP_NAME
+  app_id: APP_ID
+  client_id: CLIENT_ID
+  user_privilege_override: OVERRIDE
+  timeout: 60
   max_retries: 3
   max_search_count: 20
-  activation_url: 'https://multcolib.org'
+# SirsiDynix Symphony parameters. For the most part, these must match values you have configured in 
+# your Symphony system.
 symphony:
   # Use this setting to determine the default fields to return from the search_patron function
-  default_include_fields: 'profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate'
+  default_patron_include_fields: 'profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate'
+  # Make Libilsws validate each field included in a $field_list variable
+  # or includeFields parameter against the API. Set the item to false to 
+  # increase performance for production systems, once testing is complete.
+  validate_catalog_fields: true
   # Set the following item to true to validate patron search indexes against the API. Set the item to false for
   # better performance with production code.
   validate_patron_indexes: true
-  # Set the following item to true to make Libilsws validate each field included in a $field_list variable
-  # or includeFields parameter against the API. Set the item to false to increase performance for production
-  # systems.
-  validate_catalog_fields: true
   # The age_ranges are used to map a particular age range to a profile. If you don't use age based profiles, 
-  # you may delete age_ranges and set a default for the profile field
+  # set 1-120 to your default profile 
   age_ranges: 
     1-12: '1_MULT_Y'
     13-120: '0_MULT'
-  # Number of days until new accounts will expire
+  # If you set this value, it will be used to set the days before expiration of online accounts
   online_account_expiration: 90
-  # The overlay_fields section defines the fields that may be used in the patron_modify and patron_register functions. 
-  # Note: Symphony will assign new records a temporary patron_id (barcode). The patron_update function may be used to 
-  # update that later. The order of fields does not matter, but address fields must be grouped under address1, 
-  # address2, or address3. Delete unused fields. Empty fields sections or attributes may cause unexpected behavior.
+  # The from_email address will be as the from address for any emails sent by the code library
+  from_email: 'webmaster@multcolib.org' 
+  # Template path (www user must have read access)
+  # template_path: '~/web/themes/custom/multcolibtheme/templates/content'
+  template_path: '/Users/johnh3/Documents/php/ilsws/templates'
+  # Template cache (www user must have write access)
+  #template_cache: '~/web/sites/default/files/php/twig'
+  template_cache: '/Users/johnh3/Documents/php/ilsws/templates/cache'
+  # The overlay_fields section defines the fields that may be used in the update_patron and register_patron functions. 
+  # The order of fields does not matter, but all address fields must get the "type: address" attribute. Other types are
+  # not required as of this version, but may be added later. Empty fields sections or attributes will cause errors.
   overlay_fields: 
     key:
       alias: 'patron_key'
@@ -75,7 +85,7 @@ symphony:
       default: '0_MULT'
     pin:
       alias: 'password'
-      validation: 's:25'
+      validation: 'r:/^.{4,25}$/'
     language:
       validation: 'v:ARABIC|CHINESE|DUTCH|ENGLISH|FRENCH|FRENCH-AF|GERMAN|HUNGARIAN|JAPANESE|ROMANIAN|RUSSIAN|SOMALI|SPANISH|VIETNAMESE'
       default: 'ENGLISH'
@@ -92,27 +102,29 @@ symphony:
       validation: 'd:YYYY-MM-DD'
     barcode:
       alias: 'patron_id'
-      validation: 'i:20000000000000,29999999999999'
-    address1:
-      STREET:
-        alias: 'street'
-        validation: 's:128'
-      CITY/STATE: 
-        alias: 'city_state'
-        validation: 'r:/^[[:word:] ]{4,128}$/'
-        default: 'Portland, OR'
-      ZIP:
-        validation: 'v:97002|97003|97004|97005|97006|97007|97008|97009|97010|97011|97013|97014|97015|97017|97019|97022|97023|97024|97027|97028|97030|97031|97032r97034|97035|97036|97038|97041|97042|97044|97045|97049|97055|97056|97060|97062|97064|97067|97068|97070|97071|97075|97076|97077|97078|97079|97080|97086|97089|97106|97109|97113|97116|97117|97119|97123|97124|97125|97129|97133|97140|97144|97201|97202|97203|97204|97205|97206|97207|97208|97209|97210|97211|97212|97213|97214|97215|97216|97217|97218|97219|97220|97221|97222|97223|97224|97225|97227|97228|97229|97230|97231|97232|97233|97236|97238|97239|97240|97242|97250|97251|97252|97253|97254|97255|97256|97259|97266|97267|97268|97269|97271|97272|97280|97281|97282|97283|97286|97290|97291|97292|97293|97294|97296|97298|97362|97375|98601|98602|98603|98604|98605|98606|98607|98610|98613|98616|98617|98619|98620|98622|98623|98628|98629|98635|98639|98642|98648|98650|98651|98660|98661|98662|98663|98664|98665|98666|98668|98670|98671|98672|98673|98674|98675|98682|98683|98684|98685|98686|98687|99322|99356'
-      EMAIL:
-        alias: 'email'
-        validation: 'e'
-      PHONE:
-        alias: 'telephone'
-        validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
-    # This element is used to configure SMS telephone numbers only, and requires a fixed params array. See
-    # test/patron_register.php for an example.
+      validation: 'r:/^[A-Z0-9]{6,20}$/'
+    STREET:
+      alias: 'street'
+      validation: 's:128'
+      type: 'address'
+    CITY/STATE: 
+      alias: 'city_state'
+      validation: 'r:/^[[:word:] ]{4,128}$/'
+      default: 'Portland, OR'
+      type: 'address'
+    ZIP:
+      validation: 'v:97002|97003|97004|97005|97006|97007|97008|97009|97010|97011|97013|97014|97015|97017|97019|97022|97023|97024|97027|97028|97030|97031|97032r97034|97035|97036|97038|97041|97042|97044|97045|97049|97055|97056|97060|97062|97064|97067|97068|97070|97071|97075|97076|97077|97078|97079|97080|97086|97089|97106|97109|97113|97116|97117|97119|97123|97124|97125|97129|97133|97140|97144|97201|97202|97203|97204|97205|97206|97207|97208|97209|97210|97211|97212|97213|97214|97215|97216|97217|97218|97219|97220|97221|97222|97223|97224|97225|97227|97228|97229|97230|97231|97232|97233|97236|97238|97239|97240|97242|97250|97251|97252|97253|97254|97255|97256|97259|97266|97267|97268|97269|97271|97272|97280|97281|97282|97283|97286|97290|97291|97292|97293|97294|97296|97298|97362|97375|98601|98602|98603|98604|98605|98606|98607|98610|98613|98616|98617|98619|98620|98622|98623|98628|98629|98635|98639|98642|98648|98650|98651|98660|98661|98662|98663|98664|98665|98666|98668|98670|98671|98672|98673|98674|98675|98682|98683|98684|98685|98686|98687|99322|99356'
+    EMAIL:
+      alias: 'email'
+      validation: 'e'
+      type: 'address'
+    PHONE:
+      alias: 'telephone'
+      validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
+      type: 'address'
+    # This element is used to configure SMS phone numbers only, and requires a fixed parameters array. See test scripts for details.
     phoneList:
-        alias: 'sms_phone_list'
+      alias: 'sms_phone'
     category01:
       alias: 'county'
       validation: 'v:0_MULT|1_CLACK|2_WASH|3_HOOD|4_OTHER_OR|7_CLARK_WA|CAMAS_WA|KLICK_WA|OTHER|SKAMA_WA|UNKNOWN'
@@ -143,15 +155,18 @@ symphony:
       default: 'YES'
     category12:
       alias: 'los'
-  # This section defines the fields used by the patron_register function to create new patron records. 
-  # Note: fields here *must* match those selected in the ILSWS Self-Registration Configuration for those
-  # data elements. However, you may add additional valid Symphony fields if desired. If you assign aliases 
-  # they should match those used in the previous section. Fields in this section must include the boolean 
-  # required attribute (true/false). The order of fields in the configuration does not matter.
+  # This section defines the fields used by the register_patron function to create new patron records. 
+  # Note: the fields here *must* match those selected in the ILSWS Self-Registration Configuration. 
+  # However, you may make the aliases the same as those in the previous section. Fields in this section
+  # must include the boolean required attribute. The order of fields in the configuration does not matter.
   new_fields: 
+    barcode:
+      alias: 'patron_id'
+      required: false
+      validation: 'r:/^[A-Z0-9]{6,20}$/'
     profile:
-      validation: "v:0_MULT|1_MULT_Y|2_METRO|3_METRO_Y|PASSPORT|PASSPORT_Y"
-      default: '0_MULT'
+      validation: "v:0_MULT|1_MULT_Y|2_METRO|3_METRO_Y|PASSPORT|PASSPORT_Y|ONLINE"
+      default: 'ONLINE'
       required: true
     library:
       alias: 'home_library'
@@ -162,81 +177,80 @@ symphony:
       validation: 'v:ARABIC|CHINESE|DUTCH|ENGLISH|FRENCH|FRENCH-AF|GERMAN|HUNGARIAN|JAPANESE|ROMANIAN|RUSSIAN|SOMALI|SPANISH|VIETNAMESE'
       default: 'ENGLISH'
       required: false
-    # This element is used to configure SMS telephone numbers only, and requires a fixed params array. See
-    # test/patron_register.php.
+    # This element is used to configure SMS phone numbers only, and requires a fixed params array
     phoneList:
-        alias: 'sms_phone_list'
-    registration:
-      patron-pin:
-        alias: 'password'
-        validation: 's:25'
-        required: false
-      patron-confirmPIN:
-        alias: 'confirm_password'
-        required: false
-      patron-firstName:
-        alias: 'firstName'
-        validation: 's:25'
-        required: true
-      patron-middleName:
-        alias: 'middleName'
-        validation: 's:25'
-        required: false
-      patron-lastName:
-        alias: 'lastName'
-        validation: 's:60'
-        required: true
-      patron-birthDate:
-        alias: 'birthDate'
-        validation: 'd:YYYY-MM-DD'
-        required: true
-      patron-preferredName:
-        alias: 'preferred_name'
-        required: false
-      patronAddress1-STREET:
-        alias: 'street'
-        validation: 's:128'
-        required: true
-      patronAddress1-CITY/STATE: 
-        alias: 'city_state'
-        validation: 'r:/^[[:word:] ]{4,128}$/'
-        default: 'Portland, OR'
-        required: true
-      patronAddress1-ZIP:
-        alias: 'postal_code'
-        validation: 'v:97002|97003|97004|97005|97006|97007|97008|97009|97010|97011|97013|97014|97015|97017|97019|97022|97023|97024|97027|97028|97030|97031|97032r97034|97035|97036|97038|97041|97042|97044|97045|97049|97055|97056|97060|97062|97064|97067|97068|97070|97071|97075|97076|97077|97078|97079|97080|97086|97089|97106|97109|97113|97116|97117|97119|97123|97124|97125|97129|97133|97140|97144|97201|97202|97203|97204|97205|97206|97207|97208|97209|97210|97211|97212|97213|97214|97215|97216|97217|97218|97219|97220|97221|97222|97223|97224|97225|97227|97228|97229|97230|97231|97232|97233|97236|97238|97239|97240|97242|97250|97251|97252|97253|97254|97255|97256|97259|97266|97267|97268|97269|97271|97272|97280|97281|97282|97283|97286|97290|97291|97292|97293|97294|97296|97298|97362|97375|98601|98602|98603|98604|98605|98606|98607|98610|98613|98616|98617|98619|98620|98622|98623|98628|98629|98635|98639|98642|98648|98650|98651|98660|98661|98662|98663|98664|98665|98666|98668|98670|98671|98672|98673|98674|98675|98682|98683|98684|98685|98686|98687|99322|99356'
-        required: true
-      patronAddress1-EMAIL:
-        alias: 'email'
-        validation: 'e'
-        required: false
-      patronAddress1-PHONE:
-        alias: 'telephone'
-        validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
-        required: false
-      patron-category01:
-        alias: 'county'
-        validation: 'v:0_MULT|1_CLACK|2_WASH|3_HOOD|4_OTHER_OR|7_CLARK_WA|CAMAS_WA|KLICK_WA|OTHER|SKAMA_WA|UNKNOWN'
-        default: '0_MULT'
-        required: false
-      patron-category02:
-        alias: 'notice_type'
-        validation: 'v:EMAIL|PHONE|TEXT|UNKNOWN|US_MAIL|Z_NONE'
-        default: 'US_MAIL'
-        required: false
-      patron-category03:
-        alias: 'school_district'
-        validation: 'v:YES|NO|UNKNOWN'
-        required: false
-      patron-category05:
-        alias: 'library_news'
-        validation: 'v:YES|NO|UNKNOWN'
-        required: false
-      patron-category06:
-        alias: 'friends_notices'
-        validation: 'v:YES|NO|UNKNOWN'
-        required: false
-      patron-category11:
-        alias: 'online_update'
-        validation: 'v:YES|CHECK'
-        required: false
+      alias: 'sms_phone'
+      required: false
+    pin:
+      alias: 'password'
+      validation: 's:25'
+      required: false
+    firstName:
+      alias: 'firstName'
+      validation: 's:25'
+      required: true
+    middleName:
+      alias: 'middleName'
+      validation: 's:25'
+      required: false
+    lastName:
+      alias: 'lastName'
+      validation: 's:60'
+      required: true
+    birthDate:
+      alias: 'birthDate'
+      validation: 'd:YYYY-MM-DD'
+      required: true
+    STREET:
+      alias: 'street'
+      validation: 's:128'
+      required: true
+      type: 'address'
+    CITY/STATE: 
+      alias: 'city_state'
+      validation: 'r:/^[[:word:] ]{4,128}$/'
+      default: 'Portland, OR'
+      required: true
+      type: 'address'
+    ZIP:
+      alias: 'postal_code'
+      validation: 'v:97002|97003|97004|97005|97006|97007|97008|97009|97010|97011|97013|97014|97015|97017|97019|97022|97023|97024|97027|97028|97030|97031|97032r97034|97035|97036|97038|97041|97042|97044|97045|97049|97055|97056|97060|97062|97064|97067|97068|97070|97071|97075|97076|97077|97078|97079|97080|97086|97089|97106|97109|97113|97116|97117|97119|97123|97124|97125|97129|97133|97140|97144|97201|97202|97203|97204|97205|97206|97207|97208|97209|97210|97211|97212|97213|97214|97215|97216|97217|97218|97219|97220|97221|97222|97223|97224|97225|97227|97228|97229|97230|97231|97232|97233|97236|97238|97239|97240|97242|97250|97251|97252|97253|97254|97255|97256|97259|97266|97267|97268|97269|97271|97272|97280|97281|97282|97283|97286|97290|97291|97292|97293|97294|97296|97298|97362|97375|98601|98602|98603|98604|98605|98606|98607|98610|98613|98616|98617|98619|98620|98622|98623|98628|98629|98635|98639|98642|98648|98650|98651|98660|98661|98662|98663|98664|98665|98666|98668|98670|98671|98672|98673|98674|98675|98682|98683|98684|98685|98686|98687|99322|99356'
+      required: true
+      type: 'address'
+    EMAIL:
+      alias: 'email'
+      validation: 'e'
+      required: false
+      type: 'address'
+    PHONE:
+      alias: 'telephone'
+      validation: 'r:/^(\d{3})(-{0,1})(\d{3})(-{0,1})(\d{4})$/'
+      required: false
+      type: 'address'
+    category01:
+      alias: 'county'
+      validation: 'v:0_MULT|1_CLACK|2_WASH|3_HOOD|4_OTHER_OR|7_CLARK_WA|CAMAS_WA|KLICK_WA|OTHER|SKAMA_WA|UNKNOWN'
+      default: '0_MULT'
+      required: false
+    category02:
+      alias: 'notice_type'
+      validation: 'v:EMAIL|PHONE|TEXT|UNKNOWN|US_MAIL|Z_NONE'
+      default: 'US_MAIL'
+      required: false
+    category03:
+      alias: 'school_district'
+      validation: 'v:YES|NO|UNKNOWN'
+      required: false
+    category05:
+      alias: 'library_news'
+      validation: 'v:YES|NO|UNKNOWN'
+      required: false
+    category06:
+      alias: 'friends_notices'
+      validation: 'v:YES|NO|UNKNOWN'
+      required: false
+    category11:
+      alias: 'online_update'
+      default: 'CHECK'
+      validation: 'v:YES|CHECK'
+      required: false

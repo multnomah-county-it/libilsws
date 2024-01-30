@@ -94,7 +94,7 @@ $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 
 // Create patron record JSON
-print "create_patron_json overlay structure\n";
+print "update_patron_json overlay structure\n";
 $patron = [
     'firstName' => 'Bogus',
     'middleName' => 'T',
@@ -112,7 +112,7 @@ $patron = [
     'email' => 'johnchouser@gmail.com',
     'telephone' => '215-534-6821',
     ];
-$json = $ilsws->create_patron_json($patron, 'overlay_fields', $token, $patron_key);
+$json = $ilsws->update_patron_json($patron, $token, $patron_key, 1);
 print "$json\n";
 
 // Patron update from JSON

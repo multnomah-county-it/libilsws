@@ -2,13 +2,6 @@
 
 require_once 'vendor/autoload.php';
 
-if ( count($argv) < 2 ) {
-    print "Syntax: php $argv[0] PATRON_KEY\n";
-    exit;
-}
-
-$patron_key = $argv[1];
-
 // Initialize
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 
@@ -20,23 +13,24 @@ $token = $ilsws->connect();
  * which fields are required.
  */
 $patron = [
-    'patron_id' => 'HOUSJOALAM12346',
     'birthDate' => '1962-03-07',
     'city_state' => 'Portland, OR',
     'county' => '0_MULT',
+    'profile' => '0_MULT',
+    'patron_id' => '21168041717471',
     'email' => 'johnchouser@gmail.com',
     'firstName' => 'Bogus',
     'friends_notices' => 'YES',
     'home_library' => 'CEN',
-    'language' => 'SPANISH',
+    'language' => 'ENGLISH',
     'lastName' => 'Bogart',
     'library_news' => 'YES',
     'middleName' => 'T',
     'notice_type' => 'PHONE',
     'postal_code' => '97209',
-    'street' => '925 NW Hoyt St Apt 401',
+    'street' => '925 NW Hoyt St Apt 406',
     'telephone' => '215-534-6821',
-    'sms_phone' => [
+    'sms_phone_list' => [
         'number' => '215-534-6821',
         'countryCode' => 'US',
         'bills'       => true,
@@ -48,8 +42,7 @@ $patron = [
     ];
 
 $addr_num = 1;
-
-$response = $ilsws->update_patron($patron, $token, $patron_key, $addr_num);
-print_r($response);
+$response = $ilsws->register_patron($patron, $token, $addr_num);
+print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

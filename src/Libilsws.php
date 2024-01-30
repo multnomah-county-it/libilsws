@@ -2245,7 +2245,7 @@ class Libilsws
      * @return object  $response   Associative array containing response from ILSWS
      */
 
-    public function register_patron ($patron, $token = null, $addr_num = null, $template = null)
+    public function register_patron ($patron, $token = null, $addr_num = null, $template = '')
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
@@ -2310,14 +2310,16 @@ class Libilsws
             if ( !empty($patron['phoneList']) ) {
                 if ( ! $this->update_phone_list($patron['phoneList'], $token, $patron_key) ) {
                     throw new Exception('SMS phone list update failed');
-                    exit;
+                    exit();
                 }
             }
 
-            $subject = 'Welcome to Multnomah County Library';
-            if ( ! $this->email_template($patron, $this->config['symphony']['from_email'], $patron['email'], $subject, $template) ) {
-                throw new Exception('Email to patron failed');
-                exit;
+            if ( $template ) {
+                $subject = 'Welcome to Multnomah County Library';
+                if ( ! $this->email_template($patron, $this->config['symphony']['from_email'], $patron['email'], $subject, $template) ) {
+                    throw new Exception('Email to patron failed');
+                    exit();
+                }
             }
         }
 
@@ -2632,7 +2634,7 @@ class Libilsws
         $headers .= "Content-Transfer-Encoding: base64\r\n\r\n";
 
         return mail($to, $subject, $body, $headers);
-   }
+    }
 
 // End of class
 }

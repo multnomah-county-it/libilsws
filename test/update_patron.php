@@ -2,6 +2,13 @@
 
 require_once 'vendor/autoload.php';
 
+if ( count($argv) < 2 ) {
+    print "Syntax: php $argv[0] PATRON_KEY\n";
+    exit;
+}
+
+$patron_key = $argv[1];
+
 // Initialize
 $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 
@@ -13,6 +20,7 @@ $token = $ilsws->connect();
  * which fields are required.
  */
 $patron = [
+    'patron_id' => 'HOUSJOALAM12346',
     'birthDate' => '1962-03-07',
     'city_state' => 'Portland, OR',
     'county' => '0_MULT',
@@ -28,7 +36,7 @@ $patron = [
     'postal_code' => '97209',
     'street' => '925 NW Hoyt St Apt 401',
     'telephone' => '215-534-6821',
-    'sms_phone_list' => [
+    'sms_phone' => [
         'number' => '215-534-6821',
         'countryCode' => 'US',
         'bills'       => true,
@@ -39,17 +47,9 @@ $patron = [
         ],
     ];
 
-$patron_key = '782439';
 $addr_num = 1;
 
-$json = $ilsws->update_patron_json($patron, $token, $patron_key);
-print "$json\n\n";
-$response = $ilsws->update_patron($token, $json, $patron_key);
-print json_encode($response, JSON_PRETTY_PRINT) . "\n";
-
-$json = $ilsws->update_patron_address_json($patron, $token, $patron_key, $addr_num);
-print "$json\n\n";
-$response = $ilsws->update_patron($token, $json, $patron_key);
-print json_encode($response, JSON_PRETTY_PRINT) . "\n";
+$response = $ilsws->update_patron($patron, $token, $patron_key, $addr_num);
+print_r($response);
 
 // EOF

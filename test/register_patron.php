@@ -29,7 +29,7 @@ $patron = [
     'profile' => 'ONLINE',
     'street' => '925 NW Hoyt St Apt 406',
     'telephone' => '215-534-6821',
-    'sms_phone_list' => [
+    'sms_phone' => [
         'number' => '215-534-6821',
         'countryCode' => 'US',
         'bills'       => true,
@@ -41,7 +41,8 @@ $patron = [
     ];
 
 $addr_num = 1;
-$response = $ilsws->register_patron($patron, $token, $addr_num);
+$template = 'registration_email.html.twig';
+$response = $ilsws->register_patron($patron, $token, $addr_num, $template);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

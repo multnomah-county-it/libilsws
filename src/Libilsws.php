@@ -295,7 +295,7 @@ class Libilsws
      * @return object $response   Associative array containing the response from ILSWS 
      */
 
-    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $header = null)
+    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $header = '')
     {
         $this->validate('url', $url, 'u');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
@@ -2226,7 +2226,6 @@ class Libilsws
         // Create the data structure
         $new = $this->create_fields($patron, $this->config['symphony']['new_fields'], $addr_num, null);
         $new['resource'] = '/user/patron';
-        $new['key'] = $patron_key;
         if ( $patron['profile'] === 'ONLINE' ) {
             $new['fields']['privilegeExpiresDate'] = $this->get_expiration($this->config['symphony']['online_account_expiration']);
         }

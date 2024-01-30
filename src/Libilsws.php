@@ -295,11 +295,12 @@ class Libilsws
      * @return object $response   Associative array containing the response from ILSWS 
      */
 
-    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null)
+    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $header = null)
     {
         $this->validate('url', $url, 'u');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('query_type', $query_type, 'v:POST|PUT|DELETE');
+        $this->validate('header', $header, 's:40');
 
         if ( $query_json ) {
             $this->validate('query_json', $query_json, 'j');
@@ -326,6 +327,9 @@ class Libilsws
             'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
             "x-sirs-sessionToken: $token",
             ];
+
+        // Add an optional header if it exists
+        array_push($headers, $header);
 
         $options = [
             CURLOPT_URL              => $url,
@@ -611,16 +615,28 @@ class Libilsws
      * @return object $response Response from API server
      */
 
-    public function transit_item ($token = null, $library = null)
+    public function transit_item ($token = null, $item_key = null, $new_library = null, $working_library = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
-        $this->validate('library', $library, 'r:#^[A-Z]{3,9}$#');
+        $this->validate('library', $new_library, 'r:#^[A-Z]{3,9}$#');
+        $this->validate('working_library', $working_library, 'r:#^[A-Z]{3,9}$#');
 
-        $json = "{\"resource\":\"/circulation/transit\",\"fields\":{\"destinationLibrary\":{\"resource\":\"/policy/library\",\"key\":\"$new_library\"},\"item\":\"resource\":\"/catalog/item\",\"key\":\"$item_key\"},\"transitReason\":\"EXCHANGE\"}}";
+        $data = [
+            'resource' => '/circulation/transit',
+            'fields' => [
+                'destinationLibrary' => ['resource' => '/policy/library', 'key' => $new_library],
+                'item' => ['resource' => '/catalog/item', 'key' => $item_key],
+                'transitReason' => 'EXCHANGE',
+                ]
+            ];
+        $json =  json_encode($data);
+
+        // Add header required for this API endpoint
+        $header = "SD-Working-LibraryID: $working_library";
  
         // Describe patron register function
-        $response = $ilsws->send_query("$ilsws->base_url/circulation/transit", $token, $json, 'POST');
+        $response = $this->send_query("$this->base_url/circulation/transit", $token, $json, 'POST', $header);
 
         return $response;
     }
@@ -640,7 +656,7 @@ class Libilsws
         $this->validate('item_id', $item_id, 'i:30000000000000,39999999999999');
 
         $json = "{\"itemBarcode\":\"$item_barcode\"}";
-        $response = $ilsws->send_query("$ilsws->base_url/circulation/untransit", $token, $json, 'POST');
+        $response = $this->send_query("$this->base_url/circulation/untransit", $token, $json, 'POST');
 
         return $response;
     }
@@ -1519,6 +1535,7 @@ class Libilsws
      * @param  string $password   The patron password
      * @return string $patron_key The patron key (internal ID)
      */
+
     public function authenticate_patron_id ($token = null, $patron_id = null, $password = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
@@ -1548,6 +1565,7 @@ class Libilsws
      * @param  string $patron_key The user's internal ID number
      * @return object $attributes Associative array with the user's attributes
      */
+
     public function get_patron_attributes ($token = null, $patron_key = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
@@ -1893,7 +1911,7 @@ class Libilsws
      * @return string $json       Complete Symphony patron record JSON
      */
 
-    public function create_update_json ($patron, $token = null, $patron_key = null, $addr_num = null)
+    private function create_update_json ($patron, $token = null, $patron_key = null, $addr_num = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
@@ -2183,7 +2201,7 @@ class Libilsws
 
     /**
      * Create patron data structure required by the patron_register
-     * function for account update values (that can't be set initially)
+     * function to create the JSON patron data structure required by the API
      *
      * @param  object  $patron     Associative array of patron data elements
      * @param  string  $token      The session key returned by ILSWS
@@ -2192,7 +2210,7 @@ class Libilsws
      * @return string  $new        Symphony patron record JSON
      */
 
-    public function create_register_json ($patron, $token = null, $addr_num = 1)
+    private function create_register_json ($patron, $token = null, $addr_num = 1)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
@@ -2218,7 +2236,8 @@ class Libilsws
     }
 
     /**
-     * Register a new patron (with email response and duplicate checking)
+     * Register a new patron and send welcome email to patron. Defaults to
+     * English, but supports alternate language templates.
      * 
      * @param  object  $patron     Associative array containing patron data
      * @param  string  $token      The session token returned by ILSWS

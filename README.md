@@ -31,15 +31,20 @@ they valididate all inputs and will throw exceptions
 if presented with inappropriate inputs.
 
 - authenticate_patron($token, $patron_id, $password)
+- change_barcode($token, $patron_key, $patron_id)
+- change_item_library($token, $item_key, $library)
 - change_patron_password($token, $json)
 - delete_patron($token, $patron_key)
 - describe_bib($token) 
 - describe_item($token) 
 - describe_patron($token) 
+- get_expiration($days)
 - get_policy($token, $policy_key)
 - search_patron($token, $index, $search, $params)
 - search_patron_alt_id($token, $alt_id, $count)
 - search_patron_id($token, $patron_id, $count) 
+- transit_item($token, $item_key, $new_library, $working_library)
+- untransit_item($token, $item_id)
 - update_patron_activity($token, $patron_id)
 
 ## High-level
@@ -49,7 +54,7 @@ or evaluating data from the Symphony system.
 
 - authenticate_patron_id($token, $patron_id, $password)
 - check_duplicate($token, $index1, $search1, $index2, $search2)
-- create_register_json($patron, $token, $addr_num, $patron_key)
+- email_template($patron, $to, $from, $subject, $template)
 - get_bib($token, $bib_key, $field_list)
 - get_bib_circ_info($token, $bib_key)
 - get_bib_marc($token, $bib_key)
@@ -60,16 +65,17 @@ or evaluating data from the Symphony system.
 - get_item_circ_info($token, $item_key)
 - get_library_paging_list($token, $library_key)
 - get_patron_attributes($token, $patron_key)
+- get_patron_checkouts($token, $patron_key, $include_fields)
 - get_patron_indexes($token)
 - prepare_search($terms)
-- register_patron($patron, $token)
+- register_patron($patron, $token, $addr_num, $template)
 - reset_patron_password($token, $patron_id, $url, $email)
 - search_authenticate($token, $index, $search, $password)
 - search_bib($token, $index, $value, $params)
-- update_patron($token, $json, $patron_key) 
+- update_patron($patron, $token, $patron_key, $addr_num) 
 - update_patron_activeid($token, $patron_key, $patron_id, $option)
 - update_patron_address_json($patron, $token, $patron_key, $addr_num)
-- update_patron_json($patron, $token, $patron_key, $addr_num)
+- update_phone_list($phone_list, $token, $patron_key)
 
 ## Date and Telephone Number Formats
 For the convenience of developers, the code library accepts
@@ -128,8 +134,8 @@ $response = $ilsws->get_patron_attributes($token, $patron_key);
 ### Register New Patron
 ```
 /**
- * Not all of these are actually required. See the YAML configuration file to determine
- * which fields are required.
+ * The order of the fields doesn't matter. Not all of these are actually required. 
+ * See the YAML configuration file to determine which fields are required.
  */
 $patron = [
     'birthDate' => '1962-03-07',
@@ -144,10 +150,11 @@ $patron = [
     'library_news' => 'YES',
     'middleName' => 'T',
     'notice_type' => 'PHONE',
+    'patron_id' => '21168045918653',
     'postal_code' => '97209',
     'street' => '925 NW Hoyt St Apt 406',
     'telephone' => '215-534-6821',
-    'sms_phone_list' => [
+    'sms_phone' => [
         'number' => '215-534-6821',
         'countryCode' => 'US',
         'bills'       => true,
@@ -159,7 +166,7 @@ $patron = [
     ];
 
 $addr_num = 1;
-$response = $ilsws->register_patron($patron, $token, $addr_num);
+$response = $ilsws->register_patron($patron, $token, $addr_num, $template);
 ```
 
 ### Update Patron Record
@@ -178,10 +185,11 @@ $patron = [
     'online_update' => 'YES',
     'street' => '925 NW Hoyt St Apt 606',
     'city_state' => 'Portland, OR',
+    'patron_id' => '21168045918653',
     'postal_code' => '97208',
     'email' => 'john.houser@multco.us',
     'telephone' => '215-544-6941',
-    'sms_phone_list' => [
+    'sms_phone' => [
         'number' => '215-544-6941',
         'countryCode => 'US',
         'bills'       => true,
@@ -195,17 +203,8 @@ $patron = [
 $addr_num = 1;
 $patron_key = '782339';
 
-// Convert patron array into JSON structure required by API
-$json = $ilsws->update_patron_json($patron, $token, $patron_key, $addr_num);
-
 // Update the patron record
-$response = $ilsws->update_patron($token, $json, $patron_key);
-
-// Create JSON for address updates
-$json = $ilsws->update_patron_address_json($patron, $token, $patron_key, $addr_num);
-
-// Update the patron record
-$response = $ilsws->update_patron($token, $json, $patron_key);
+$response = $ilsws->update_patron($patron, $token, $patron_key, $addr_num);
 ```
 
 ### Search for bibliographic records

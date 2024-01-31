@@ -18,6 +18,10 @@ use Curl\Curl;
 use DateTime;
 use \Exception;
 
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception as MailerException;
+
 /**
  * Custom API exception.
  *
@@ -2300,6 +2304,7 @@ class Libilsws
 
             // Assign the patron_key from the initial registration to the update array
             $patron_key = $response['key'];
+            $patron['barcode'] = $patron_key;
 
             // Create a record structure with the update fields that aren't part of the initial registration
             if ( ! $this->change_barcode($token, $patron_key, $patron_key) ) {
@@ -2316,7 +2321,7 @@ class Libilsws
 
             if ( $template && $this->validate('EMAIL', $patron['EMAIL'], 'e') ) {
                 $subject = 'Welcome to Multnomah County Library';
-                if ( ! $this->email_template($patron, $this->config['symphony']['from_email'], $patron['EMAIL'], $subject, $template) ) {
+                if ( ! $this->email_template($patron, $this->config['smtp']['smtp_from'], $patron['EMAIL'], $subject, $template) ) {
                     throw new Exception('Email to patron failed');
                     exit();
                 }
@@ -2619,21 +2624,73 @@ class Libilsws
      * @return string $message   Result string
      */
 
-    public function email_template ($patron, $to, $from, $subject, $template)
+    public function email_template ($patron, $from, $to, $subject, $template)
     {
+        print_r($patron);
+
+        $result = 0;
+
         // Fill template
         $loader = new \Twig\Loader\FilesystemLoader($this->config['symphony']['template_path']);
         $twig = new \Twig\Environment($loader, ['cache' => $this->config['symphony']['template_cache']]);
-        $text = $twig->render($template, ['patron' => $patron]);
-        $body = chunk_split(base64_encode($text));
+        $body = $twig->render($template, ['patron' => $patron]);
 
-        // Headers
-        $headers  = "MIME-Version: 1.0\r\n";           // Defining the MIME version
-        $headers .= "From:" . $from . "\r\n";          // Sender Email
-        $headers  = "Content-Type: text/html; charset=UTF-8\r\n";
-        $headers .= "Content-Transfer-Encoding: base64\r\n\r\n";
+        // Initialize mailer
+        $mail = new PHPMailer(true);
 
-        return mail($to, $subject, $body, $headers);
+        try {
+            // Server settings
+            if ( $this->config['debug']['smtp'] ) {
+                $mail->SMTPDebug = SMTP::DEBUG_SERVER;                // Enable verbose debug output
+            }
+
+            $mail->isSMTP();                                          // Send using SMTP
+            $mail->CharSet = 'UTF-8';                                 // Use unicode
+            $mail->Encoding = 'base64';                               // Encode test in base64
+
+            $mail->Host = $this->config['smtp']['smtp_host'];         // Set the SMTP server to send through
+
+            if ( $this->config['smtp']['smtp_username'] && $this->config['smtp']['smtp_password'] ) {
+                $mail->SMTPAuth = true;                                   // Enable SMTP authentication
+                $mail->Username = $this->config['smtp']['smtp_username']; // SMTP username
+                $mail->Password = $this->config['smtp']['smtp_password']; // SMTP password
+            } else {
+                $mail->SMTPAuth = false;
+            }
+
+            if ( $this->config['smtp']['smtp_protocol'] === 'tls' ) {
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;      // Enable implicit TLS encryption
+            }
+
+            // TCP port to connect to. Use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
+            $mail->Port = $this->config['smtp']['smtp_port'];
+
+            //Recipients
+            $mail->setFrom($from, $this->config['smtp']['smtp_fromname']);
+            $mail->addAddress($to);                                   //Name is optional
+
+            // Reply-to
+            if ( $this->config['smtp']['smtp_replyto'] ) {
+                $mail->addReplyTo($this->config['smtp']['smtp_replyto']);
+            }
+
+            //Content
+            if ( $this->config['smtp']['smtp_allowhtml'] === 'true' ) {
+                $mail->isHTML(true);                                  //Set email format to HTML
+            }
+
+            $mail->Subject = $subject;
+            $mail->Body    = $body;
+            $mail->AltBody = 'Welcome to Multnomah County Library. Your barcode is ' . $patron['barcode'];
+
+            $mail->send();
+            $result = 1;
+
+        } catch (MailerException $e) {
+            error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
+        }
+    
+        return $result;
     }
 
 // End of class

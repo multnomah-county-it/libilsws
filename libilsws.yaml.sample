@@ -46,6 +46,19 @@ ilsws:
   timeout: 60
   max_retries: 3
   max_search_count: 20
+# Configuration for PHPMailer
+smtp:
+  smtp_host: 'smtp.host.domain'
+  smtp_port: 587
+  smtp_protocol: 'tls'
+  smtp_autotls: true
+  smtp_timeout: 30
+  smtp_username: USERNAME
+  smtp_password: PASSWORD
+  smtp_from: 'webmaster@host.domain'
+  smtp_fromname: 'SENDER NAME'
+  smtp_replyto: 'no-reply@host.domain'
+  smtp_allowhtml: true
 # SirsiDynix Symphony parameters. For the most part, these must match values you have configured in 
 # your Symphony system.
 symphony:
@@ -65,8 +78,6 @@ symphony:
     13-120: '0_MULT'
   # If you set this value, it will be used to set the days before expiration of online accounts
   online_account_expiration: 90
-  # The from_email address will be as the from address for any emails sent by the code library
-  from_email: 'webmaster@multcolib.org' 
   # Template path (www user must have read access)
   # template_path: '~/web/themes/custom/multcolibtheme/templates/content'
   template_path: '/Users/johnh3/Documents/php/ilsws/templates'

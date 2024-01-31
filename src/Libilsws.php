@@ -2314,7 +2314,7 @@ class Libilsws
                 }
             }
 
-            if ( $template ) {
+            if ( $template && $this->validate('EMAIL', $patron['EMAIL'], 'e') ) {
                 $subject = 'Welcome to Multnomah County Library';
                 if ( ! $this->email_template($patron, $this->config['symphony']['from_email'], $patron['EMAIL'], $subject, $template) ) {
                     throw new Exception('Email to patron failed');

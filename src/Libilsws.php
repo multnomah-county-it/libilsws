@@ -2638,10 +2638,13 @@ class Libilsws
         try {
             // Server settings
             if ( $this->config['debug']['smtp'] ) {
-                $mail->SMTPDebug = SMTP::DEBUG_LOWLEVEL;                // Enable verbose debug output
+                $mail->SMTPDebug = SMTP::DEBUG_SERVER;                // Enable verbose debug output
             }
 
             $mail->isSMTP();                                          // Send using SMTP
+            $mail->CharSet = 'UTF-8';                                 // Use unicode
+            $mail->Encoding = 'base64';                               // Encode test in base64
+
             $mail->Host = $this->config['smtp']['smtp_host'];         // Set the SMTP server to send through
 
             if ( $this->config['smtp']['smtp_username'] && $this->config['smtp']['smtp_password'] ) {
@@ -2653,7 +2656,7 @@ class Libilsws
             }
 
             if ( $this->config['smtp']['smtp_protocol'] === 'tls' ) {
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;      // Enable implicit TLS encryption
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;      // Enable implicit TLS encryption
             }
 
             // TCP port to connect to. Use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`

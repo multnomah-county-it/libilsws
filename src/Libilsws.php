@@ -2298,7 +2298,6 @@ class Libilsws
 
         // Send initial registration (and generate email)
         $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
-        print_r($response);
 
         if ( !empty($response['key']) ) { 
 
@@ -2626,8 +2625,6 @@ class Libilsws
 
     public function email_template ($patron, $from, $to, $subject, $template)
     {
-        print_r($patron);
-
         $result = 0;
 
         // Fill template

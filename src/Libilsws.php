@@ -16,11 +16,11 @@ namespace Libilsws;
 use Symfony\Component\Yaml\Yaml;
 use Curl\Curl;
 use DateTime;
-// use \Exception;
+use \Exception;
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
-use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\Exception as MailerException;
 
 /**
  * Custom API exception.
@@ -2633,7 +2633,7 @@ class Libilsws
         $body = $twig->render($template, ['patron' => $patron]);
 
         // Initialize mailer
-        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+        $mail = new PHPMailer(true);
 
         try {
             // Server settings
@@ -2657,7 +2657,11 @@ class Libilsws
             //Recipients
             $mail->setFrom($from, $this->config['smtp']['smtp_fromname']);
             $mail->addAddress($to);                                   //Name is optional
-            $mail->addReplyTo($this->config['smtp']['smtp_replyto']);
+
+            // Reply-to
+            if ( $this->config['smtp']['smtp_replyto'] ) {
+                $mail->addReplyTo($this->config['smtp']['smtp_replyto']);
+            }
 
             //Content
             if ( $this->config['smtp']['smtp_allowhtml'] === 'true' ) {
@@ -2671,7 +2675,7 @@ class Libilsws
             $mail->send();
             $result = 1;
 
-        } catch (Exception $e) {
+        } catch (MailerException $e) {
             error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
         }
     

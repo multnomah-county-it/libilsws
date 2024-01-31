@@ -2643,9 +2643,14 @@ class Libilsws
 
             $mail->isSMTP();                                          // Send using SMTP
             $mail->Host = $this->config['smtp']['smtp_host'];         // Set the SMTP server to send through
-            $mail->SMTPAuth = true;                                   // Enable SMTP authentication
-            $mail->Username = $this->config['smtp']['smtp_username']; // SMTP username
-            $mail->Password = $this->config['smtp']['smtp_password']; // SMTP password
+
+            if ( $this->config['smtp']['smtp_username'] && $this->config['smtp']['smtp_password'] ) {
+                $mail->SMTPAuth = true;                                   // Enable SMTP authentication
+                $mail->Username = $this->config['smtp']['smtp_username']; // SMTP username
+                $mail->Password = $this->config['smtp']['smtp_password']; // SMTP password
+            } else {
+                $mail->SMTPAuth = false;
+            }
 
             if ( $this->config['smtp']['smtp_protocol'] === 'tls' ) {
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;      // Enable implicit TLS encryption

@@ -2638,7 +2638,7 @@ class Libilsws
         try {
             // Server settings
             if ( $this->config['debug']['smtp'] ) {
-                $mail->SMTPDebug = SMTP::DEBUG_SERVER;                // Enable verbose debug output
+                $mail->SMTPDebug = SMTP::DEBUG_LOWLEVEL;                // Enable verbose debug output
             }
 
             $mail->isSMTP();                                          // Send using SMTP

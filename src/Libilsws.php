@@ -2304,6 +2304,7 @@ class Libilsws
 
             // Assign the patron_key from the initial registration to the update array
             $patron_key = $response['key'];
+            $patron['barcode'] = $patron_key;
 
             // Create a record structure with the update fields that aren't part of the initial registration
             if ( ! $this->change_barcode($token, $patron_key, $patron_key) ) {
@@ -2625,6 +2626,8 @@ class Libilsws
 
     public function email_template ($patron, $from, $to, $subject, $template)
     {
+        print_r($patron);
+
         $result = 0;
 
         // Fill template

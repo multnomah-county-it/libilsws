@@ -2306,14 +2306,17 @@ class Libilsws
 
         if ( !empty($response['key']) ) { 
 
-            // Assign the patron_key from the initial registration to the update array
-            $patron_key = $response['key'];
-            $patron['barcode'] = $patron_key;
+            // If the barcode doesn't look like a real 14-digit barcode then change it to the patron key
+            if ( !preg_match('/^\d{14}$/', $patron['barcode']) ) {
 
-            // Create a record structure with the update fields that aren't part of the initial registration
-            if ( ! $this->change_barcode($token, $patron_key, $patron_key) ) {
-                throw new Exception('Unable to set barcode to patron key');
-                exit();
+                // Assign the patron_key from the initial registration to the update array
+                $patron_key = $response['key'];
+                $patron['barcode'] = $patron_key;
+
+                if ( ! $this->change_barcode($token, $patron_key, $patron_key) ) {
+                    throw new Exception('Unable to set barcode to patron key');
+                    exit();
+                }
             }
 
             if ( !empty($patron['phoneList']) ) {

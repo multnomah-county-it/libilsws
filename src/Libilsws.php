@@ -2308,7 +2308,7 @@ class Libilsws
             $patron_key = $response['key'];
 
             // If the barcode doesn't look like a real 14-digit barcode then change it to the patron key
-            if ( !preg_match('/^\d{14}$/', patron['barcode']) ) {
+            if ( !preg_match('/^\d{14}$/', $patron['barcode']) ) {
 
                 // Assign the patron_key from the initial registration to the update array
                 $patron['barcode'] = $patron_key;

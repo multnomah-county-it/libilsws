@@ -2652,7 +2652,7 @@ class Libilsws
 
             $mail->Host = $this->config['smtp']['smtp_host'];         // Set the SMTP server to send through
 
-            if ( $this->config['smtp']['smtp_username'] && $this->config['smtp']['smtp_password'] ) {
+            if ( !empty($this->config['smtp']['smtp_username']) && !empty($this->config['smtp']['smtp_password']) ) {
                 $mail->SMTPAuth = true;                                   // Enable SMTP authentication
                 $mail->Username = $this->config['smtp']['smtp_username']; // SMTP username
                 $mail->Password = $this->config['smtp']['smtp_password']; // SMTP password
@@ -2660,7 +2660,7 @@ class Libilsws
                 $mail->SMTPAuth = false;
             }
 
-            if ( $this->config['smtp']['smtp_protocol'] === 'tls' ) {
+            if ( !empty($this->config['smtp']['smtp_protocol']) && $this->config['smtp']['smtp_protocol'] === 'tls' ) {
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;      // Enable implicit TLS encryption
             }
 
@@ -2672,12 +2672,12 @@ class Libilsws
             $mail->addAddress($to);                                   //Name is optional
 
             // Reply-to
-            if ( $this->config['smtp']['smtp_replyto'] ) {
+            if ( !empty($this->config['smtp']['smtp_replyto']) ) {
                 $mail->addReplyTo($this->config['smtp']['smtp_replyto']);
             }
 
             //Content
-            if ( $this->config['smtp']['smtp_allowhtml'] === 'true' ) {
+            if ( !empty($this->config['smtp']['smtp_allowhtml']) && $this->config['smtp']['smtp_allowhtml'] === 'true' ) {
                 $mail->isHTML(true);                                  //Set email format to HTML
             }
 

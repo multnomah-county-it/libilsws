@@ -2305,14 +2305,13 @@ class Libilsws
         $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
 
         if ( !empty($response['key']) ) { 
+            $patron_key = $response['key'];
 
             // If the barcode doesn't look like a real 14-digit barcode then change it to the patron key
-            if ( !preg_match('/^\d{14}$/', $patron['barcode']) ) {
+            if ( !preg_match('/^\d{14}$/', patron['barcode']) ) {
 
                 // Assign the patron_key from the initial registration to the update array
-                $patron_key = $response['key'];
                 $patron['barcode'] = $patron_key;
-
                 if ( ! $this->change_barcode($token, $patron_key, $patron_key) ) {
                     throw new Exception('Unable to set barcode to patron key');
                     exit();

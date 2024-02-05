@@ -20,13 +20,14 @@ $patron = [
     'firstName' => 'Bogus',
     'friends_notices' => 'YES',
     'home_library' => 'CEN',
-    'language' => 'ENGLISH',
     'lastName' => 'Bogart',
     'library_news' => 'YES',
+    'language' => 'SOMALI',
     'middleName' => 'T',
     'notice_type' => 'PHONE',
     'postal_code' => '97209',
     'profile' => 'ONLINE',
+    'patron_id' => '99999999998',
     'street' => '925 NW Hoyt St Apt 406',
     'telephone' => '215-534-6821',
     'sms_phone' => [
@@ -42,7 +43,7 @@ $patron = [
 
 $addr_num = 1;
 $template = 'registration_email.html.twig';
-$response = $ilsws->register_patron($patron, $token, $addr_num, $template);
+$response = $ilsws->register_patron($patron, $token, $addr_num, $template, 'Waffles are good');
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

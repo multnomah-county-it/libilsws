@@ -68,7 +68,7 @@ or evaluating data from the Symphony system.
 - get_patron_checkouts($token, $patron_key, $include_fields)
 - get_patron_indexes($token)
 - prepare_search($terms)
-- register_patron($patron, $token, $addr_num, $template)
+- register_patron($patron, $token, $addr_num, $template, $subject)
 - reset_patron_password($token, $patron_id, $url, $email)
 - search_authenticate($token, $index, $search, $password)
 - search_bib($token, $index, $value, $params)

@@ -2249,7 +2249,7 @@ class Libilsws
      * @return object  $response   Associative array containing response from ILSWS
      */
 
-    public function register_patron ($patron, $token = null, $addr_num = null, $template = '')
+    public function register_patron ($patron, $token = null, $addr_num = null, $template = '', $subject = '')
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
@@ -2285,13 +2285,15 @@ class Libilsws
             ];
         $language = !empty($patron['language']) ? $languages[$patron['language']] : 'en';
 
-        if ( is_readable($this->config['symphony']['template_path'] . '/' . $template . '.' . $language) ) {
-            $template = $template . '.' . $language;
-        } else {
-            if ( is_readable($this->config['symphony']['template_path'] . '/' . $template . '.' . 'en') ) {
-                $template = $template . '.' . 'en';
+        if ( $template ) {
+            if ( is_readable($this->config['symphony']['template_path'] . '/' . $template . '.' . $language) ) {
+                $template = $template . '.' . $language;
             } else {
-                throw new Exception("Missing or unreadable template file: $template");
+                if ( is_readable($this->config['symphony']['template_path'] . '/' . $template . '.' . 'en') ) {
+                    $template = $template . '.' . 'en';
+                } else {
+                    throw new Exception("Missing or unreadable template file: $template");
+                }
             }
         }
 
@@ -2326,7 +2328,9 @@ class Libilsws
             }
 
             if ( $template && $this->validate('EMAIL', $patron['EMAIL'], 'e') ) {
-                $subject = 'Welcome to Multnomah County Library';
+                if ( !$subject ) {
+                    $subject = 'Welcome to Multnomah County Library';
+                }
                 if ( ! $this->email_template($patron, $this->config['smtp']['smtp_from'], $patron['EMAIL'], $subject, $template) ) {
                     throw new Exception('Email to patron failed');
                     exit();

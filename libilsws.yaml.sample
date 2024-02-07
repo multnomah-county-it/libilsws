@@ -59,6 +59,7 @@ smtp:
   smtp_fromname: 'SENDER NAME'
   smtp_replyto: 'no-reply@host.domain'
   smtp_allowhtml: true
+  smtp_default_subject: 'Welcome to Multnomah County library'
 # SirsiDynix Symphony parameters. For the most part, these must match values you have configured in 
 # your Symphony system.
 symphony:

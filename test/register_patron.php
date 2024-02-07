@@ -43,7 +43,8 @@ $patron = [
 
 $addr_num = 1;
 $template = 'registration_email.html.twig';
-$response = $ilsws->register_patron($patron, $token, $addr_num, $template, 'Waffles are good');
+$role = 'PATRON';
+$response = $ilsws->register_patron($patron, $token, $addr_num, $role, $template, 'Waffles are good');
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

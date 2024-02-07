@@ -299,22 +299,16 @@ class Libilsws
      * @return object $response   Associative array containing the response from ILSWS 
      */
 
-    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $header = '')
+    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $role = 'STAFF', $header = '')
     {
         $this->validate('url', $url, 'u');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('query_type', $query_type, 'v:POST|PUT|DELETE');
         $this->validate('header', $header, 's:40');
+        $this->validate('role', $role, 'v:STAFF|PATRON');
 
         if ( $query_json ) {
             $this->validate('query_json', $query_json, 'j');
-        }
-
-        $role = 'STAFF';
-        if ( preg_match('/patron\/register/', $url) ) {
-            $role = 'PATRON';
-        } elseif ( preg_match('/patron\/changeMyPassword/', $url) ) {
-            $role = 'PATRON';
         }
 
         // Define a random request tracker
@@ -640,7 +634,7 @@ class Libilsws
         $header = "SD-Working-LibraryID: $working_library";
  
         // Describe patron register function
-        $response = $this->send_query("$this->base_url/circulation/transit", $token, $json, 'POST', $header);
+        $response = $this->send_query("$this->base_url/circulation/transit", $token, $json, 'POST', 'STAFF', $header);
 
         return $response;
     }
@@ -1057,6 +1051,14 @@ class Libilsws
         return $this->send_get("$this->base_url/policy/$policy_name/key/$policy_key", $token, []);
     }
 
+    private function trim_trailing_punct ($string)
+    {
+        $string = trim($string);
+        $string = preg_replace('#^(.*)([[:punct:]]+)$#', '$1', $string);
+
+        return trim($string);
+    }
+
     /**
      * Pulls a hold list for a given library
      * 
@@ -1073,21 +1075,25 @@ class Libilsws
         $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
 
         $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, 
-            ['includeFields' => 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{title,author},callNumber,sortCallNumber},barcode,currentLocation{description}itemType}}']);
+            ['includeFields' => 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{key},callNumber,sortCallNumber},barcode,currentLocation{description}itemType}}']);
         
         if ( ! empty($response['fields']['pullList']) ) {
             foreach ($response['fields']['pullList'] as $hold) {
 
+                $bib = $this->get_bib($token, $hold['fields']['item']['fields']['call']['fields']['bib']['key'], 'bib{100_a,100_d,245_a}');
+
                 $record = [];
+                $record['author'] = !empty($bib['100_a']) ? $this->trim_trailing_punct($bib['100_a']) : '';
+                if ( !empty($bib['100_d']) ) {
+                    $record['author'] = $record['author'] . ', ' . $bib['100_d'];
+                }
+                $record['title'] = !empty($bib['245_a']) ? $this->trim_trailing_punct($bib['245_a']) : '';
 
                 $record['holdType'] = $hold['fields']['holdRecord']['fields']['holdType'];
                 $record['status'] = $hold['fields']['holdRecord']['fields']['status'];
                 $record['pickupLibrary'] = $hold['fields']['holdRecord']['fields']['pickupLibrary']['key'];
-
                 $record['item'] = $hold['fields']['item']['key'];
                 $record['bib'] = $hold['fields']['item']['fields']['call']['fields']['bib']['key'];
-                $record['title'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['title'];
-                $record['author'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['author'];
                 $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'];
                 $record['sortCallNumber'] = $hold['fields']['item']['fields']['call']['fields']['sortCallNumber'];
                 $record['barcode'] = $hold['fields']['item']['fields']['barcode'];
@@ -2249,11 +2255,12 @@ class Libilsws
      * @return object  $response   Associative array containing response from ILSWS
      */
 
-    public function register_patron ($patron, $token = null, $addr_num = null, $template = '', $subject = '')
+    public function register_patron ($patron, $token = null, $addr_num = null, $role = null, $template = '', $subject = '')
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
         $this->validate('template', $template, 'r:#^([a-zA-Z0-9]{1,40})(\.)(html|text)(\.)(twig)$#');
+        $this->validate('role', $role, 'v:STAFF|PATRON');
 
         $response = [];
 
@@ -2304,7 +2311,7 @@ class Libilsws
         }
 
         // Send initial registration (and generate email)
-        $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST');
+        $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST', $role);
 
         if ( !empty($response['key']) ) { 
             $patron_key = $response['key'];
@@ -2329,7 +2336,7 @@ class Libilsws
 
             if ( $template && $this->validate('EMAIL', $patron['EMAIL'], 'e') ) {
                 if ( !$subject ) {
-                    $subject = 'Welcome to Multnomah County Library';
+                    $subject = !empty($this->config['smtp']['smtp_default_subject']) ? $this->config['smtp']['smtp_default_subject'] : '';
                 }
                 if ( ! $this->email_template($patron, $this->config['smtp']['smtp_from'], $patron['EMAIL'], $subject, $template) ) {
                     throw new Exception('Email to patron failed');

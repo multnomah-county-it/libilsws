@@ -1051,10 +1051,16 @@ class Libilsws
         return $this->send_get("$this->base_url/policy/$policy_name/key/$policy_key", $token, []);
     }
 
-    private function trim_trailing_punct ($string)
+    /**
+     * Removes URLs from the trailing end of a string
+     *
+     * @param  string $string String to be modifed
+     * @return string $string Modifed string
+     */ 
+
+    private function remove_url ($string)
     {
-        $string = trim($string);
-        $string = preg_replace('#^(.*)([[:punct:]]+)$#', '$1', $string);
+        $string = preg_replace('#^(.*)(http)(s*)(:\/\/)(.*)$#', '$1', $string);
 
         return trim($string);
     }
@@ -1074,33 +1080,31 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
 
-        $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, 
-            ['includeFields' => 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{key},callNumber,sortCallNumber},barcode,currentLocation{description}itemType}}']);
+        $include_fields = 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{author,title},callNumber,sortCallNumber},barcode,currentLocation{description}itemType}}';
+        $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, ['includeFields' => $include_fields]);
         
         if ( ! empty($response['fields']['pullList']) ) {
             foreach ($response['fields']['pullList'] as $hold) {
 
-                $bib = $this->get_bib($token, $hold['fields']['item']['fields']['call']['fields']['bib']['key'], 'bib{100_a,100_d,245_a}');
-
                 $record = [];
-                $record['author'] = !empty($bib['100_a']) ? $this->trim_trailing_punct($bib['100_a']) : '';
-                if ( !empty($bib['100_d']) ) {
-                    $record['author'] = $record['author'] . ', ' . $bib['100_d'];
-                }
-                $record['title'] = !empty($bib['245_a']) ? $this->trim_trailing_punct($bib['245_a']) : '';
 
                 $record['holdType'] = $hold['fields']['holdRecord']['fields']['holdType'];
                 $record['status'] = $hold['fields']['holdRecord']['fields']['status'];
                 $record['pickupLibrary'] = $hold['fields']['holdRecord']['fields']['pickupLibrary']['key'];
                 $record['item'] = $hold['fields']['item']['key'];
                 $record['bib'] = $hold['fields']['item']['fields']['call']['fields']['bib']['key'];
+                $record['author'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['author'];
+                $record['title'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['title'];
                 $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'];
                 $record['sortCallNumber'] = $hold['fields']['item']['fields']['call']['fields']['sortCallNumber'];
                 $record['barcode'] = $hold['fields']['item']['fields']['barcode'];
                 $record['currentLocation'] = $hold['fields']['item']['fields']['currentLocation']['key'];
                 $record['locationDescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'];
                 $record['itemType'] = $hold['fields']['item']['fields']['itemType']['key'];
-                
+               
+                // Remove URL from author field 
+                $record['author'] = $this->remove_url($record['author']);
+
                 array_push($list, $record);
             }
         }

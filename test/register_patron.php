@@ -25,6 +25,7 @@ $patron = [
     'language' => 'SOMALI',
     'middleName' => 'T',
     'notice_type' => 'PHONE',
+    'pin' => 'Waffles125',
     'postal_code' => '97209',
     'profile' => 'ONLINE',
     'patron_id' => '99999999998',
@@ -43,7 +44,7 @@ $patron = [
 
 $addr_num = 1;
 $template = 'registration_email.html.twig';
-$role = 'PATRON';
+$role = 'STAFF';
 $response = $ilsws->register_patron($patron, $token, $addr_num, $role, $template, 'Waffles are good');
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 

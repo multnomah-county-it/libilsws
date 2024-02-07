@@ -1051,6 +1051,13 @@ class Libilsws
         return $this->send_get("$this->base_url/policy/$policy_name/key/$policy_key", $token, []);
     }
 
+    /**
+     * Removes URLs from the trailing end of a string
+     *
+     * @param  string $string String to be modifed
+     * @return string $string Modifed string
+     */ 
+
     private function remove_url ($string)
     {
         $string = preg_replace('#^(.*)(http)(s*)(:\/\/)(.*)$#', '$1', $string);

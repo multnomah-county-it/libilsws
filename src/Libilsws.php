@@ -1311,7 +1311,7 @@ class Libilsws
         $data = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'i:100000,29999999999999');
+        $this->validate('patron_id', $patron_id, 'r:#[A-Z0-9]{6,20}$#');
         $this->validate('url', $url, 'u');
 
         $data = [
@@ -1553,7 +1553,7 @@ class Libilsws
     public function authenticate_patron_id ($token = null, $patron_id = null, $password = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'i:100000,29999999999999');
+        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
         $this->validate('password', $password, 's:20');
 
         $patron_key = 0;
@@ -1669,7 +1669,7 @@ class Libilsws
     public function authenticate_patron ($token = null, $patron_id = null, $password = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{1,20}$#');
+        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
 
         $json = "{ \"barcode\": \"$patron_id\", \"password\": \"$password\" }";
 
@@ -1764,7 +1764,7 @@ class Libilsws
     public function search_patron_id ($token = null, $patron_id = null, $count = null) 
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{1,20}$#');
+        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
         $this->validate('count', $count, 'i:1,1000');
 
         return $this->search_patron($token, 'ID', $patron_id, ['ct' => $count]);
@@ -2420,7 +2420,7 @@ class Libilsws
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^\d{6,14}$#');
+        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
         $this->validate('option', $option, 'v:a|i|d');
 
         $retval = 0;
@@ -2505,7 +2505,7 @@ class Libilsws
     public function update_patron_activity ($token = null, $patron_id = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^\d{6,14}$#');
+        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
 
         $json = "{\"patronBarcode\": \"$patron_id\"}";
 
@@ -2557,7 +2557,7 @@ class Libilsws
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^[0-9A-Z]{6-14}$#');
+        $this->validate('patron_id', $patron_id, 'r:#^[0-9A-Z]{6,20}$#');
 
         $new = [];
         $new['resource'] = '/user/patron';
@@ -2669,6 +2669,7 @@ class Libilsws
 
             $mail->Host = $this->config['smtp']['smtp_host'];         // Set the SMTP server to send through
 
+            // If we've got email account credentials, use them
             if ( !empty($this->config['smtp']['smtp_username']) && !empty($this->config['smtp']['smtp_password']) ) {
                 $mail->SMTPAuth = true;                                   // Enable SMTP authentication
                 $mail->Username = $this->config['smtp']['smtp_username']; // SMTP username
@@ -2700,7 +2701,7 @@ class Libilsws
 
             $mail->Subject = $subject;
             $mail->Body    = $body;
-            $mail->AltBody = 'Welcome to Multnomah County Library. Your barcode is ' . $patron['barcode'];
+            $mail->AltBody = 'Welcome to Multnomah County Library. Your card number is ' . $patron['barcode'];
 
             $mail->send();
             $result = 1;

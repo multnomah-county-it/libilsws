@@ -1326,7 +1326,7 @@ class Libilsws
 
         $json = json_encode($data);
 
-        return $this->send_query("$this->base_url/user/patron/resetMyPassword", $token, $json, 'POST');
+        return $this->send_query("$this->base_url/user/patron/resetMyPassword", $token, $json, 'POST', 'PATRON');
     } 
 
     /**

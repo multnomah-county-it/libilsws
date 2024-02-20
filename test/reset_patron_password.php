@@ -18,7 +18,10 @@ $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 // Connect and get token
 $token = $ilsws->connect();
 
-$response = $ilsws->reset_patron_password($token, $barcode, $url, $email);
+$role = 'PATRON';     // Used in the SD-Preferred-Role HTTP header
+$client_id = 'QUIPU'; // Used in the x-sirs-clientID HTTP header
+
+$response = $ilsws->reset_patron_password($token, $barcode, $url, $email, $role, $client_id);
 $json = json_encode($response, JSON_PRETTY_PRINT);
 print "$json\n\n";
 

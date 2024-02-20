@@ -68,8 +68,8 @@ or evaluating data from the Symphony system.
 - get_patron_checkouts($token, $patron_key, $include_fields)
 - get_patron_indexes($token)
 - prepare_search($terms)
-- register_patron($patron, $token, $addr_num, $role, $template, $subject)
-- reset_patron_password($token, $patron_id, $url, $email)
+- register_patron($patron, $token, $addr_num, $role, $client_id, $template, $subject)
+- reset_patron_password($token, $patron_id, $url, $email, $role, $client_id)
 - search_authenticate($token, $index, $search, $password)
 - search_bib($token, $index, $value, $params)
 - update_patron($patron, $token, $patron_key, $addr_num) 
@@ -165,7 +165,10 @@ $patron = [
     ];
 
 $addr_num = 1;
-$response = $ilsws->register_patron($patron, $token, $addr_num, $template);
+$role = 'STAFF';
+$client_id = 'StaffClient';
+
+$response = $ilsws->register_patron($patron, $token, $addr_num, $role, $client_id, $template);
 ```
 
 ### Update Patron Record

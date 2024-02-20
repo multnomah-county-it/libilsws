@@ -299,13 +299,19 @@ class Libilsws
      * @return object $response   Associative array containing the response from ILSWS 
      */
 
-    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $role = 'STAFF', $header = '')
+    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $role = 'PATRON', $client_id = '', $header = '')
     {
         $this->validate('url', $url, 'u');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('query_type', $query_type, 'v:POST|PUT|DELETE');
         $this->validate('header', $header, 's:40');
-        $this->validate('role', $role, 'v:STAFF|PATRON');
+        $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
+
+        if ( $client_id ) {
+            $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#');
+        } else {
+            $client_id = $this->config['ilsws']['client_id'];
+        }
 
         if ( $query_json ) {
             $this->validate('query_json', $query_json, 'j');
@@ -322,7 +328,7 @@ class Libilsws
             "SD-Response-Tracker: $req_num",
             "SD-Preferred-Role: $role",
             'SD-Prompt-Return: USER_PRIVILEGE_OVRCD/' . $this->config['ilsws']['user_privilege_override'],
-            'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
+            "x-sirs-clientID: $client_id",
             "x-sirs-sessionToken: $token",
             ];
 
@@ -1285,13 +1291,20 @@ class Libilsws
      * @return object             Associative array containing response from ILSWS
      */
 
-    public function change_patron_password ($token = null, $json = null)
+    public function change_patron_password ($token = null, $json = null, $role = 'PATRON', $client_id = '')
     {
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('json', $json, 'j');
+        $this->validate('role', $role, 'v:PATRON|STAFF|GUEST');
 
-        return $this->send_query("$this->base_url/user/patron/changeMyPassword", $token, $json, 'POST');
+        if ( $client_id ) {
+            $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#');
+        } else {
+            $client_id = $this->config['ilsws']['client_id'];
+        }
+
+        return $this->send_query("$this->base_url/user/patron/changeMyPassword", $token, $json, $role, $client_id);
     } 
 
     /**
@@ -1326,7 +1339,7 @@ class Libilsws
 
         $json = json_encode($data);
 
-        return $this->send_query("$this->base_url/user/patron/resetMyPassword", $token, $json, 'POST');
+        return $this->send_query("$this->base_url/user/patron/resetMyPassword", $token, $json, 'POST', 'STAFF');
     } 
 
     /**
@@ -2259,12 +2272,18 @@ class Libilsws
      * @return object  $response   Associative array containing response from ILSWS
      */
 
-    public function register_patron ($patron, $token = null, $addr_num = null, $role = null, $template = '', $subject = '')
+    public function register_patron ($patron, $token = null, $addr_num = null, $role = 'PATRON', $client_id = '', $template = '', $subject = '')
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
         $this->validate('template', $template, 'r:#^([a-zA-Z0-9]{1,40})(\.)(html|text)(\.)(twig)$#');
-        $this->validate('role', $role, 'v:STAFF|PATRON');
+        $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
+
+        if ( $client_id ) {
+            $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#');
+        } else {
+            $client_id = $this->config['ilsws']['client_id'];
+        }
 
         $response = [];
 
@@ -2315,7 +2334,7 @@ class Libilsws
         }
 
         // Send initial registration (and generate email)
-        $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST', $role);
+        $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST', $role, $client_id);
 
         if ( !empty($response['key']) ) { 
             $patron_key = $response['key'];

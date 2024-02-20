@@ -44,8 +44,10 @@ $patron = [
 
 $addr_num = 1;
 $template = 'registration_email.html.twig';
-$role = 'STAFF';
-$response = $ilsws->register_patron($patron, $token, $addr_num, $role, $template, 'Waffles are good');
+$role = 'STAFF';      // Used in the SD-Preferred-Role HTTP header
+$client_id = 'QUIPU'; // Used in the x-sirs-clientID HTTP header
+
+$response = $ilsws->register_patron($patron, $token, $addr_num, $role, $client_id, $template, 'Waffles are good');
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

@@ -1304,7 +1304,7 @@ class Libilsws
             $client_id = $this->config['ilsws']['client_id'];
         }
 
-        return $this->send_query("$this->base_url/user/patron/changeMyPassword", $token, $json, $role, $client_id);
+        return $this->send_query("$this->base_url/user/patron/changeMyPassword", $token, $json, 'POST', $role, $client_id);
     } 
 
     /**
@@ -1339,7 +1339,7 @@ class Libilsws
 
         $json = json_encode($data);
 
-        return $this->send_query("$this->base_url/user/patron/resetMyPassword", $token, $json, 'POST', 'STAFF');
+        return $this->send_query("$this->base_url/user/patron/resetMyPassword", $token, $json, 'POST');
     } 
 
     /**

@@ -196,7 +196,6 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
-            exit(1);
         } 
 
         return $token;
@@ -283,7 +282,6 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
-            exit(1);
         } 
 
         return json_decode($json, true);
@@ -296,21 +294,25 @@ class Libilsws
      * @param  string $token      The session token returned by ILSWS
      * @param  string $query_json JSON containing the required query elements
      * @param  string $query_type The query type: POST or PUT
+     * @param  array  $options    Associative array of options (role, client_id, header)
      * @return object $response   Associative array containing the response from ILSWS 
      */
 
-    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $role = 'PATRON', $client_id = '', $header = '')
+    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $options = [])
     {
         $this->validate('url', $url, 'u');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('query_type', $query_type, 'v:POST|PUT|DELETE');
-        $this->validate('header', $header, 's:40');
-        $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
 
-        if ( $client_id ) {
-            $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#');
-        } else {
-            $client_id = $this->config['ilsws']['client_id'];
+        if ( !empty($options) ) {
+            $role = !empty($options['role']) ? $options['role'] : 'PATRON';
+            $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
+
+            $client_id = !empty($options['client_id']) ? $options['client_id'] : $this->config['ilsws']['client_id'];
+            $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#'); 
+
+            $header = !empty($options['header']) ? $options['header'] : '';
+            $this->validate('header', $header, 's:40');
         }
 
         if ( $query_json ) {
@@ -375,7 +377,6 @@ class Libilsws
         } catch (APIException $e) {
 
             echo $e->errorMessage($this->error, $this->code), "\n";
-            exit(1);
         }
         
         return json_decode($json, true);
@@ -636,11 +637,13 @@ class Libilsws
             ];
         $json =  json_encode($data);
 
-        // Add header required for this API endpoint
-        $header = "SD-Working-LibraryID: $working_library";
+        // Add header and role required for this API endpoint
+        $options = [];
+        $options['header'] = "SD-Working-LibraryID: $working_library";
+        $options['role'] = 'STAFF';
  
         // Describe patron register function
-        $response = $this->send_query("$this->base_url/circulation/transit", $token, $json, 'POST', 'STAFF', $header);
+        $response = $this->send_query("$this->base_url/circulation/transit", $token, $json, 'POST', $options);
 
         return $response;
     }
@@ -1288,23 +1291,25 @@ class Libilsws
      * @param  string $token      The session token returned by ILSWS
      * @param  string $json       JSON containing either currentPassword and newPassword or
      *                            resetPasswordToken and newPassword
+     * @param  array  $options    Associative array of options (role, client_id)
      * @return object             Associative array containing response from ILSWS
      */
 
-    public function change_patron_password ($token = null, $json = null, $role = 'PATRON', $client_id = '')
+    public function change_patron_password ($token = null, $json = null, $options = [])
     {
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('json', $json, 'j');
-        $this->validate('role', $role, 'v:PATRON|STAFF|GUEST');
 
-        if ( $client_id ) {
-            $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#');
-        } else {
-            $client_id = $this->config['ilsws']['client_id'];
+        if ( !empty($options) ) {
+            $options['client_id'] = !empty($options['client_id']) ? $options['client_id'] : $client_id = $this->config['ilsws']['client_id'];
+            $this->validate('client_id', $options['client_id'], 'r:#^[A-Za-z]{4,20}$#');
+
+            $options['role'] = !empty($options['role']) ? $options['role'] : 'PATRON';
+            $this->validate('role', $options['role'], 'v:PATRON|STAFF|GUEST');
         }
 
-        return $this->send_query("$this->base_url/user/patron/changeMyPassword", $token, $json, 'POST', $role, $client_id);
+        return $this->send_query("$this->base_url/user/patron/changeMyPassword", $token, $json, 'POST', $options);
     } 
 
     /**
@@ -2268,21 +2273,27 @@ class Libilsws
      * @param  object  $patron     Associative array containing patron data
      * @param  string  $token      The session token returned by ILSWS
      * @param  integer $addr_num   Optional Address number to update (1, 2, or 3, defaults to 1)
-     * @param  string  $template   Full path to email template to use
+     * @param  array   $options    Associative array of options (role, client_id, template, subject)
      * @return object  $response   Associative array containing response from ILSWS
      */
 
-    public function register_patron ($patron, $token = null, $addr_num = null, $role = 'PATRON', $client_id = '', $template = '', $subject = '')
+    public function register_patron ($patron, $token = null, $addr_num = null, $options = [])
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
-        $this->validate('template', $template, 'r:#^([a-zA-Z0-9]{1,40})(\.)(html|text)(\.)(twig)$#');
-        $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
 
-        if ( $client_id ) {
+        if ( !empty($options) ) {
+            $role = !empty($options['role']) ? $options['role'] : 'PATRON';
+            $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
+
+            $client_id = !empty($options['client_id']) ? $options['client_id'] : $this->config['ilsws']['client_id'];
             $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#');
-        } else {
-            $client_id = $this->config['ilsws']['client_id'];
+
+            $template = !empty($options['template']) ? $options['template'] : '';
+            $this->validate('template', $template, 'r:#^([a-zA-Z0-9]{1,40})(\.)(html|text)(\.)(twig)$#');
+
+            $subject = !empty($options['subject']) ? $options['subject'] : '';
+            $this->validate('subject', $subject, 's:20');
         }
 
         $response = [];
@@ -2334,7 +2345,10 @@ class Libilsws
         }
 
         // Send initial registration (and generate email)
-        $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST', $role, $client_id);
+        $options = [];
+        $options['role'] = $role;
+        $options['client_id'] = $client_id;
+        $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST', $options);
 
         if ( !empty($response['key']) ) { 
             $patron_key = $response['key'];
@@ -2346,14 +2360,12 @@ class Libilsws
                 $patron['barcode'] = $patron_key;
                 if ( ! $this->change_barcode($token, $patron_key, $patron_key) ) {
                     throw new Exception('Unable to set barcode to patron key');
-                    exit();
                 }
             }
 
             if ( !empty($patron['phoneList']) ) {
                 if ( ! $this->update_phone_list($patron['phoneList'], $token, $patron_key) ) {
                     throw new Exception('SMS phone list update failed');
-                    exit();
                 }
             }
 
@@ -2363,7 +2375,6 @@ class Libilsws
                 }
                 if ( ! $this->email_template($patron, $this->config['smtp']['smtp_from'], $patron['EMAIL'], $subject, $template) ) {
                     throw new Exception('Email to patron failed');
-                    exit();
                 }
             }
         }
@@ -2409,7 +2420,6 @@ class Libilsws
         if ( !empty($patron['phoneList']) ) {
             if ( ! $this->update_phone_list($patron['phoneList'], $token, $patron_key) ) {
                 throw new Exception('SMS phone list update failed');
-                exit;
             }
         }
 

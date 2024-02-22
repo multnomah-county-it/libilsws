@@ -43,8 +43,12 @@ $patron = [
     ];
 
 $addr_num = 1;
-$role = 'STAFF';
-$response = $ilsws->register_patron($patron, $token, $addr_num, $role);
+
+$options = [];
+$options['role'] = 'STAFF';
+$options['client_id'] = 'QUIPU';
+
+$response = $ilsws->register_patron($patron, $token, $addr_num, $options);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

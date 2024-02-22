@@ -43,11 +43,14 @@ $patron = [
     ];
 
 $addr_num = 1;
-$template = 'registration_email.html.twig';
-$role = 'STAFF';      // Used in the SD-Preferred-Role HTTP header
-$client_id = 'QUIPU'; // Used in the x-sirs-clientID HTTP header
 
-$response = $ilsws->register_patron($patron, $token, $addr_num, $role, $client_id, $template, 'Waffles are good');
+$options = [];
+$options['template'] = 'registration_email.html.twig';
+$options['role'] = 'STAFF';      // Used in the SD-Preferred-Role HTTP header
+$options['client_id'] = 'QUIPU'; // Used in the x-sirs-clientID HTTP header
+$options['subject'] = 'Waffles are good';
+
+$response = $ilsws->register_patron($patron, $token, $addr_num, $options);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

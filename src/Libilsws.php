@@ -56,13 +56,13 @@ class APIException extends Exception
 
         $err_message = json_decode($error, true);
         if ( json_last_error() === JSON_ERROR_NONE ) {
-            if ( ! empty($err_message['messageList'][0]['message']) ) {
+            if ( !empty($err_message['messageList'][0]['message']) ) {
                 $error = $err_message['messageList'][0]['message'];
                 $message .= ": $error";
             }
         }
 
-        if ( ! $message ) {
+        if ( !$message ) {
             $message = "HTTP $code: $error";
         }
 
@@ -132,7 +132,7 @@ class Libilsws
 
     private function validate ($param, $value, $rule)
     {
-        if ( ! $this->dh->validate($value, $rule) ) {
+        if ( !$this->dh->validate($value, $rule) ) {
             throw new Exception ("Invalid $param: \"$value\" (rule: '$rule')");
         }
 
@@ -182,7 +182,7 @@ class Libilsws
                 error_log("DEBUG_CONNECT HTTP $this->code: $json", 0);
             }
 
-            if ( ! preg_match('/^2\d\d$/', $this->code) ) {
+            if ( !preg_match('/^2\d\d$/', $this->code) ) {
                 $obfuscated_url =  $this->base_url . "/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
                 $this->error = "Connect failure: $obfuscated_url: " . curl_error($ch);
                 throw new APIException($this->error);
@@ -216,10 +216,10 @@ class Libilsws
         $this->validate('url', $url, 'u');
  
         // Encode the query parameters, as they will be sent in the URL
-        if ( ! empty($params) ) {
+        if ( !empty($params) ) {
             $url .= "?";
             foreach ($params as $key => $value) {
-                if ( ! empty($params[$key]) ) {
+                if ( !empty($params[$key]) ) {
                     $url .= "$key=" . urlencode($params[$key]) . '&';
                 }
             }
@@ -271,7 +271,7 @@ class Libilsws
             // Check for errors
             if ( $this->code != 200 ) {
                 $this->error = curl_error($ch);
-                if ( ! $this->error ) {
+                if ( !$this->error ) {
                     $this->error = $json;
                 }
                 throw new APIException($this->error);
@@ -304,16 +304,14 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('query_type', $query_type, 'v:POST|PUT|DELETE');
 
-        if ( !empty($options) ) {
-            $role = !empty($options['role']) ? $options['role'] : 'PATRON';
-            $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
+        $role = !empty($options['role']) ? $options['role'] : 'PATRON';
+        $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
 
-            $client_id = !empty($options['client_id']) ? $options['client_id'] : $this->config['ilsws']['client_id'];
-            $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#'); 
+        $client_id = !empty($options['client_id']) ? $options['client_id'] : $this->config['ilsws']['client_id'];
+        $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#'); 
 
-            $header = !empty($options['header']) ? $options['header'] : '';
-            $this->validate('header', $header, 's:40');
-        }
+        $header = !empty($options['header']) ? $options['header'] : '';
+        $this->validate('header', $header, 's:40');
 
         if ( $query_json ) {
             $this->validate('query_json', $query_json, 'j');
@@ -364,9 +362,9 @@ class Libilsws
             }
 
             // Check for errors
-            if ( ! preg_match('/^2\d\d$/', $this->code) ) {
+            if ( !preg_match('/^2\d\d$/', $this->code) ) {
                 $this->error = curl_error($ch);
-                if ( ! $this->error ) {
+                if ( !$this->error ) {
                     $this->error = $json;
                 }
                 throw new APIException($this->error);
@@ -416,9 +414,9 @@ class Libilsws
 
         foreach ($call['fields'] as $field => $value) {
 
-            if ( ! is_array($value) ) {
+            if ( !is_array($value) ) {
                 $item_list[$field] = $value;
-            } elseif ( ! empty($call['fields'][$field]['key']) ) {
+            } elseif ( !empty($call['fields'][$field]['key']) ) {
                 $item_list[$field] = $call['fields'][$field]['key'];
             } elseif ( $field == 'itemList' ) {
                 foreach ($call['fields']['itemList'] as $item) {
@@ -453,7 +451,7 @@ class Libilsws
                 $item['itemCircInfo'] = $this->get_item_circ_info($token, $record['fields']['itemCircInfo']['key']);
             } elseif ( $key === 'holdRecordList' ) {
                 for ($i = 0; $i < count($record['fields']['holdRecordList']); $i++) {
-                    if ( ! empty($record['fields']['holdRecordList'][$i]['key']) ) {
+                    if ( !empty($record['fields']['holdRecordList'][$i]['key']) ) {
                         $item['holdRecordList'][$i] = $this->get_hold($token, $record['fields']['holdRecordList'][$i]['key']);
                     }
                 }
@@ -461,7 +459,7 @@ class Libilsws
                 $item['price'] = $record['fields']['price']['currencyCode'] 
                     . ' ' 
                     . $record['fields']['price']['amount'];
-            } elseif ( ! empty($record['fields'][$key]['key']) ) {
+            } elseif ( !empty($record['fields'][$key]['key']) ) {
                 $item[$key] = $record['fields'][$key]['key'];
             } else {
                 $item[$key] = $value;
@@ -514,7 +512,7 @@ class Libilsws
                     $bib['holdRecordList'][$i] = $this->get_hold($token, $record['holdRecordList'][$i]['key']);
                 }
 
-            } elseif ( ! empty($record[$key]['key']) ) {
+            } elseif ( !empty($record[$key]['key']) ) {
 
                 $bib[$key] = $record[$key]['key'];
 
@@ -584,7 +582,7 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
 
-        if (! $include_fields) {
+        if (!$include_fields) {
             $include_fields = 'item,library';
         }
 
@@ -747,7 +745,7 @@ class Libilsws
         $diff_fields = array_diff($input_fields, $bib_fields);
 
         $call_fields = [];
-        if ( ! empty($diff_fields) ) {
+        if ( !empty($diff_fields) ) {
             $describe = $this->send_get("$this->base_url/catalog/call/describe", $token, []);
             foreach ($describe['fields'] as $field) {
                 array_push($call_fields, $field['name']);
@@ -761,7 +759,7 @@ class Libilsws
         $diff_fields = array_diff($diff_fields, $call_fields);
 
         $item_fields = [];
-        if ( ! empty($diff_fields) ) {
+        if ( !empty($diff_fields) ) {
             $describe = $this->send_get("$this->base_url/catalog/item/describe", $token, []);
             foreach ($describe['fields'] as $field) {
                 array_push($item_fields, $field['name']);
@@ -775,9 +773,9 @@ class Libilsws
          */
         $diff_fields = array_diff($diff_fields, $item_fields);
 
-        if ( ! empty($diff_fields) ) {
+        if ( !empty($diff_fields) ) {
             foreach ($diff_fields as $field) {
-                if ( ! preg_match("/^\d{3}(_[a-zA-Z0-9]{1})*$/", $field) ) {
+                if ( !preg_match("/^\d{3}(_[a-zA-Z0-9]{1})*$/", $field) ) {
                     throw new Exception ("Invalid field \"$field\" in includeFields");
                 }
             }
@@ -803,14 +801,14 @@ class Libilsws
 
         $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token, []);
 
-        if ( ! empty($response['fields']['bib']) ) {
+        if ( !empty($response['fields']['bib']) ) {
             $bib['key'] = $response['key'];
             foreach ($response['fields']['bib'] as $marc_key => $marc_value) {
-                if ( ! is_array($marc_value) ) {
+                if ( !is_array($marc_value) ) {
                     $bib[$marc_key] = $marc_value;
                 } else {
                     foreach ($marc_value as $tag) {
-                        if ( ! empty($tag['tag']) ) {
+                        if ( !empty($tag['tag']) ) {
                             foreach ($tag['subfields'] as $subfield) {
                                 if ( $subfield['code'] == '_' ) {
                                     $bib[$tag['tag']] = $subfield['data'];
@@ -844,7 +842,7 @@ class Libilsws
         
         $response = $this->send_get("$this->base_url/circulation/bibCircInfo/key/$bib_key", $token, []);
 
-        if ( ! empty($response['fields']) ) {
+        if ( !empty($response['fields']) ) {
             foreach ($response['fields'] as $field => $value) {
                 $stats[$field] = $value;
             }
@@ -880,7 +878,7 @@ class Libilsws
 
         $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=" . $field_list, $token, []);
 
-        if ( ! empty($response['fields']) ) {
+        if ( !empty($response['fields']) ) {
    
             // Flatten the structure to a simple hash 
             $temp = $this->flatten_bib($token, $response['fields']);
@@ -889,7 +887,7 @@ class Libilsws
             
             $bib['key'] = $response['key'];
             foreach ($fields as $field) {
-                if ( ! empty($temp[$field]) ) {
+                if ( !empty($temp[$field]) ) {
                     $bib[$field] = $temp[$field];
                 }
             }
@@ -915,9 +913,9 @@ class Libilsws
         
         $response = $this->send_get("$this->base_url/circulation/itemCircInfo/key/$item_key", $token, []);
 
-        if ( ! empty($response['fields']) ) {
+        if ( !empty($response['fields']) ) {
             foreach ($response['fields'] as $field => $value) {
-                if ( ! empty($response['fields'][$field]['key']) ) {
+                if ( !empty($response['fields'][$field]['key']) ) {
                     $stats[$field] = $response['fields'][$field]['key'];
                 } else {
                     $stats[$field] = $value;
@@ -954,7 +952,7 @@ class Libilsws
 
         $item = $this->send_get("$this->base_url/catalog/item/key/$item_key?includeFields=$field_list", $token, []);
 
-        if ( ! empty($item['fields']) ) {
+        if ( !empty($item['fields']) ) {
             $item = $this->flatten_item($token, $item);
         }
 
@@ -973,10 +971,10 @@ class Libilsws
     {
         $hold = [];
 
-        if ( ! empty($record['fields']) ) {
+        if ( !empty($record['fields']) ) {
             $hold['key'] = $record['key'];
             foreach ($record['fields'] as $field => $value) {
-                if ( ! empty($record['fields'][$field]['key']) ) {
+                if ( !empty($record['fields'][$field]['key']) ) {
                     $hold[$field] = $record['fields'][$field]['key'];
                 } else {
                     $hold[$field] = $value;
@@ -1004,7 +1002,7 @@ class Libilsws
 
         $hold = $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token, []);
 
-        if ( ! empty($hold['fields']) ) {
+        if ( !empty($hold['fields']) ) {
             $hold = $this->flatten_hold($hold);
         }
 
@@ -1035,7 +1033,7 @@ class Libilsws
 
         $call = $this->send_get("$this->base_url/catalog/call/key/$call_key?includeFields=$field_list", $token);
 
-        if ( ! empty($call['fields']) ) {
+        if ( !empty($call['fields']) ) {
             $call = $this->flatten_call($token, $call);
         }
 
@@ -1092,7 +1090,7 @@ class Libilsws
         $include_fields = 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{author,title},callNumber,sortCallNumber},barcode,currentLocation{description}itemType}}';
         $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, ['includeFields' => $include_fields]);
         
-        if ( ! empty($response['fields']['pullList']) ) {
+        if ( !empty($response['fields']['pullList']) ) {
             foreach ($response['fields']['pullList'] as $hold) {
 
                 $record = [];
@@ -1238,18 +1236,18 @@ class Libilsws
         $response = $this->send_get("$this->base_url/catalog/bib/search", $token, $params);
 
         $records = [];
-        if ( ! empty($response['totalResults']) && $response['totalResults'] > 0 ) {
+        if ( !empty($response['totalResults']) && $response['totalResults'] > 0 ) {
 
             for ($i = 0; $i < count($response['result']); $i++) {
 
-                if ( ! is_null($response['result'][$i]) ) {
+                if ( !is_null($response['result'][$i]) ) {
 
                     $bib = $this->flatten_bib($token, $response['result'][$i]['fields']);
                     $bib['key'] = $response['result'][$i]['key'];
 
                     $filtered_bib = [];
                     foreach ($fields as $field) {
-                        if ( ! empty($bib[$field]) ) {
+                        if ( !empty($bib[$field]) ) {
                             $filtered_bib[$field] = $bib[$field];
                         }
                     }
@@ -1800,13 +1798,13 @@ class Libilsws
     {
         // Look in all the places we might find an incoming profile
         $profile = '';
-        if (! empty($patron['profile']) ) {
+        if (!empty($patron['profile']) ) {
             $profile = $patron['profile'];
-        } elseif ( ! empty($this->config['symphony']['new_fields']['alias']) 
-            && ! empty($patron[$this->config['symphony']['new_fields']['alias']]) ) {
+        } elseif ( !empty($this->config['symphony']['new_fields']['alias']) 
+            && !empty($patron[$this->config['symphony']['new_fields']['alias']]) ) {
             $profile = $patron[$this->config['symphony']['new_fields']['alias']];
-        } elseif ( ! empty($this->config['symphony']['overlay_fields']['alias']) 
-            && ! empty($patron[$this->config['symphony']['overlay_fields']['alias']]) ) {
+        } elseif ( !empty($this->config['symphony']['overlay_fields']['alias']) 
+            && !empty($patron[$this->config['symphony']['overlay_fields']['alias']]) ) {
             $profile = $patron[$this->config['symphony']['overlay_fields']['alias']];
         }
             
@@ -1817,13 +1815,13 @@ class Libilsws
 
         // Check everywhere we might find a birth date
         $dob = '';
-        if ( ! empty($patron['birthDate']) ) {
+        if ( !empty($patron['birthDate']) ) {
             $dob = $this->create_field_date('birthDate', $patron['birthDate']);
-        } elseif ( ! empty($this->config['symphony']['new_fields']['birthDate']['alias']) 
-            && ! empty($patron[$this->config['symphony']['new_fields']['birthDate']['alias']]) ) {
+        } elseif ( !empty($this->config['symphony']['new_fields']['birthDate']['alias']) 
+            && !empty($patron[$this->config['symphony']['new_fields']['birthDate']['alias']]) ) {
             $dob = $this->create_field_date('birthDate', $patron[$this->config['symphony']['new_fields']['birthDate']['alias']]);
-        } elseif ( ! empty($this->config['symphony']['overlay_fields']['birthDate']['alias']) 
-            && ! empty($patron[$this->config['symphony']['overlay_fields']['birthDate']['alias']]) ) {
+        } elseif ( !empty($this->config['symphony']['overlay_fields']['birthDate']['alias']) 
+            && !empty($patron[$this->config['symphony']['overlay_fields']['birthDate']['alias']]) ) {
             $dob = $this->create_field_date('birthDate', $patron[$this->config['symphony']['overlay_fields']['birthDate']['alias']]);
         }
 
@@ -1838,7 +1836,7 @@ class Libilsws
         }
 
         // Check if the age fits into a range
-        if ( $age && ! empty($this->config['symphony']['age_ranges']) ) {
+        if ( $age && !empty($this->config['symphony']['age_ranges']) ) {
 
             $ranges = $this->config['symphony']['age_ranges'];
             foreach ($ranges as $range => $value) {
@@ -1887,17 +1885,17 @@ class Libilsws
         foreach ($fields as $field => $value) {
 
             // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && ! empty($fields[$field]['default']) ) {
+            if ( empty($patron[$field]) && !empty($fields[$field]['default']) ) {
                 $patron[$field] = $fields[$field]['default'];
             }
 
             // Check for missing required fields
-            if ( empty($patron[$field]) && ! empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
+            if ( empty($patron[$field]) && !empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
                 throw new Exception ("The $field field is required");
             }
 
             // Validate
-            if ( ! empty($patron[$field]) && ! empty($fields[$field]['validation']) ) {
+            if ( !empty($patron[$field]) && !empty($fields[$field]['validation']) ) {
                 $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
         }
@@ -2064,7 +2062,7 @@ class Libilsws
             }
         }
         
-        if ( ! $date ) {
+        if ( !$date ) {
             throw new Exception ("Invalid date format: \"$value\" in $name field");
         }
 
@@ -2186,17 +2184,17 @@ class Libilsws
         foreach ($fields as $subfield => $value) {
 
             // Check if the data is coming in with a different field name (alias)
-            if ( empty($patron[$subfield]) && ! empty($fields[$field][$subfield]['alias']) ) {
+            if ( empty($patron[$subfield]) && !empty($fields[$field][$subfield]['alias']) ) {
                 $patron[$subfield] = $patron[$fields[$field][$subfield]['alias']];
             }
 
             // Assign default values where appropriate
-            if ( empty($patron[$subfield]) && ! empty($fields[$field][$subfield]['default']) ) {
+            if ( empty($patron[$subfield]) && !empty($fields[$field][$subfield]['default']) ) {
                 $patron[$subfield] = $fields[$field][$subfield]['default'];
             }
 
             // Check for missing required fields
-            if ( empty($patron[$subfield]) && ! empty($fields[$subfield]['required']) && boolval($fields[$subfield]['required']) ) {
+            if ( empty($patron[$subfield]) && !empty($fields[$subfield]['required']) && boolval($fields[$subfield]['required']) ) {
                 throw new Exception ("The $field $subfield field is required");
             }
 
@@ -2282,19 +2280,17 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
 
-        if ( !empty($options) ) {
-            $role = !empty($options['role']) ? $options['role'] : 'PATRON';
-            $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
+        $role = !empty($options['role']) ? $options['role'] : 'PATRON';
+        $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
 
-            $client_id = !empty($options['client_id']) ? $options['client_id'] : $this->config['ilsws']['client_id'];
-            $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#');
+        $client_id = !empty($options['client_id']) ? $options['client_id'] : $this->config['ilsws']['client_id'];
+        $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#');
 
-            $template = !empty($options['template']) ? $options['template'] : '';
-            $this->validate('template', $template, 'r:#^([a-zA-Z0-9]{1,40})(\.)(html|text)(\.)(twig)$#');
+        $template = !empty($options['template']) ? $options['template'] : '';
+        $this->validate('template', $template, 'r:#^([a-zA-Z0-9]{1,40})(\.)(html|text)(\.)(twig)$#');
 
-            $subject = !empty($options['subject']) ? $options['subject'] : '';
-            $this->validate('subject', $subject, 's:20');
-        }
+        $subject = !empty($options['subject']) ? $options['subject'] : '';
+        $this->validate('subject', $subject, 's:20');
 
         $response = [];
 
@@ -2354,17 +2350,17 @@ class Libilsws
             $patron_key = $response['key'];
 
             // If the barcode doesn't look like a real 14-digit barcode then change it to the patron key
-            if ( !preg_match('/^\d{14}$/', $patron['barcode']) ) {
+            if ( empty($patron['barcode']) || !preg_match('/^\d{14}$/', $patron['barcode']) ) {
 
                 // Assign the patron_key from the initial registration to the update array
                 $patron['barcode'] = $patron_key;
-                if ( ! $this->change_barcode($token, $patron_key, $patron_key) ) {
+                if ( !$this->change_barcode($token, $patron_key, $patron_key, $options) ) {
                     throw new Exception('Unable to set barcode to patron key');
                 }
             }
 
             if ( !empty($patron['phoneList']) ) {
-                if ( ! $this->update_phone_list($patron['phoneList'], $token, $patron_key) ) {
+                if ( !$this->update_phone_list($patron['phoneList'], $token, $patron_key, $options) ) {
                     throw new Exception('SMS phone list update failed');
                 }
             }
@@ -2373,7 +2369,7 @@ class Libilsws
                 if ( !$subject ) {
                     $subject = !empty($this->config['smtp']['smtp_default_subject']) ? $this->config['smtp']['smtp_default_subject'] : '';
                 }
-                if ( ! $this->email_template($patron, $this->config['smtp']['smtp_from'], $patron['EMAIL'], $subject, $template) ) {
+                if ( !$this->email_template($patron, $this->config['smtp']['smtp_from'], $patron['EMAIL'], $subject, $template) ) {
                     throw new Exception('Email to patron failed');
                 }
             }
@@ -2418,7 +2414,7 @@ class Libilsws
         $response = $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
 
         if ( !empty($patron['phoneList']) ) {
-            if ( ! $this->update_phone_list($patron['phoneList'], $token, $patron_key) ) {
+            if ( !$this->update_phone_list($patron['phoneList'], $token, $patron_key) ) {
                 throw new Exception('SMS phone list update failed');
             }
         }
@@ -2460,7 +2456,7 @@ class Libilsws
 
         if ( $res ) {
             if ( $option == 'a' ) {
-                if ( ! empty($res['fields']['customInformation']) ) {
+                if ( !empty($res['fields']['customInformation']) ) {
                     $custom = $res['fields']['customInformation'];
                     for ( $i = 0; $i < count($custom); $i++ ) {
                         if ( $custom[$i]['fields']['code']['key'] == 'ACTIVEID' && $custom[$i]['fields']['data'] ) {
@@ -2473,7 +2469,7 @@ class Libilsws
 
             } elseif ( $option == 'i' ) {
 
-                if ( ! empty($res['fields']['customInformation']) ) {
+                if ( !empty($res['fields']['customInformation']) ) {
                     $custom = $res['fields']['customInformation'];
                     for ( $i = 0; $i < count($custom); $i++ ) {
                         if ( $custom[$i]['fields']['code']['key'] == 'INACTVID' && $custom[$i]['fields']['data'] ) {
@@ -2486,7 +2482,7 @@ class Libilsws
 
             } elseif ( $option == 'd' ) {
 
-                if ( ! empty($res['fields']['customInformation']) ) {
+                if ( !empty($res['fields']['customInformation']) ) {
                     $custom = $res['fields']['customInformation'];
                     for ( $i = 0; $i < count($custom); $i++ ) {
                         $fields = array('ACTIVEID','INACTVID','PREV_ID','PREV_ID2','STUDENT_ID');
@@ -2582,7 +2578,7 @@ class Libilsws
      * @return integer $return_code 1 for success, 0 for failure
      */
 
-    public function change_barcode ($token = null, $patron_key = null, $patron_id = null)
+    public function change_barcode ($token = null, $patron_key = null, $patron_id = null, $options = [])
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
@@ -2594,10 +2590,10 @@ class Libilsws
         $new['fields']['barcode'] = $patron_id;
 
         $json = json_encode($new, JSON_PRETTY_PRINT);
-        $response = $this->send_query($this->base_url . "/user/patron/key/$patron_key", $token, $json, 'PUT');
+        $response = $this->send_query($this->base_url . "/user/patron/key/$patron_key", $token, $json, 'PUT', $options);
 
         $return_code = 0;
-        if ( !empty($response['fields']['barcode']) && $response['fields']['barcode'] === $patron_id ) {
+        if ( !empty($response['fields']['barcode']) && $response['fields']['barcode'] == $patron_id ) {
             $return_code = 1;
         }
 
@@ -2613,7 +2609,7 @@ class Libilsws
      * @return integer $return_code    1 for success, 0 for failure
      */
 
-    public function update_phone_list ($phone_list, $token = null, $patron_key = null)
+    public function update_phone_list ($phone_list, $token = null, $patron_key = null, $options = [])
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
@@ -2625,7 +2621,8 @@ class Libilsws
         array_push($new['fields']['phoneList'], $this->create_field_phone($patron_key, $phone_list));
 
         $json = json_encode($new, JSON_PRETTY_PRINT);
-        $response = $this->send_query($this->base_url . "/user/patron/key/$patron_key", $token, $json, 'PUT');
+        $response = $this->send_query($this->base_url . "/user/patron/key/$patron_key", $token, $json, 'PUT', $options);
+        print_r($response);
 
         $return_code = 0;
         if ( !empty($response['key']) && $response['key'] === $patron_key ) {

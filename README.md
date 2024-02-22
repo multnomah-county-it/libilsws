@@ -31,7 +31,8 @@ they valididate all inputs and will throw exceptions
 if presented with inappropriate inputs.
 
 - authenticate_patron($token, $patron_id, $password)
-- change_barcode($token, $patron_key, $patron_id)
+- change_barcode($token, $patron_key, $patron_id, $options)<br>
+  Options array may include: role, client_id
 - change_item_library($token, $item_key, $library)
 - change_patron_password($token, $json, $options)<br>
   Options array may include: role, client_id
@@ -79,7 +80,8 @@ or evaluating data from the Symphony system.
 - update_patron($patron, $token, $patron_key, $addr_num) 
 - update_patron_activeid($token, $patron_key, $patron_id, $option)<br>
   Option may be: a, i, d
-- update_phone_list($phone_list, $token, $patron_key)
+- update_phone_list($phone_list, $token, $patron_key, $options)<br>
+  Options array may include: role, client_id
 
 ## Date and Telephone Number Formats
 For the convenience of developers, the code library accepts

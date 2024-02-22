@@ -1299,14 +1299,6 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('json', $json, 'j');
 
-        if ( !empty($options) ) {
-            $options['client_id'] = !empty($options['client_id']) ? $options['client_id'] : $client_id = $this->config['ilsws']['client_id'];
-            $this->validate('client_id', $options['client_id'], 'r:#^[A-Za-z]{4,20}$#');
-
-            $options['role'] = !empty($options['role']) ? $options['role'] : 'PATRON';
-            $this->validate('role', $options['role'], 'v:PATRON|STAFF|GUEST');
-        }
-
         return $this->send_query("$this->base_url/user/patron/changeMyPassword", $token, $json, 'POST', $options);
     } 
 

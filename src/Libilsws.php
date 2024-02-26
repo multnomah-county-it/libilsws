@@ -4,9 +4,9 @@ namespace Libilsws;
 
 /**
  *
- * Multnomah County Library ILSWS API Support
- *
- * Copyright (c) 2022 Multnomah County (Oregon)
+ * Multnomah County Library
+ * SirsiDynix ILSWS API Support
+ * Copyright (c) 2024 Multnomah County (Oregon)
  * 
  * John Houser
  * john.houser@multco.us
@@ -82,16 +82,16 @@ class Libilsws
     public $base_url;
     
     // The ILSWS connection parameters and Symphony field configuration
-    private $config;
+    public $config;
 
     // Data handler instance
-    private $dh;
+    public $dh;
 
     // ILSWS patron field description information
-    private $field_desc = [];
+    public $field_desc = [];
 
     // Constructor for this class
-    public function __construct($yaml_file)
+    public function __construct ($yaml_file)
     {
         $this->dh = new DataHandler();
 
@@ -113,6 +113,48 @@ class Libilsws
             . $this->config['ilsws']['port'] 
             . '/' 
             . $this->config['ilsws']['webapp'];
+    }
+
+    /**
+     * Validate call or item input fields using the API describe function
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $field_list  Comma-delimited list of fields to be validated
+     * @return object $response    Object containing include list, index list, 
+     *                             and array of include fields
+     */
+
+    private function validate_fields ($token = null, $type = null, $field_list = '')
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('type', $type, 'v:item|call');
+
+        if ( $field_list != '*' ) {
+
+            // Convert the input fields to an array
+            $input_fields = preg_split('/[,{}]+/', $field_list, -1, PREG_SPLIT_NO_EMPTY);
+
+            // Get the fields described by the API
+            $fields = [];
+            $describe = $this->send_get("$this->base_url/catalog/$type/describe", $token, []);
+            for ($i = 0; $i < count($describe['fields']); $i++) {
+                array_push($fields, $describe['fields'][$i]['name']);
+            }
+            // Get the item fields as well, if we're validating a get_call field_list
+            if ( $type == 'call' ) {
+                $describe = $this->send_get("$this->base_url/catalog/item/describe", $token, []);
+                for ($i = 0; $i < count($describe['fields']); $i++) {
+                    array_push($fields, $describe['fields'][$i]['name']);
+                }
+            }
+            $valid_list = implode('|', $fields);
+
+            foreach ($input_fields as $field) {
+                $this->validate('includeFields', $field, "v:$valid_list|*");
+            }
+        }
+
+        return 1;
     }
 
     /**
@@ -381,6 +423,24 @@ class Libilsws
     }
 
     /**
+     * Get policy returns a policy record
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $policy_name Policy name for policy
+     * @param  string $policy_key  Policy key for policy
+     * @return object              Associative array containing the response from ILSWS
+     */
+
+    public function get_policy ($token = null, $policy_name = null, $policy_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('policy_name', $policy_name, 'r:#^[A-Za-z0-9]{1,20}$#');
+        $this->validate('policy_key', $policy_key, 'r:#^[A-Za-z\- 0-9]{1,10}$#');
+        
+        return $this->send_get("$this->base_url/policy/$policy_name/key/$policy_key", $token, []);
+    }
+
+    /**
      * Flattens callList structure into simple hash
      * 
      * @access private 
@@ -526,86 +586,141 @@ class Libilsws
     }
 
     /**
-     * Validate call or item input fields using the API describe function
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $field_list  Comma-delimited list of fields to be validated
-     * @return object $response    Object containing include list, index list, 
-     *                             and array of include fields
+     * Get catalog search indexes
+     *
+     * @access public
+     * @param  string $token          Session token returned by ILSWS
+     * @return array  $search_indexes Array of valid index names
      */
 
-    private function validate_fields ($token = null, $type = null, $field_list = '')
+    public function get_catalog_indexes ($token = null)
     {
+        $search_indexes = [];
+
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('type', $type, 'v:item|call');
 
-        if ( $field_list != '*' ) {
+        $describe = $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
 
-            // Convert the input fields to an array
-            $input_fields = preg_split('/[,{}]+/', $field_list, -1, PREG_SPLIT_NO_EMPTY);
+        foreach ($describe['searchIndexList'] as $index) {
+            array_push($search_indexes, $index['name']);
+        }
 
-            // Get the fields described by the API
-            $fields = [];
-            $describe = $this->send_get("$this->base_url/catalog/$type/describe", $token, []);
-            for ($i = 0; $i < count($describe['fields']); $i++) {
-                array_push($fields, $describe['fields'][$i]['name']);
-            }
-            // Get the item fields as well, if we're validating a get_call field_list
-            if ( $type == 'call' ) {
-                $describe = $this->send_get("$this->base_url/catalog/item/describe", $token, []);
-                for ($i = 0; $i < count($describe['fields']); $i++) {
-                    array_push($fields, $describe['fields'][$i]['name']);
+        return $search_indexes;
+    }
+
+    /**
+     * Get bib MARC data
+     * 
+     * @param  string $token        Session token returned by ILSWS
+     * @param  string $bib_key      Bibliographic record key
+     * @return array                Flat associative array with MARC record
+     */
+
+    public function get_bib_marc ($token = null, $bib_key = null) 
+    {
+        $bib = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
+
+        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token, []);
+
+        if ( !empty($response['fields']['bib']) ) {
+            $bib['key'] = $response['key'];
+            foreach ($response['fields']['bib'] as $marc_key => $marc_value) {
+                if ( !is_array($marc_value) ) {
+                    $bib[$marc_key] = $marc_value;
+                } else {
+                    foreach ($marc_value as $tag) {
+                        if ( !empty($tag['tag']) ) {
+                            foreach ($tag['subfields'] as $subfield) {
+                                if ( $subfield['code'] == '_' ) {
+                                    $bib[$tag['tag']] = $subfield['data'];
+                                } else {
+                                    $bib[$tag['tag'] . ' ' . $tag['inds'] . ' _' . $subfield['code']] = $subfield['data'];
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            $valid_list = implode('|', $fields);
+        }
 
-            foreach ($input_fields as $field) {
-                $this->validate('includeFields', $field, "v:$valid_list|*");
+        return $bib;
+    }
+
+    /**
+     * Validate bib field names using the API describe functions
+     *
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $field_list  Comma-delimited list of fields to be validated
+     * @return object $response    Object containing include list, array of 
+     *                             valid_fields, array of filter fields, array 
+     *                             of include fields, and index list.
+     */
+
+    private function validate_bib_fields ($token = null, $field_list = '')
+    {
+        $response = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+
+        // Convert the input fields to an array
+        $input_fields = preg_split("/[,{}]/", $field_list, -1, PREG_SPLIT_NO_EMPTY);
+
+        // Get the fields to validate against
+        $bib_fields = []; 
+        $describe = $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
+        foreach ($describe['fields'] as $field) {
+            array_push($bib_fields, $field['name']);
+        }
+        array_push($bib_fields, '*');
+        array_push($bib_fields, 'key');
+
+        /**
+         * Check if there are unvalidated fields left after checking against
+         * bib fields. If there are, check against call fields, next.
+         */
+        $diff_fields = array_diff($input_fields, $bib_fields);
+
+        $call_fields = [];
+        if ( !empty($diff_fields) ) {
+            $describe = $this->send_get("$this->base_url/catalog/call/describe", $token, []);
+            foreach ($describe['fields'] as $field) {
+                array_push($call_fields, $field['name']);
+            }
+        }
+
+        /**
+         * Check again. if there are still unvalidated fields after checking against
+         * the call fields, check against item fields.
+         */
+        $diff_fields = array_diff($diff_fields, $call_fields);
+
+        $item_fields = [];
+        if ( !empty($diff_fields) ) {
+            $describe = $this->send_get("$this->base_url/catalog/item/describe", $token, []);
+            foreach ($describe['fields'] as $field) {
+                array_push($item_fields, $field['name']);
+            }
+        }
+
+        /**
+         * Check one last time. If there are still unvalidated fields, they should be
+         * bibliographic tag fields used for filtering results. Throw an error if we find
+         * anything that doesn't look like a filter field.
+         */
+        $diff_fields = array_diff($diff_fields, $item_fields);
+
+        if ( !empty($diff_fields) ) {
+            foreach ($diff_fields as $field) {
+                if ( !preg_match("/^\d{3}(_[a-zA-Z0-9]{1})*$/", $field) ) {
+                    throw new Exception ("Invalid field \"$field\" in includeFields");
+                }
             }
         }
 
         return 1;
-    }
-
-    /**
-     * Pulls list of items checked out to a patron
-     * 
-     * @access public
-     * @param  string  $token          Session token returned by ILSWS
-     * @param  integer $patron_key     Patron key of patron whose records we need to see
-     * @param  string  $include_fields Optional 
-     * @return array   $return         Associative array of item keys and libraries
-     */
-
-    public function get_patron_checkouts ($token = null, $patron_key = null, $include_fields = null)
-    {
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
-
-        if (!$include_fields) {
-            $include_fields = 'item,library';
-        }
-
-        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key?includeFields=circRecordList{*}", $token, []);
-        $fields = preg_split('/,/', $include_fields);
-
-        $return = [];
-        $i = 0;
-        if (count($response) > 0) {
-            foreach ($response['fields']['circRecordList'] as $item) {
-                foreach ($fields as $field) {
-                    $data = $item['fields'][$field];
-                    if (is_array($data)) {
-                        $return[$i][$field] = $data['key'];
-                    } else {
-                        $return[$i][$field] = $data;
-                    }
-                }
-                $i++;
-            }
-        }
-
-        return $return;
     }
 
     /**
@@ -688,170 +803,6 @@ class Libilsws
     }
 
     /**
-     * Get catalog search indexes
-     *
-     * @access public
-     * @param  string $token          Session token returned by ILSWS
-     * @return array  $search_indexes Array of valid index names
-     */
-
-    public function get_catalog_indexes ($token = null)
-    {
-        $search_indexes = [];
-
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-
-        $describe = $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
-
-        foreach ($describe['searchIndexList'] as $index) {
-            array_push($search_indexes, $index['name']);
-        }
-
-        return $search_indexes;
-    }
-
-    /**
-     * Validate bib field names using the API describe functions
-     *
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $field_list  Comma-delimited list of fields to be validated
-     * @return object $response    Object containing include list, array of 
-     *                             valid_fields, array of filter fields, array 
-     *                             of include fields, and index list.
-     */
-
-    private function validate_bib_fields ($token = null, $field_list = '')
-    {
-        $response = [];
-
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-
-        // Convert the input fields to an array
-        $input_fields = preg_split("/[,{}]/", $field_list, -1, PREG_SPLIT_NO_EMPTY);
-
-        // Get the fields to validate against
-        $bib_fields = []; 
-        $describe = $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
-        foreach ($describe['fields'] as $field) {
-            array_push($bib_fields, $field['name']);
-        }
-        array_push($bib_fields, '*');
-        array_push($bib_fields, 'key');
-
-        /**
-         * Check if there are unvalidated fields left after checking against
-         * bib fields. If there are, check against call fields, next.
-         */
-        $diff_fields = array_diff($input_fields, $bib_fields);
-
-        $call_fields = [];
-        if ( !empty($diff_fields) ) {
-            $describe = $this->send_get("$this->base_url/catalog/call/describe", $token, []);
-            foreach ($describe['fields'] as $field) {
-                array_push($call_fields, $field['name']);
-            }
-        }
-
-        /**
-         * Check again. if there are still unvalidated fields after checking against
-         * the call fields, check against item fields.
-         */
-        $diff_fields = array_diff($diff_fields, $call_fields);
-
-        $item_fields = [];
-        if ( !empty($diff_fields) ) {
-            $describe = $this->send_get("$this->base_url/catalog/item/describe", $token, []);
-            foreach ($describe['fields'] as $field) {
-                array_push($item_fields, $field['name']);
-            }
-        }
-
-        /**
-         * Check one last time. If there are still unvalidated fields, they should be
-         * bibliographic tag fields used for filtering results. Throw an error if we find
-         * anything that doesn't look like a filter field.
-         */
-        $diff_fields = array_diff($diff_fields, $item_fields);
-
-        if ( !empty($diff_fields) ) {
-            foreach ($diff_fields as $field) {
-                if ( !preg_match("/^\d{3}(_[a-zA-Z0-9]{1})*$/", $field) ) {
-                    throw new Exception ("Invalid field \"$field\" in includeFields");
-                }
-            }
-        }
-
-        return 1;
-    }
-
-    /**
-     * Get bib MARC data
-     * 
-     * @param  string $token        Session token returned by ILSWS
-     * @param  string $bib_key      Bibliographic record key
-     * @return array                Flat associative array with MARC record
-     */
-
-    public function get_bib_marc ($token = null, $bib_key = null) 
-    {
-        $bib = [];
-
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
-
-        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token, []);
-
-        if ( !empty($response['fields']['bib']) ) {
-            $bib['key'] = $response['key'];
-            foreach ($response['fields']['bib'] as $marc_key => $marc_value) {
-                if ( !is_array($marc_value) ) {
-                    $bib[$marc_key] = $marc_value;
-                } else {
-                    foreach ($marc_value as $tag) {
-                        if ( !empty($tag['tag']) ) {
-                            foreach ($tag['subfields'] as $subfield) {
-                                if ( $subfield['code'] == '_' ) {
-                                    $bib[$tag['tag']] = $subfield['data'];
-                                } else {
-                                    $bib[$tag['tag'] . ' ' . $tag['inds'] . ' _' . $subfield['code']] = $subfield['data'];
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return $bib;
-    }
-
-    /**
-     * Get bibliographic circulation statistics
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $bib_key     Bibliographic record key
-     * @return object              Flat associative array with circulation numbers
-     */
-
-    public function get_bib_circ_info ($token = null, $bib_key = null)
-    {
-        $stats = [];
-
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
-        
-        $response = $this->send_get("$this->base_url/circulation/bibCircInfo/key/$bib_key", $token, []);
-
-        if ( !empty($response['fields']) ) {
-            foreach ($response['fields'] as $field => $value) {
-                $stats[$field] = $value;
-            }
-        }
-
-        return $stats;
-    }
-
-    /**
      * Retrieves bib information
      * 
      * @param  string $token       Session token returned by ILSWS
@@ -897,36 +848,6 @@ class Libilsws
     }
 
     /**
-     * Get item circulation statistics
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $item_key    Item record key
-     * @return object              Flat associative array with circulation numbers
-     */
-
-    public function get_item_circ_info ($token = null, $item_key = null)
-    {
-        $stats = [];
-
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
-        
-        $response = $this->send_get("$this->base_url/circulation/itemCircInfo/key/$item_key", $token, []);
-
-        if ( !empty($response['fields']) ) {
-            foreach ($response['fields'] as $field => $value) {
-                if ( !empty($response['fields'][$field]['key']) ) {
-                    $stats[$field] = $response['fields'][$field]['key'];
-                } else {
-                    $stats[$field] = $value;
-                }
-            }
-        }
-
-        return $stats;
-    }
-
-    /**
      * Retrieves item information
      * 
      * @param  string $token       Session token returned by ILSWS
@@ -960,56 +881,6 @@ class Libilsws
     }
 
     /**
-     * Flatten hold record
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  object $record      Hold record object
-     * @return array               Flat associative array of hold fields
-     */
-
-    private function flatten_hold ($record)
-    {
-        $hold = [];
-
-        if ( !empty($record['fields']) ) {
-            $hold['key'] = $record['key'];
-            foreach ($record['fields'] as $field => $value) {
-                if ( !empty($record['fields'][$field]['key']) ) {
-                    $hold[$field] = $record['fields'][$field]['key'];
-                } else {
-                    $hold[$field] = $value;
-                }
-            }
-        }
-
-        return $hold;
-    }
-
-    /**
-     * Get a hold record
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $hold_key    Hold record key
-     * @return object              Associative array containing the response from ILSWS
-     */
-
-    public function get_hold ($token = null, $hold_key = null)
-    {
-        $hold = [];
-
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('hold_key', $hold_key, 'r:#^\d{6,8}$#');
-
-        $hold = $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token, []);
-
-        if ( !empty($hold['fields']) ) {
-            $hold = $this->flatten_hold($hold);
-        }
-
-        return $hold;
-    }
-
-    /**
      * Get a call number
      *
      * @param  string $token       Session token returned by ILSWS
@@ -1038,85 +909,6 @@ class Libilsws
         }
 
         return $call;
-    }
-
-    /**
-     * Get policy returns a policy record
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $policy_name Policy name for policy
-     * @param  string $policy_key  Policy key for policy
-     * @return object              Associative array containing the response from ILSWS
-     */
-
-    public function get_policy ($token = null, $policy_name = null, $policy_key = null)
-    {
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('policy_name', $policy_name, 'r:#^[A-Za-z0-9]{1,20}$#');
-        $this->validate('policy_key', $policy_key, 'r:#^[A-Za-z\- 0-9]{1,10}$#');
-        
-        return $this->send_get("$this->base_url/policy/$policy_name/key/$policy_key", $token, []);
-    }
-
-    /**
-     * Removes URLs from the trailing end of a string
-     *
-     * @param  string $string String to be modifed
-     * @return string $string Modifed string
-     */ 
-
-    private function remove_url ($string)
-    {
-        $string = preg_replace('#^(.*)(http)(s*)(:\/\/)(.*)$#', '$1', $string);
-
-        return trim($string);
-    }
-
-    /**
-     * Pulls a hold list for a given library
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $library_key Library key (three character)
-     * @return object              Associative array containing the response from ILSWS
-     */
-
-    public function get_library_paging_list ($token = null, $library_key = null)
-    {
-        $list = [];
-
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
-
-        $include_fields = 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{author,title},callNumber,sortCallNumber},barcode,currentLocation{description}itemType}}';
-        $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, ['includeFields' => $include_fields]);
-        
-        if ( !empty($response['fields']['pullList']) ) {
-            foreach ($response['fields']['pullList'] as $hold) {
-
-                $record = [];
-
-                $record['holdType'] = $hold['fields']['holdRecord']['fields']['holdType'];
-                $record['status'] = $hold['fields']['holdRecord']['fields']['status'];
-                $record['pickupLibrary'] = $hold['fields']['holdRecord']['fields']['pickupLibrary']['key'];
-                $record['item'] = $hold['fields']['item']['key'];
-                $record['bib'] = $hold['fields']['item']['fields']['call']['fields']['bib']['key'];
-                $record['author'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['author'];
-                $record['title'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['title'];
-                $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'];
-                $record['sortCallNumber'] = $hold['fields']['item']['fields']['call']['fields']['sortCallNumber'];
-                $record['barcode'] = $hold['fields']['item']['fields']['barcode'];
-                $record['currentLocation'] = $hold['fields']['item']['fields']['currentLocation']['key'];
-                $record['locationDescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'];
-                $record['itemType'] = $hold['fields']['item']['fields']['itemType']['key'];
-               
-                // Remove URL from author field 
-                $record['author'] = $this->remove_url($record['author']);
-
-                array_push($list, $record);
-            }
-        }
-
-        return $list;
     }
 
     /**
@@ -1257,6 +1049,215 @@ class Libilsws
         }
 
         return $records;
+    }
+
+    /**
+     * Pulls list of items checked out to a patron
+     * 
+     * @access public
+     * @param  string  $token          Session token returned by ILSWS
+     * @param  integer $patron_key     Patron key of patron whose records we need to see
+     * @param  string  $include_fields Optional 
+     * @return array   $return         Associative array of item keys and libraries
+     */
+
+    public function get_patron_checkouts ($token = null, $patron_key = null, $include_fields = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+
+        if (!$include_fields) {
+            $include_fields = 'item,library';
+        }
+
+        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key?includeFields=circRecordList{*}", $token, []);
+        $fields = preg_split('/,/', $include_fields);
+
+        $return = [];
+        $i = 0;
+        if (count($response) > 0) {
+            foreach ($response['fields']['circRecordList'] as $item) {
+                foreach ($fields as $field) {
+                    $data = $item['fields'][$field];
+                    if (is_array($data)) {
+                        $return[$i][$field] = $data['key'];
+                    } else {
+                        $return[$i][$field] = $data;
+                    }
+                }
+                $i++;
+            }
+        }
+
+        return $return;
+    }
+
+    /**
+     * Get bibliographic circulation statistics
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $bib_key     Bibliographic record key
+     * @return object              Flat associative array with circulation numbers
+     */
+
+    public function get_bib_circ_info ($token = null, $bib_key = null)
+    {
+        $stats = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
+        
+        $response = $this->send_get("$this->base_url/circulation/bibCircInfo/key/$bib_key", $token, []);
+
+        if ( !empty($response['fields']) ) {
+            foreach ($response['fields'] as $field => $value) {
+                $stats[$field] = $value;
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Get item circulation statistics
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $item_key    Item record key
+     * @return object              Flat associative array with circulation numbers
+     */
+
+    public function get_item_circ_info ($token = null, $item_key = null)
+    {
+        $stats = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
+        
+        $response = $this->send_get("$this->base_url/circulation/itemCircInfo/key/$item_key", $token, []);
+
+        if ( !empty($response['fields']) ) {
+            foreach ($response['fields'] as $field => $value) {
+                if ( !empty($response['fields'][$field]['key']) ) {
+                    $stats[$field] = $response['fields'][$field]['key'];
+                } else {
+                    $stats[$field] = $value;
+                }
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Flatten hold record
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  object $record      Hold record object
+     * @return array               Flat associative array of hold fields
+     */
+
+    private function flatten_hold ($record)
+    {
+        $hold = [];
+
+        if ( !empty($record['fields']) ) {
+            $hold['key'] = $record['key'];
+            foreach ($record['fields'] as $field => $value) {
+                if ( !empty($record['fields'][$field]['key']) ) {
+                    $hold[$field] = $record['fields'][$field]['key'];
+                } else {
+                    $hold[$field] = $value;
+                }
+            }
+        }
+
+        return $hold;
+    }
+
+    /**
+     * Get a hold record
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $hold_key    Hold record key
+     * @return object              Associative array containing the response from ILSWS
+     */
+
+    public function get_hold ($token = null, $hold_key = null)
+    {
+        $hold = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('hold_key', $hold_key, 'r:#^\d{6,8}$#');
+
+        $hold = $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token, []);
+
+        if ( !empty($hold['fields']) ) {
+            $hold = $this->flatten_hold($hold);
+        }
+
+        return $hold;
+    }
+
+
+    /**
+     * Removes URLs from the trailing end of a string
+     *
+     * @param  string $string String to be modifed
+     * @return string $string Modifed string
+     */ 
+
+    private function remove_url ($string)
+    {
+        $string = preg_replace('#^(.*)(http)(s*)(:\/\/)(.*)$#', '$1', $string);
+
+        return trim($string);
+    }
+
+    /**
+     * Pulls a hold list for a given library
+     * 
+     * @param  string $token       Session token returned by ILSWS
+     * @param  string $library_key Library key (three character)
+     * @return object              Associative array containing the response from ILSWS
+     */
+
+    public function get_library_paging_list ($token = null, $library_key = null)
+    {
+        $list = [];
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
+
+        $include_fields = 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{author,title},callNumber,sortCallNumber},barcode,currentLocation{description}itemType}}';
+        $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, ['includeFields' => $include_fields]);
+        
+        if ( !empty($response['fields']['pullList']) ) {
+            foreach ($response['fields']['pullList'] as $hold) {
+
+                $record = [];
+
+                $record['holdType'] = $hold['fields']['holdRecord']['fields']['holdType'];
+                $record['status'] = $hold['fields']['holdRecord']['fields']['status'];
+                $record['pickupLibrary'] = $hold['fields']['holdRecord']['fields']['pickupLibrary']['key'];
+                $record['item'] = $hold['fields']['item']['key'];
+                $record['bib'] = $hold['fields']['item']['fields']['call']['fields']['bib']['key'];
+                $record['author'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['author'];
+                $record['title'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['title'];
+                $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'];
+                $record['sortCallNumber'] = $hold['fields']['item']['fields']['call']['fields']['sortCallNumber'];
+                $record['barcode'] = $hold['fields']['item']['fields']['barcode'];
+                $record['currentLocation'] = $hold['fields']['item']['fields']['currentLocation']['key'];
+                $record['locationDescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'];
+                $record['itemType'] = $hold['fields']['item']['fields']['itemType']['key'];
+               
+                // Remove URL from author field 
+                $record['author'] = $this->remove_url($record['author']);
+
+                array_push($list, $record);
+            }
+        }
+
+        return $list;
     }
 
     /**

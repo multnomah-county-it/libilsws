@@ -174,11 +174,12 @@ class Libilsws
 
     private function validate ($param, $value, $rule)
     {
-        if ( !$this->dh->validate($value, $rule) ) {
+        $result = $this->dh->validate($value, $rule);
+        if ( $result === 0 ) {
             throw new Exception ("Invalid $param: \"$value\" (rule: '$rule')");
         }
 
-        return 1;
+        return $result;
     }
 
     /**

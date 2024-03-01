@@ -81,9 +81,11 @@ class DataHandler
                 break;
             case "i":
                 // Must be an integer of length specified
-                list($min_range, $max_range) = preg_split('/,/', $param);
-                if ( filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => $min_range, 'max_range' => $max_range]]) ) {
-                    $retval = 1;
+                if ( preg_match('/^-?\d+$/', $value) ) {
+                    list($min_range, $max_range) = preg_split('/,/', $param);
+                    if ( filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => $min_range, 'max_range' => $max_range]]) ) {
+                        $retval = 1;
+                    }
                 }
                 break;
             case "j":

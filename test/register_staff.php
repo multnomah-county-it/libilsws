@@ -17,7 +17,7 @@ $patron = [
     'city_state' => 'Portland, OR',
     'county' => '0_MULT',
     'profile' => '0_MULT',
-    'patron_id' => '99999999999996',
+    'patron_id' => '99999999999919',
     'email' => 'johnchouser@gmail.com',
     'firstName' => 'Bogus',
     'friends_notices' => 'YES',
@@ -43,8 +43,12 @@ $patron = [
     ];
 
 $addr_num = 1;
-$role = 'STAFF';
-$response = $ilsws->register_patron($patron, $token, $addr_num, $role);
+
+$options = [];
+$options['role'] = 'STAFF';
+$options['client_id'] = 'QUIPU';
+
+$response = $ilsws->register_patron($patron, $token, $addr_num, $options);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

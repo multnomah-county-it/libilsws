@@ -31,9 +31,11 @@ they valididate all inputs and will throw exceptions
 if presented with inappropriate inputs.
 
 - authenticate_patron($token, $patron_id, $password)
-- change_barcode($token, $patron_key, $patron_id)
+- change_barcode($token, $patron_key, $patron_id, $options)<br>
+  Options array may include: role, client_id
 - change_item_library($token, $item_key, $library)
-- change_patron_password($token, $json)
+- change_patron_password($token, $json, $options)<br>
+  Options array may include: role, client_id
 - delete_patron($token, $patron_key)
 - describe_bib($token) 
 - describe_item($token) 
@@ -68,13 +70,18 @@ or evaluating data from the Symphony system.
 - get_patron_checkouts($token, $patron_key, $include_fields)
 - get_patron_indexes($token)
 - prepare_search($terms)
-- register_patron($patron, $token, $addr_num, $role, $client_id, $template, $subject)
-- reset_patron_password($token, $patron_id, $url, $email, $role, $client_id)
+- register_patron($patron, $token, $addr_num, $options)<br>
+  Options array may include: role, client_id, template, subject
+- reset_patron_password($token, $patron_id, $url, $email)<br>
+  Optional: email
 - search_authenticate($token, $index, $search, $password)
-- search_bib($token, $index, $value, $params)
+- search_bib($token, $index, $value, $params)<br>
+  Params array may include: q, ct, rw, j, includeFields
 - update_patron($patron, $token, $patron_key, $addr_num) 
-- update_patron_activeid($token, $patron_key, $patron_id, $option)
-- update_phone_list($phone_list, $token, $patron_key)
+- update_patron_activeid($token, $patron_key, $patron_id, $option)<br>
+  Option may be: a, i, d
+- update_phone_list($phone_list, $token, $patron_key, $options)<br>
+  Options array may include: role, client_id
 
 ## Date and Telephone Number Formats
 For the convenience of developers, the code library accepts
@@ -134,7 +141,12 @@ $response = $ilsws->get_patron_attributes($token, $patron_key);
 ```
 /**
  * The order of the fields doesn't matter. Not all of these are actually required. 
- * See the YAML configuration file to determine which fields are required.
+ * See the YAML configuration file to determine which fields are required. If an
+ * email template name is included in the options array, an email will be sent to the 
+ * patron. Actual template files must include a language extension (for example .en for
+ * English. The system will look for template that matches the patrons language
+ * preference. If one is found, it will use that, otherwise it will attempt to
+ * find and use an English template.
  */
 $patron = [
     'birthDate' => '1962-03-07',
@@ -165,10 +177,14 @@ $patron = [
     ];
 
 $addr_num = 1;
-$role = 'STAFF';
-$client_id = 'StaffClient';
 
-$response = $ilsws->register_patron($patron, $token, $addr_num, $role, $client_id, $template);
+$options = [];
+$options['role'] = 'STAFF';
+$options['client_id'] = 'StaffClient';
+$options['template'] = 'template.html.twig';
+$options['subject'] = 'Welcome to the library!';
+
+$response = $ilsws->register_patron($patron, $token, $addr_num, $options);
 ```
 
 ### Update Patron Record

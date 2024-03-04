@@ -28,7 +28,6 @@ $patron = [
     'pin' => 'Waffles125',
     'postal_code' => '97209',
     'profile' => 'ONLINE',
-    'patron_id' => '99999999998',
     'street' => '925 NW Hoyt St Apt 406',
     'telephone' => '215-534-6821',
     'sms_phone' => [
@@ -43,11 +42,14 @@ $patron = [
     ];
 
 $addr_num = 1;
-$template = 'registration_email.html.twig';
-$role = 'STAFF';      // Used in the SD-Preferred-Role HTTP header
-$client_id = 'QUIPU'; // Used in the x-sirs-clientID HTTP header
 
-$response = $ilsws->register_patron($patron, $token, $addr_num, $role, $client_id, $template, 'Waffles are good');
+$options = [];
+$options['template'] = 'registration_email.html.twig';
+$options['role'] = 'STAFF';      // Used in the SD-Preferred-Role HTTP header
+$options['client_id'] = 'QUIPU'; // Used in the x-sirs-clientID HTTP header
+$options['subject'] = 'Welcome to our library!';
+
+$response = $ilsws->register_patron($patron, $token, $addr_num, $options);
 print json_encode($response, JSON_PRETTY_PRINT) . "\n";
 
 // EOF

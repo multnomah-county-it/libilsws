@@ -16,10 +16,6 @@ namespace Libilsws;
 
 class DataHandler
 {
-
-    // Set to 1 for dubugging messages
-    private $debug = 0;
-
     /**
      * Validates various types of incoming field data
      * Sample fields hash with validation rules:
@@ -67,7 +63,7 @@ class DataHandler
         switch ($type) {
             case "b":
                 // Value must be undefined
-                if ( ! defined($value) ) {
+                if ( !defined($value) ) {
                     $retval = 1;
                 }
                 break;
@@ -85,14 +81,16 @@ class DataHandler
                 break;
             case "i":
                 // Must be an integer of length specified
-                list($min_range, $max_range) = preg_split('/,/', $param);
-                if ( filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => $min_range, 'max_range' => $max_range]]) ) {
-                    $retval = 1;
+                if ( preg_match('/^-?\d+$/', $value) ) {
+                    list($min_range, $max_range) = preg_split('/,/', $param);
+                    if ( filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => $min_range, 'max_range' => $max_range]]) ) {
+                        $retval = 1;
+                    }
                 }
                 break;
             case "j":
                 // Must be valid JSON
-                if ( ! empty($value) ) {
+                if ( !empty($value) ) {
                     json_decode($value);
                     if ( json_last_error() == JSON_ERROR_NONE ) {
                         $retval = 1;
@@ -129,7 +127,7 @@ class DataHandler
                 break;
             case "s":
                 // Check string for length
-                if ( ! defined($value) || strlen($value) <= $param ) {
+                if ( !defined($value) || strlen($value) <= $param ) {
                     $retval = 1;
                 }
                 break;

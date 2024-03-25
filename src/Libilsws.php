@@ -32,41 +32,37 @@ class APIException extends Exception
 {
 
     // Handles API errors that should be logged
-    public function errorMessage ($error = "", $code = 0) 
+    public function errorMessage ($error = '', $code = 0) 
     {
         $message = '';
-
-        switch ($code) {
-            case 400:
-                $message .= "HTTP $code: Bad Request";
-                break;
-            case 401:
-                $message .= "HTTP $code: Unauthorized";
-                break;
-            case 403:
-                $message .= "HTTP $code: Forbidden";
-                break;
-            case 404:
-                $message .= "HTTP $code: Not Found";
-                break;
-            case 500:
-                $message .= "HTTP $code: Internal Server Error";
-                break;
-        }
-
         $err_message = json_decode($error, true);
         if ( json_last_error() === JSON_ERROR_NONE ) {
             if ( !empty($err_message['messageList'][0]['message']) ) {
                 $error = $err_message['messageList'][0]['message'];
-                $message .= ": $error";
             }
         }
 
-        if ( !$message ) {
-            $message = "HTTP $code: $error";
+        switch ($code) {
+            case 400:
+                $message = "HTTP $code: Bad Request";
+                break;
+            case 401:
+                $message = "HTTP $code: Unauthorized";
+                break;
+            case 403:
+                $message = "HTTP $code: Forbidden";
+                break;
+            case 404:
+                $message = "HTTP $code: Not Found";
+                break;
+            case (preg_match('/^5\d\d$/', $code) ? true : false):
+                $message = "HTTP $code: SirsiDynix Web Services unavailable";
+                break;
+            default:
+                $message = "HTTP $code: $error";
         }
 
-       return $message;
+        return $message;
     }
 }
 

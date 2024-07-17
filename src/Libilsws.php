@@ -40,6 +40,8 @@ class APIException extends Exception
             if ( !empty($err_message['messageList'][0]['message']) ) {
                 $error = $err_message['messageList'][0]['message'];
             }
+        } else {
+            $error = "HTML error";
         }
 
         switch ($code) {

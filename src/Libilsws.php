@@ -2703,9 +2703,14 @@ class Libilsws
             // TCP port to connect to. Use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
             $mail->Port = $this->config['smtp']['smtp_port'];
 
-            //Recipients
+            // Set from address
             $mail->setFrom($from, $this->config['smtp']['smtp_fromname']);
-            $mail->addAddress($to);                                   //Name is optional
+
+            // Set recipients
+            $addresses = preg_split('/,/', $to);
+            foreach ( $addresses as $address ) {
+                 $mail->addAddress(trim($address));                                   //Name is optional
+            }
 
             // Reply-to
             if ( !empty($this->config['smtp']['smtp_replyto']) ) {

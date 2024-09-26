@@ -2616,7 +2616,7 @@ class Libilsws
         $response = $this->send_query($this->base_url . "/user/patron/key/$patron_key", $token, $json, 'PUT', $options);
 
         if ( $this->config['debug']['update'] ) {
-            print_r($response);
+            error_log('DEBUG_UPDATE ' . json_encode($response, JSON_PRETTY_PRINT), 0);
         }
 
         $return_code = 0;

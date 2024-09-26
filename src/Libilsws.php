@@ -2614,7 +2614,10 @@ class Libilsws
 
         $json = json_encode($new, JSON_PRETTY_PRINT);
         $response = $this->send_query($this->base_url . "/user/patron/key/$patron_key", $token, $json, 'PUT', $options);
-        print_r($response);
+
+        if ( $this->config['debug']['update'] ) {
+            print_r($response);
+        }
 
         $return_code = 0;
         if ( !empty($response['key']) && $response['key'] === $patron_key ) {

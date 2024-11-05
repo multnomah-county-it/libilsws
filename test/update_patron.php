@@ -20,24 +20,24 @@ $token = $ilsws->connect();
  * which fields are required.
  */
 $patron = [
-    'patron_id' => 'HOUSJOALAM12346',
+    'patron_id' => '21168045918653',
     'birthDate' => '1962-03-07',
-    'city_state' => 'Portland, OR',
+    'city_state' => 'Astoria, OR',
     'county' => '0_MULT',
     'email' => 'johnchouser@gmail.com',
-    'firstName' => 'Bogus',
+    'firstName' => 'John',
     'friends_notices' => 'YES',
     'home_library' => 'CEN',
-    'language' => 'SPANISH',
-    'lastName' => 'Bogart',
+    'language' => 'ENGLISH',
+    'lastName' => 'Houser',
     'library_news' => 'YES',
-    'middleName' => 'T',
-    'notice_type' => 'PHONE',
+    'middleName' => 'C',
+    'notice_type' => 'EMAIL',
     'postal_code' => '97209',
-    'street' => '925 NW Hoyt St Apt 401',
-    'telephone' => '215-534-6821',
+    'street' => '225 Alameda Ave Apt 2',
+    'telephone' => 'a123',
     'sms_phone' => [
-        'number' => '215-534-6821',
+        'number' => 'abc',
         'countryCode' => 'US',
         'bills'       => true,
         'general'     => true,
@@ -48,6 +48,10 @@ $patron = [
     ];
 
 $addr_num = 1;
+
+$options = [];
+$options['role'] = 'PATRON';
+$options['client_id'] = 'SymWSTestClient';
 
 $response = $ilsws->update_patron($patron, $token, $patron_key, $addr_num);
 print_r($response);

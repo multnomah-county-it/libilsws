@@ -1202,14 +1202,23 @@ class Libilsws
      * Removes URLs from the trailing end of a string
      *
      * @param  string $string String to be modifed
-     * @return string $string Modifed string
+     * @return string $string Modified string
      */ 
 
     private function remove_url ($string)
     {
-        $string = preg_replace('#^(.*)(http)(s*)(:\/\/)(.*)$#', '$1', $string);
+        $string = trim($string);
+ 
+        $words = preg_split("/[\s]+/", $string);
+        $new = [];
 
-        return trim($string);
+        foreach ($words as $word) {
+            if ( !preg_match("#^(http)(s{0,1})(:\/\/)(.*)$#", $word) ) {
+                array_push($new, $word);
+            }
+        }
+
+        return implode(' ', $new);
     }
 
     /**

@@ -187,28 +187,26 @@ class Libilsws
      */
     public function connect ()
     {
-
-        $action = "rest/security/loginUser";
-        $params = 'client_id=' 
-            . $this->config['ilsws']['client_id'] 
-            . '&login=' 
-            . $this->config['ilsws']['username'] 
-            . '&password=' 
-            . $this->config['ilsws']['password'];
+        $url = $this->base_url . '/user/staff/login';
+        $query_json = '{"login":"' . $this->config['ilsws']['username'] . '","password":"' . $this->config['ilsws']['password'] . '"}';
+        $req_num = rand(1, 1000000000);
 
         $headers = [
             'Content-Type: application/json',
             'Accept: application/json',
+            "SD-Response-Tracker: $req_num",
             'SD-Originating-App-ID: ' . $this->config['ilsws']['app_id'],
             'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
             ];
 
         $options = [
-            CURLOPT_URL              => "$this->base_url/$action?$params",
+            CURLOPT_URL              => $url,
+            CURLOPT_CUSTOMREQUEST    => 'POST',
             CURLOPT_RETURNTRANSFER   => true,
             CURLOPT_SSL_VERIFYSTATUS => true,
             CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
             CURLOPT_HTTPHEADER       => $headers,
+            CURLOPT_POSTFIELDS       => $query_json,
             ];
 
         try {

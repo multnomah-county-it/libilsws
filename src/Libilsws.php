@@ -113,6 +113,20 @@ class Libilsws
             . $this->config['ilsws']['webapp'];
     }
 
+    private function handle_exception($message = '')
+    {
+        if ( php_sapi_name() === 'cli' || PHP_SAPI === 'cli') {
+
+            // Running in CLI mode: print to STDERR
+            fwrite(STDERR, "Error: " . $message . PHP_EOL);
+
+        } else {
+
+            // Running in web mode: log the error
+            error_log($message);
+        }
+    }
+
     /**
      * Validate call or item input fields using the API describe function
      * 
@@ -234,7 +248,7 @@ class Libilsws
 
         } catch (APIException $e) {
 
-            echo $e->errorMessage($this->error, $this->code), "\n";
+            $this->handle_exception($e->errorMessage($this->error, $this->code));
         } 
 
         return $token;
@@ -320,7 +334,7 @@ class Libilsws
 
         } catch (APIException $e) {
 
-            echo $e->errorMessage($this->error, $this->code), "\n";
+            $this->handle_exception($e->errorMessage($this->error, $this->code));
         } 
 
         return json_decode($json, true);
@@ -413,7 +427,7 @@ class Libilsws
 
         } catch (APIException $e) {
 
-            echo $e->errorMessage($this->error, $this->code), "\n";
+            $this->handle_exception($e->errorMessage($this->error, $this->code));
         }
         
         return json_decode($json, true);

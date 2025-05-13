@@ -484,7 +484,6 @@ class Libilsws
         $item_list = [];
 
         foreach ($call['fields'] as $field => $value) {
-
             if ( !is_array($value) ) {
                 $item_list[$field] = $value;
             } elseif ( !empty($call['fields'][$field]['key']) ) {
@@ -525,6 +524,10 @@ class Libilsws
                     if ( !empty($record['fields']['holdRecordList'][$i]['key']) ) {
                         $item['holdRecordList'][$i] = $this->get_hold($token, $record['fields']['holdRecordList'][$i]['key']);
                     }
+                }
+            } elseif ( $key === 'call' ) {
+                foreach ($this->flatten_call($token, $record['fields']['call']) as $key => $value) {
+                    $item[$key] = $value;
                 }
             } elseif ( $key === 'price' ) {
                 $item['price'] = $record['fields']['price']['currencyCode'] 

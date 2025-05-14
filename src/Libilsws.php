@@ -141,10 +141,21 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('type', $type, 'v:item|call');
 
+        if ($type == 'item' && preg_match('/call{.*}/', $field_list)) {
+            $calls = preg_replace('/^(.*)(call{.*})(.*)$/', "$2", $field_list);
+            $this->validate_fields($token, 'call', $calls);
+            $field_list = preg_replace('/^(.*)(call{.*})(.*)$/', "$1,$3", $field_list);
+            $field_list = preg_replace('/,{2}/', ',', $field_list);
+        }
+
         if ( $field_list != '*' ) {
 
             // Convert the input fields to an array
+            $inner_fields = preg_replace('/^(.*){(.*)}(.*)$/', "$2", $field_list);
+            $field_list = preg_replace('/^(.*){(.*)}(.*)$/', "$1$3", $field_list);
+            $field_list .= ",$inner_fields";
             $input_fields = preg_split('/[,{}]+/', $field_list, -1, PREG_SPLIT_NO_EMPTY);
+            $input_fields = array_unique($input_fields, SORT_STRING);
 
             // Get the fields described by the API
             $fields = [];
@@ -484,7 +495,6 @@ class Libilsws
         $item_list = [];
 
         foreach ($call['fields'] as $field => $value) {
-
             if ( !is_array($value) ) {
                 $item_list[$field] = $value;
             } elseif ( !empty($call['fields'][$field]['key']) ) {
@@ -525,6 +535,10 @@ class Libilsws
                     if ( !empty($record['fields']['holdRecordList'][$i]['key']) ) {
                         $item['holdRecordList'][$i] = $this->get_hold($token, $record['fields']['holdRecordList'][$i]['key']);
                     }
+                }
+            } elseif ( $key === 'call' ) {
+                foreach ($this->flatten_call($token, $record['fields']['call']) as $key => $value) {
+                    $item[$key] = $value;
                 }
             } elseif ( $key === 'price' ) {
                 $item['price'] = $record['fields']['price']['currencyCode'] 

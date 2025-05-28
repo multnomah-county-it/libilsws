@@ -274,7 +274,7 @@ class Libilsws
      * @return object $response Associative array containing response from ILSWS
      */
 
-    public function send_get ($url = null, $token = null, $params = null) 
+    public function send_get ($url = null, $token = null, $params = []) 
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('url', $url, 'u');
@@ -1731,7 +1731,7 @@ class Libilsws
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
-        return $this->send_get("$this->base_url/user/patron/describe", $token, []);
+        return $this->send_get("$this->base_url/user/patron/describe", $token);
     }
 
     /** 
@@ -2413,7 +2413,7 @@ class Libilsws
      * @return object        Associative array containing result
      */
 
-    public function update_patron ($patron, $token = null, $patron_key = null, $addr_num = null) 
+    public function update_patron ($patron, $token = null, $patron_key = null, $addr_num = 1) 
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
@@ -2437,7 +2437,7 @@ class Libilsws
         if ( $this->config['debug']['update'] ) {
             error_log("DEBUG_UPDATE $json", 0);
         }
-        
+
         $response = $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
 
         if ( !empty($patron['phoneList']) ) {
@@ -2532,11 +2532,8 @@ class Libilsws
             $patron['key'] = $patron_key;
             $patron['fields']['customInformation'] = $custom;
  
-            // Encode the %patron data structure as JSON
-            $json_str = json_encode($patron);
-
             // Update the patron
-            $res = $this->update_patron($token, $json_str, $patron_key);
+            $res = $this->update_patron($patron, $token, $patron_key);
  
             if ( $res ) {
                 $retval = 1;
@@ -2660,6 +2657,194 @@ class Libilsws
         }
 
         return $return_code;
+    }
+
+    /**
+     * Get patron custom information
+     *
+     * @param integer $patron_key Patron key
+     * @return string $custom     Associative array of custom keys and values
+     */
+
+    public function get_patron_custom_info ($token = null, $patron_key = null)
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        
+        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, ['includeFields' => 'customInformation{*}']);
+
+        $custom = [];
+        if ( !empty($response['fields']['customInformation']) ) {
+            $custom = $response['fields']['customInformation'];
+        }
+
+        return $custom;
+    }
+
+    /**
+     * Set all matching custom info array to a value (be careful!)
+     * 
+     * @param  string  $token      The session token returned by ILSWS
+     * @param  integer $patron_key The Symphony patron key
+     * @param  string  $key        Key of the array entry we want to modify
+     * @param  string  $value      Value to put into the data field
+     * @return integer $ret_val    1 for success, 0 for failure
+     */ 
+
+    public function mod_patron_custom_info ($token = null, $patron_key = null, $key = null, $value = null)
+    {
+        $ret_val = 0;
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('key', $key, 's:255');
+        $this->validate('value', $value, 's:255');
+
+        $custom = $this->get_patron_custom_info($token, $patron_key);
+
+        $found = 0;
+        $new = [];
+        foreach ( $custom as $r ) {
+            if ( $r['fields']['code']['key'] == $key ) {
+                $r['fields']['data'] = $value;
+                $found = 1;
+            }
+            array_push($new, $r);
+        }
+      
+        $patron = []; 
+        if ( $found ) {
+            $patron['resource'] = '/user/patron';
+            $patron['key'] = $patron_key;
+            $patron['fields']['customInformation'] = $new;
+
+            // Update the patron
+            $json_str = json_encode($patron, 6);
+            $response = $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json_str, 'PUT');
+        }
+
+        if ( $response['key'] == $patron_key ) {
+            $ret_val = 1;
+        }
+
+        return $ret_val;
+    }
+
+    /**
+     * Add a custom information to the patron record
+     *
+     * @param  string  $token      The session token returned by ILSWS
+     * @param  integer $patron_key The Symphony patron key
+     * @param  string  $key        Key of the array entry we want to modify
+     * @param  string  $value      Value to put into the data field
+     * @return integer $ret_val    1 for success, 0 for failure
+     */
+
+    public function add_patron_custom_info ($token = null, $patron_key = null, $key = null, $value = null)
+    {
+        $ret_val = 0;
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('key', $key, 's:255');
+        $this->validate('value', $value, 's:255');
+
+        $custom = $this->get_patron_custom_info($token, $patron_key);
+
+        if ( !empty($custom) ) {
+            foreach ( $custom as $r ) {
+                if ( $r['fields']['data'] == $value ) {
+
+                    // The value already exists, so return for success
+                    return 1;
+                }
+            }
+        }
+
+        // Get the maximum index key value
+        $i = 1;
+        if ( !empty($custom) ) {
+            foreach ( $custom as $r ) {
+                if ( $r['key'] > $i ) {
+                    $i = $r['key'];
+                }
+            }
+        }
+        $i++;
+            
+        $new = [];
+        $new = [
+            'resource' => '/user/patron/customInformation',
+            'key' => $i,
+            'fields' => [
+                'code' => [
+                    'resource' => '/policy/patronExtendedInformation',
+                    'key' => "$key"
+                ],
+                'data' => $value
+            ]
+        ];
+
+        array_push($custom, $new);
+
+        $patron = []; 
+        $patron['resource'] = '/user/patron';
+        $patron['key'] = $patron_key;
+        $patron['fields']['customInformation'] = $custom;
+
+        // Update the patron
+        $json_str = json_encode($patron, 6);
+        $response = $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json_str, 'PUT');
+
+        if ( $response['key'] == $patron_key ) {
+            $ret_val = 1;
+        }
+
+        return $ret_val;
+    }
+        
+    /**
+     * Delete custom information from the patron record. Be careful this will delete all matching keys.
+     *
+     * @param  string  $token      The session token returned by ILSWS
+     * @param  integer $patron_key The Symphony patron key
+     * @param  string  $key        Key of the array entry we want to delete
+     * @return integer $ret_val    1 for success, 0 for failure
+     */
+
+    public function del_patron_custom_info ($token = null, $patron_key = null, $key = null)
+    {
+        $ret_val = 0;
+
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('key', $key, 's:255');
+
+        $custom = $this->get_patron_custom_info($token, $patron_key);
+
+        $new = [];
+        if ( !empty($custom) ) {
+            foreach ( $custom as $r ) {
+                if ( $r['fields']['code']['key'] != $key ) {
+                    array_push($new, $r);
+                }
+            }
+        }
+
+        $patron = []; 
+        $patron['resource'] = '/user/patron';
+        $patron['key'] = $patron_key;
+        $patron['fields']['customInformation'] = $new;
+
+        // Update the patron
+        $json_str = json_encode($patron, 6);
+        $response = $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json_str, 'PUT');
+
+        if ( $response['key'] == $patron_key ) {
+            $ret_val = 1;
+        }
+
+        return $ret_val;
     }
 
     /**

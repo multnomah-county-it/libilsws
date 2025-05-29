@@ -17,6 +17,15 @@ $token = $ilsws->connect();
 
 // Describe call record
 $response = $ilsws->get_patron_custom_info($token, $key);
-print json_encode($response, JSON_PRETTY_PRINT) . "\n";
+
+if ( count($response) ) {
+    foreach ($response as $rec) {
+        $code = $rec['fields']['code']['key'];
+        $data = $rec['fields']['data'];
+        print "$code: $data\n";
+    }
+} else {
+    print "Nothing found\n";
+}
 
 // EOF

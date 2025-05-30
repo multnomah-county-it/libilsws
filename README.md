@@ -54,8 +54,10 @@ These functions offer functionality not directly supported by
 ILSWS by performing multiple queries or by combining, manipulating
 or evaluating data from the Symphony system.
 
+- add_patron_custom_info($token, $patron_key, $key, $data)
 - authenticate_patron_id($token, $patron_id, $password)
 - check_duplicate($token, $index1, $search1, $index2, $search2)
+- del_patron_custom_info($token, $patron_key, $key)
 - email_template($patron, $to, $from, $subject, $template)
 - get_bib($token, $bib_key, $field_list)
 - get_bib_circ_info($token, $bib_key)
@@ -68,7 +70,9 @@ or evaluating data from the Symphony system.
 - get_library_paging_list($token, $library_key)
 - get_patron_attributes($token, $patron_key)
 - get_patron_checkouts($token, $patron_key, $include_fields)
+- get_patron_custom_info($token, $patron_key, $key, $data)
 - get_patron_indexes($token)
+- mod_patron_custom_info($token, $patron_key, $key, $data)
 - prepare_search($terms)
 - register_patron($patron, $token, $addr_num, $options)<br>
   Options array may include: role, client_id, template, subject

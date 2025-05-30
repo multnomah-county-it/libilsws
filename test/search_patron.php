@@ -26,7 +26,7 @@ $params = [
     'ct'            => '50',
     'rw'            => '1',
     'j'             => 'AND',
-    'includeFields' => 'key,firstName,middleName,lastName,language,profile,category01,category02,category03,category05,category06,category11,address1{*},phoneList{*}',
+    'includeFields' => 'key,firstName,middleName,lastName,language,profile,category01,category02,category03,category05,category06,category11,address1{*},phoneList{*},customInformation{*}',
     ];
 $response = $ilsws->search_patron($token, $index, $search, $params);
 $json = json_encode($response, JSON_PRETTY_PRINT);

@@ -1089,7 +1089,7 @@ class Libilsws
     public function get_patron_checkouts ($token = null, $patron_key = null, $include_fields = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
 
         if (!$include_fields) {
             $include_fields = 'item,library';
@@ -1308,7 +1308,7 @@ class Libilsws
         $json = '';
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
 
         $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'DELETE');
         if ( $this->code == 204 ) {
@@ -1626,7 +1626,7 @@ class Libilsws
     public function get_patron_attributes ($token = null, $patron_key = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
         
         $attributes = [];
 
@@ -1971,7 +1971,7 @@ class Libilsws
     private function create_update_json ($patron, $token = null, $patron_key = null, $addr_num = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
         $this->validate('addr_num', $addr_num, 'i:1,3');
 
         // Go get field descriptions if they aren't already available
@@ -2155,7 +2155,7 @@ class Libilsws
         $telephone = preg_replace('/\D/', '', $params['number']);
 
         // Validate everthing!
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
         $this->validate('telephone', $telephone, 'i:1000000000,9999999999');
         $this->validate('countryCode', $params['countryCode'], 'r:/^[A-Z]{2}$/');
         $this->validate('bills', $params['bills'], 'o');
@@ -2471,7 +2471,7 @@ class Libilsws
     public function update_patron_activeid ($token = null, $patron_key = null, $patron_id = null, $option = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
         $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
         $this->validate('option', $option, 'v:a|i|d');
 
@@ -2605,7 +2605,7 @@ class Libilsws
     public function change_barcode ($token = null, $patron_key = null, $patron_id = null, $options = [])
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
         $this->validate('patron_id', $patron_id, 'r:#^[0-9A-Z]{6,20}$#');
 
         $new = [];
@@ -2636,7 +2636,7 @@ class Libilsws
     public function update_phone_list ($phone_list, $token = null, $patron_key = null, $options = [])
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
 
         $new = [];
         $new['resource'] = '/user/patron';
@@ -2669,7 +2669,7 @@ class Libilsws
     public function get_patron_custom_info ($token = null, $patron_key = null)
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
         
         $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, ['includeFields' => 'customInformation{*}']);
 
@@ -2696,7 +2696,7 @@ class Libilsws
         $ret_val = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
         $this->validate('key', $key, 's:255');
         $this->validate('value', $value, 's:255');
 
@@ -2745,7 +2745,7 @@ class Libilsws
         $ret_val = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
         $this->validate('key', $key, 's:255');
         $this->validate('value', $value, 's:255');
 
@@ -2817,7 +2817,7 @@ class Libilsws
         $ret_val = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^d{1,6}$#');
+        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
         $this->validate('key', $key, 's:255');
 
         $custom = $this->get_patron_custom_info($token, $patron_key);

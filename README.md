@@ -108,7 +108,7 @@ numbers.
 ## Examples
 
 ### Initialize and Connect to ILSWS
-```php
+```
 require_once 'vendor/autoload.php';
 
 // Initialize and load configuration from YAML configuration file
@@ -118,7 +118,7 @@ $ilsws = new Libilsws\Libilsws('./libilsws.yaml');
 $token = $ilsws->connect();
 
 ### Search for a Patron
-```
+
 /** 
  * Valid incoming params are: 
  * ct            = number of results to return,

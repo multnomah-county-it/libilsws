@@ -23,7 +23,8 @@ $token = $ilsws->connect();
 // Remove unwanted characters from search string
 $search = $ilsws->prepareSearch($search);
 
-echo "{$search}\n";
+// Search terms after preparation
+echo "Search: {$search}\n";
 
 /**
  * Search for a patron. If the $params array is empty or any item is omitted,

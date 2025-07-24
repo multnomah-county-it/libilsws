@@ -281,7 +281,7 @@ class Libilsws
                 throw new APIException($this->error);
             }
 
-            $response = json_decode((string) $json, true, 10, JSON_OBJECT_AS_ARRAY);
+            $response = json_decode((string) $json, true);
             $token = $response['sessionToken'];
 
             curl_close($ch);
@@ -373,7 +373,7 @@ class Libilsws
             $this->handleException($e->errorMessage($this->error, $this->code));
         }
 
-        return json_decode((string) $json, true, 10, JSON_OBJECT_AS_ARRAY);
+        return json_decode((string) $json, true);
     }
 
     /**
@@ -469,7 +469,7 @@ class Libilsws
             $this->handleException($e->errorMessage($this->error, $this->code));
         }
 
-        return json_decode((string) $json, true, 10, JSON_OBJECT_AS_ARRAY);
+        return json_decode((string) $json, true);
     }
 
     /**

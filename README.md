@@ -116,9 +116,9 @@ $ilsws = new Libilsws\Libilsws('./libilsws.yaml');
 
 // Connect to ILSWS with configuration loaded from YAML file
 $token = $ilsws->connect();
-
+```
 ### Search for a Patron
-
+```
 /** 
  * Valid incoming params are: 
  * ct            = number of results to return,

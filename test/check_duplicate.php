@@ -5,7 +5,7 @@ require_once 'vendor/autoload.php';
 use Libilsws\Libilsws;
 
 if (count($argv) < 5) { 
-    echo "Syntax: php {$argv[0]} INDEX SEARCH INDEX2 SEARCH2\n";
+    echo "Syntax: php {$argv[0]} INDEX SEARCH INDEX2 SEARCH2 PARAM5\n";
     exit;
 }
 

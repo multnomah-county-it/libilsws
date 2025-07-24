@@ -19,5 +19,5 @@ $token = $ilsws->connect();
 
 // Describe call record
 // $response = $ilsws->sendGet("{$ilsws->baseUrl}/symws/user/patron/key/{$key}?includeFields=*,blockList{*},circRecordList{*}", $token, []);
-$response = $ilsws->getPatronCheckouts($token, (int) $key);
+$response = $ilsws->getPatronCheckouts($token, $key);
 print_r($response);

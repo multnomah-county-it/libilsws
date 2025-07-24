@@ -57,7 +57,7 @@ if (isset($response['totalResults']) && $response['totalResults'] >= 1) {
             $confirm = readline('Do want to delete this patron (y/N)? ');
 
             if (preg_match('/^[Yy]$/', $confirm)) {
-                if ($ilsws->deletePatron($token, (string) $patron['key'])) {
+                if ($ilsws->deletePatron($token, $patron['key'])) {
                     echo "Patron successfully deleted\n\n";
                 } else {
                     echo "Error deleting patron\n\n";

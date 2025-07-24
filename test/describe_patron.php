@@ -9,7 +9,5 @@ $ilsws = new Libilsws\Libilsws("./libilsws.yaml");
 $token = $ilsws->connect();
 
 // Describe patron register function
-$response = $ilsws->describe_patron($token);
-print json_encode($response, JSON_PRETTY_PRINT) . "\n";
-
-// EOF
+$response = $ilsws->describePatron($token);
+print_r($response);

@@ -5,6 +5,7 @@ PHP package to support use of the SirsiDynix Symphony Web Services API (ILSWS) f
 John Houser
 john.houser@multco.us
 
+---
 # Design Goals
 - Validate all inputs to public functions
 - Produce clean, clear error messages
@@ -15,82 +16,86 @@ john.houser@multco.us
 - Support patron registrations or updates of any valid Symphony patron field without code changes
 - Allow easy adaptation by other libraries
 
+---
 # Public Functions
 
-## Low-level 
+## Low-level
 These functions can be used with any valid ILSWS access point. They will
 throw exceptions on error.
 
-- connect ()
-- send_get($url, $token, $params) 
-- send_query($url, $token, $query_json, $query_type)
+- `connect()`
+- `sendGet($url, $token, $params)`
+- `sendQuery($url, $token, $queryJson, $queryType)`
 
+---
 ## Convenience Functions
 These functions correspond with ILSWS access points, but
-they valididate all inputs and will throw exceptions
+they validate all inputs and will throw exceptions
 if presented with inappropriate inputs.
 
-- authenticate_patron($token, $patron_id, $password)
-- change_barcode($token, $patron_key, $patron_id, $options)<br>
-  Options array may include: role, client_id
-- change_item_library($token, $item_key, $library)
-- change_patron_password($token, $json, $options)<br>
-  Options array may include: role, client_id
-- delete_patron($token, $patron_key)
-- describe_bib($token) 
-- describe_item($token) 
-- describe_patron($token) 
-- get_expiration($days)
-- get_policy($token, $policy_key)
-- search_patron($token, $index, $search, $params)
-- search_patron_alt_id($token, $alt_id, $count)
-- search_patron_id($token, $patron_id, $count) 
-- transit_item($token, $item_key, $new_library, $working_library)
-- untransit_item($token, $item_id)
-- update_patron_activity($token, $patron_id)
+- `authenticatePatron($token, $patronId, $password)`
+- `changeBarcode($token, $patronKey, $patronId, $options)`<br>
+  Options array may include: `role`, `clientId`
+- `changeItemLibrary($token, $itemKey, $library)`
+- `changePatronPassword($token, $json, $options)`<br>
+  Options array may include: `role`, `clientId`
+- `deletePatron($token, $patronKey)`
+- `describeBib($token)`
+- `describeItem($token)`
+- `describePatron($token)`
+- `getExpiration($days)`
+- `getPolicy($token, $policyKey)`
+- `searchPatron($token, $index, $search, $params)`
+- `searchPatronAltId($token, $altId, $count)`
+- `searchPatronId($token, $patronId, $count)`
+- `transitItem($token, $itemKey, $newLibrary, $workingLibrary)`
+- `untransitItem($token, $itemId)`
+- `updatePatronActivity($token, $patronId)`
 
+---
 ## High-level
 These functions offer functionality not directly supported by
 ILSWS by performing multiple queries or by combining, manipulating
 or evaluating data from the Symphony system.
 
-- add_patron_custom_info($token, $patron_key, $key, $data)
-- authenticate_patron_id($token, $patron_id, $password)
-- check_duplicate($token, $index1, $search1, $index2, $search2)
-- del_patron_custom_info($token, $patron_key, $key)
-- email_template($patron, $to, $from, $subject, $template)
-- get_bib($token, $bib_key, $field_list)
-- get_bib_circ_info($token, $bib_key)
-- get_bib_marc($token, $bib_key)
-- get_call_number($token, $call_key, $field_list)
-- get_catalog_indexes($token)
-- get_hold($token, $hold_key)
-- get_item($token, $item_key, $field_list)
-- get_item_circ_info($token, $item_key)
-- get_library_paging_list($token, $library_key)
-- get_patron_attributes($token, $patron_key)
-- get_patron_checkouts($token, $patron_key, $include_fields)
-- get_patron_custom_info($token, $patron_key, $key, $data)
-- get_patron_indexes($token)
-- mod_patron_custom_info($token, $patron_key, $key, $data)
-- prepare_search($terms)
-- register_patron($patron, $token, $addr_num, $options)<br>
-  Options array may include: role, client_id, template, subject
-- reset_patron_password($token, $patron_id, $url, $email)<br>
-  Optional: email
-- search_authenticate($token, $index, $search, $password)
-- search_bib($token, $index, $value, $params)<br>
-  Params array may include: q, ct, rw, j, includeFields
-- update_patron($patron, $token, $patron_key, $addr_num) 
-- update_patron_activeid($token, $patron_key, $patron_id, $option)<br>
-  Option may be: a, i, d
-- update_phone_list($phone_list, $token, $patron_key, $options)<br>
-  Options array may include: role, client_id
+- `addPatronCustomInfo($token, $patronKey, $key, $data)`
+- `authenticatePatronId($token, $patronId, $password)`
+- `checkDuplicate($token, $index1, $search1, $index2, $search2)`
+- `delPatronCustomInfo($token, $patronKey, $key)`
+- `emailTemplate($patron, $to, $from, $subject, $template)`
+- `getBib($token, $bibKey, $fieldList)`
+- `getBibCircInfo($token, $bibKey)`
+- `getBibMarc($token, $bibKey)`
+- `getCallNumber($token, $callKey, $fieldList)`
+- `getCatalogIndexes($token)`
+- `getHold($token, $holdKey)`
+- `getItem($token, $itemKey, $fieldList)`
+- `getItemCircInfo($token, $itemKey)`
+- `getLibraryPagingList($token, $libraryKey)`
+- `getPatronAttributes($token, $patronKey)`
+- `getPatronCheckouts($token, $patronKey, $includeFields)`
+- `getPatronCustomInfo($token, $patronKey, $key, $data)`
+- `getPatronIndexes($token)`
+- `modPatronCustomInfo($token, $patronKey, $key, $data)`
+- `prepareSearch($terms)`
+- `registerPatron($patron, $token, $addrNum, $options)`<br>
+  Options array may include: `role`, `clientId`, `template`, `subject`
+- `resetPatronPassword($token, $patronId, $url, $email)`<br>
+  Optional: `email`
+- `searchAuthenticate($token, $index, $search, $password)`
+- `searchBib($token, $index, $value, $params)`<br>
+  Params array may include: `q`, `ct`, `rw`, `j`, `includeFields`
+- `updatePatron($patron, $token, $patronKey, $addrNum)`
+- `updatePatronActiveId($token, $patronKey, $patronId, $option)`<br>
+  Option may be: `a`, `i`, `d`
+- `updatePhoneList($phoneList, $token, $patronKey, $options)`<br>
+  Options array may include: `role`, `clientId`
 
+---
 ## Date and Telephone Number Formats
 For the convenience of developers, the code library accepts
 dates in the following formats, wherever a date is accepted as a
-parameter: YYYYMMDD, YYYY-MM-DD, YYYY/MM/DD, MM-DD-YYYY, or 
+parameter: YYYYMMDD, YYYY-MM-DD, YYYY/MM/DD, MM-DD-YYYY, or
 MM/DD/YYYY.
 
 The validation rules for telephone numbers are currently
@@ -99,10 +104,11 @@ it would be easy to modify the validation rules at the top
 of any public function to accept punctuation in telephone
 numbers.
 
+---
 ## Examples
 
 ### Initialize and Connect to ILSWS
-```
+```php
 require_once 'vendor/autoload.php';
 
 // Initialize and load configuration from YAML configuration file
@@ -110,7 +116,6 @@ $ilsws = new Libilsws\Libilsws('./libilsws.yaml');
 
 // Connect to ILSWS with configuration loaded from YAML file
 $token = $ilsws->connect();
-```
 
 ### Search for a Patron
 ```
@@ -134,12 +139,12 @@ $options = [
     ];
 
 // Run search
-$response = $ilsws->search_patron($token, $index, $search, $options);
+$response = $ilsws->searchPatron($token, $index, $search, $options);
 ```
 
 ### Get Patron Attributes
 ```
-$response = $ilsws->get_patron_attributes($token, $patron_key);
+$response = $ilsws->getPatronAttributes($token, $patronKey);
 ```
 ### Register New Patron
 ```
@@ -153,17 +158,17 @@ $response = $ilsws->get_patron_attributes($token, $patron_key);
  * find and use an English template.
  */
 $patron = [
-    'birthDate' => '1962-03-07',
+    'birth_date' => '1962-03-07',
     'city_state' => 'Portland, OR',
     'county' => '0_MULT',
     'email' => 'johnchouser@gmail.com',
-    'firstName' => 'Bogus',
+    'first_name' => 'Bogus',
     'friends_notices' => 'YES',
     'home_library' => 'CEN',
     'language' => 'ENGLISH',
-    'lastName' => 'Bogart',
+    'last_name' => 'Bogart',
     'library_news' => 'YES',
-    'middleName' => 'T',
+    'middle_name' => 'T',
     'notice_type' => 'PHONE',
     'patron_id' => '21168045918653',
     'postal_code' => '97209',
@@ -184,7 +189,7 @@ $addr_num = 1;
 
 $options = [];
 $options['role'] = 'STAFF';
-$options['client_id'] = 'StaffClient';
+$options['clientId'] = 'StaffClient';
 $options['template'] = 'template.html.twig';
 $options['subject'] = 'Welcome to the library!';
 
@@ -195,10 +200,10 @@ $response = $ilsws->register_patron($patron, $token, $addr_num, $options);
 ```
 // Define patron array
 $patron = [
-    'firstName' => 'John',
-    'middleName' => 'Rad',
-    'lastName' => 'Houser',
-    'birthDate' => '1972-03-10',
+    'first_name' => 'John',
+    'middle_name' => 'Rad',
+    'last_name' => 'Houser',
+    'birth_date' => '1972-03-10',
     'home_library' => 'CEN',
     'county' => '0_MULT',
     'notice_type' => 'PHONE',
@@ -222,11 +227,11 @@ $patron = [
         ],
     ];
 
-$addr_num = 1;
-$patron_key = '782339';
+$addrNum = 1;
+$patronKey = '782339';
 
 // Update the patron record
-$response = $ilsws->update_patron($patron, $token, $patron_key, $addr_num);
+$response = $ilsws->updatePatron($patron, $token, $patronKey, $addrNum);
 ```
 
 ### Search for bibliographic records
@@ -246,7 +251,7 @@ $params = [
     ];
 
 // Run search
-$response = $ilsws->search_bib($token, $index, $search, $params);
+$response = $ilsws->searchBib($token, $index, $search, $params);
 ```
 Notes on the includeFields parameter: 
 * To include MARC data by tag, add a bib item. For example, to get the 650 tag, subfield a, add: ``bib{650_a}``

@@ -2,23 +2,23 @@
 
 require_once 'vendor/autoload.php';
 
-if ( count($argv) < 2 ) {
-    print "Syntax: php $argv[0] BIB_KEY\n";
+use Libilsws\Libilsws;
+
+if (count($argv) < 2) {
+    echo "Syntax: php {$argv[0]} BIB_KEY\n";
     exit;
 }
 
-$bib_key = $argv[1];
+$bibKey = $argv[1];
 
 // Initialize
-$ilsws = new Libilsws\Libilsws("./libilsws.yaml");
+$ilsws = new Libilsws('./libilsws.yaml');
 
 // Connect and get token
 $token = $ilsws->connect();
 
 // Describe patron register function
-$response = $ilsws->get_bib_marc($token, $bib_key);
+$response = $ilsws->getBibMarc($token, $bibKey);
 foreach ($response as $tag => $value) {
-    print "$tag $value\n";
+    echo "{$tag} {$value}\n";
 }
-
-// EOF

@@ -2,22 +2,28 @@
 
 require_once 'vendor/autoload.php';
 
-if ( count($argv) < 4 ) {
-    print "Syntax: php $argv[0] PATRON_KEY KEY VALUE\n";
+use Libilsws\Libilsws;
+
+if (count($argv) < 4) {
+    echo "Syntax: php {$argv[0]} PATRON_KEY KEY VALUE\n";
     exit;
 }
 
-$patron_key = $argv[1];
+$patronKey = $argv[1];
 $key = $argv[2];
 $value = $argv[3];
 
 // Initialize
-$ilsws = new Libilsws\Libilsws("./libilsws.yaml");
+$ilsws = new Libilsws('./libilsws.yaml');
 
 // Connect and get token
 $token = $ilsws->connect();
 
 // Describe call record
-return $ilsws->mod_patron_custom_info($token, $patron_key, $key, $value);
+$response = $ilsws->modPatronCustomInfo($token, $patronKey, $key, $value);
 
-// EOF
+if (!$response) {
+    echo "Error updating patron extended information\n";
+    exit;
+}
+echo "{$response}\n";

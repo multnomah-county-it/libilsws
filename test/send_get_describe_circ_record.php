@@ -2,14 +2,14 @@
 
 require_once 'vendor/autoload.php';
 
+use Libilsws\Libilsws;
+
 // Initialize
-$ilsws = new Libilsws\Libilsws("./libilsws.yaml");
+$ilsws = new Libilsws('./libilsws.yaml');
 
 // Connect and get token
 $token = $ilsws->connect();
 
 // Describe call record
-$response = $ilsws->send_get("$ilsws->base_url/circulation/circRecord/describe", $token, []);
-print json_encode($response, JSON_PRETTY_PRINT) . "\n";
-
-// EOF
+$response = $ilsws->sendGet("{$ilsws->baseUrl}/circulation/circRecord/describe", $token, []);
+print_r($response);

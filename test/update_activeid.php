@@ -2,23 +2,22 @@
 
 require_once 'vendor/autoload.php';
 
-if ( count($argv) < 4 ) {
-    print "Syntax: php $argv[0] PATRON_KEY PATRON_ID a|i|d\n";
+use Libilsws\Libilsws;
+
+if (count($argv) < 4) {
+    echo "Syntax: php {$argv[0]} PATRON_KEY PATRON_ID a|i|d\n";
     exit;
 }
 
-$patron_key = $argv[1];
-$patron_id = $argv[2];
-$option =$argv[3];
+$patronKey = $argv[1];
+$patronId = $argv[2];
+$option = $argv[3];
 
 // Initialize
-$ilsws = new Libilsws\Libilsws("./libilsws.yaml");
+$ilsws = new Libilsws('./libilsws.yaml');
 
 // Connect and get token
 $token = $ilsws->connect();
 
-$response = $ilsws->update_patron_activeid($token, $patron_key, $patron_id, $option);
-$json = json_encode($response, JSON_PRETTY_PRINT);
-print "$json\n\n";
-
-// EOF
+$response = $ilsws->updatePatronActiveId($token, $patronKey, $patronId, $option);
+echo "{$response}\n";

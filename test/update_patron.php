@@ -2,15 +2,17 @@
 
 require_once 'vendor/autoload.php';
 
-if ( count($argv) < 2 ) {
-    print "Syntax: php $argv[0] PATRON_KEY\n";
+use Libilsws\Libilsws;
+
+if (count($argv) < 2) {
+    echo "Syntax: php {$argv[0]} PATRON_KEY\n";
     exit;
 }
 
-$patron_key = $argv[1];
+$patronKey = $argv[1];
 
 // Initialize
-$ilsws = new Libilsws\Libilsws("./libilsws.yaml");
+$ilsws = new Libilsws('./libilsws.yaml');
 
 // Connect and get token
 $token = $ilsws->connect();
@@ -21,39 +23,37 @@ $token = $ilsws->connect();
  */
 $patron = [
     'patron_id' => '21168045918653',
-    'birthDate' => '1962-03-07',
+    'birth_date' => '1962-03-07',
     'city_state' => 'Astoria, OR',
     'county' => '0_MULT',
     'email' => 'johnchouser@gmail.com',
-    'firstName' => 'John',
+    'first_name' => 'John',
     'friends_notices' => 'YES',
     'home_library' => 'CEN',
     'language' => 'ENGLISH',
-    'lastName' => 'Houser',
+    'last_name' => 'Houser',
     'library_news' => 'YES',
-    'middleName' => 'C',
+    'middle_name' => 'C',
     'notice_type' => 'EMAIL',
     'postal_code' => '97209',
     'street' => '225 Alameda Ave Apt 2',
-    'telephone' => 'a123',
+    'telephone' => '800-555-1212',
     'sms_phone' => [
-        'number' => 'abc',
+        'number' => '800-555-1212',
         'countryCode' => 'US',
-        'bills'       => true,
-        'general'     => true,
-        'holds'       => true,
-        'manual'      => true,
-        'overdues'    => true,
-        ],
-    ];
+        'bills' => true,
+        'general' => true,
+        'holds' => true,
+        'manual' => true,
+        'overdues' => true,
+    ],
+];
 
-$addr_num = 1;
+$addrNum = 1;
 
 $options = [];
 $options['role'] = 'PATRON';
-$options['client_id'] = 'SymWSTestClient';
+$options['clientId'] = 'SymWSTestClient';
 
-$response = $ilsws->update_patron($patron, $token, $patron_key, $addr_num);
+$response = $ilsws->updatePatron($patron, $token, $patronKey, $addrNum);
 print_r($response);
-
-// EOF

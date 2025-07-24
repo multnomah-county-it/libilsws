@@ -2,13 +2,13 @@
 
 require_once 'vendor/autoload.php';
 
+use Libilsws\Libilsws;
+
 // Initialize
-$ilsws = new Libilsws\Libilsws("./libilsws.yaml");
+$ilsws = new Libilsws('./libilsws.yaml');
 
 // Connect and get token
 $token = $ilsws->connect();
 
-$response = $ilsws->describe_bib($token);
-print json_encode($response, JSON_PRETTY_PRINT) . "\n";
-
-// EOF
+$response = $ilsws->describeBib($token);
+print_r($response);

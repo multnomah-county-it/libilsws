@@ -1,67 +1,68 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Libilsws;
 
 /**
- *
  * Multnomah County Library
  * SirsiDynix ILSWS API Support
  * Copyright (c) 2024 Multnomah County (Oregon)
- * 
+ *
  * John Houser
  * john.houser@multco.us
- *
  */
 
-use Symfony\Component\Yaml\Yaml;
 use Curl\Curl;
 use DateTime;
-use \Exception;
-
+use Exception;
+use PHPMailer\PHPMailer\Exception as MailerException;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
-use PHPMailer\PHPMailer\Exception as MailerException;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Custom API exception.
- *
- * @package Libilsws
  */
-
-class APIException extends Exception 
+class APIException extends Exception
 {
-
-    // Handles API errors that should be logged
-    public function errorMessage ($error = '', $code = 0) 
+    /**
+     * Handles API errors that should be logged.
+     *
+     * @param string $error The error message.
+     * @param int $code The HTTP status code.
+     * @return string The formatted error message.
+     */
+    public function errorMessage(string $error = '', int $code = 0): string
     {
         $message = '';
-        $err_message = json_decode($error, true);
-        if ( json_last_error() === JSON_ERROR_NONE ) {
-            if ( !empty($err_message['messageList'][0]['message']) ) {
-                $error = $err_message['messageList'][0]['message'];
+        $errMessage = json_decode($error, true, 10, JSON_OBJECT_AS_ARRAY);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            if (!empty($errMessage['messageList'][0]['message'])) {
+                $error = $errMessage['messageList'][0]['message'];
             }
         } else {
-            $error = "HTML error";
+            $error = 'HTML error';
         }
 
         switch ($code) {
             case 400:
-                $message = "HTTP $code: Bad Request";
+                $message = "HTTP {$code}: Bad Request";
                 break;
             case 401:
-                $message = "HTTP $code: Unauthorized";
+                $message = "HTTP {$code}: Unauthorized";
                 break;
             case 403:
-                $message = "HTTP $code: Forbidden";
+                $message = "HTTP {$code}: Forbidden";
                 break;
             case 404:
-                $message = "HTTP $code: Not Found";
+                $message = "HTTP {$code}: Not Found";
                 break;
-            case (preg_match('/^5\d\d$/', $code) ? true : false):
-                $message = "HTTP $code: SirsiDynix Web Services unavailable";
+            case (preg_match('/^5\d\d$/', (string) $code) ? true : false):
+                $message = "HTTP {$code}: SirsiDynix Web Services unavailable";
                 break;
             default:
-                $message = "HTTP $code: $error";
+                $message = "HTTP {$code}: {$error}";
         }
 
         return $message;
@@ -70,110 +71,140 @@ class APIException extends Exception
 
 class Libilsws
 {
-    // Public variable to share error information
+    /**
+     * Public variable to share error information.
+     *
+     * @var string
+     */
     public $error;
 
-    // Public variable to HTML return code
+    /**
+     * Public variable to HTML return code.
+     *
+     * @var int
+     */
     public $code;
 
-    // Base URL constructed from config for convenience
-    public $base_url;
-    
-    // The ILSWS connection parameters and Symphony field configuration
+    /**
+     * Base URL constructed from config for convenience.
+     *
+     * @var string
+     */
+    public $baseUrl;
+
+    /**
+     * The ILSWS connection parameters and Symphony field configuration.
+     *
+     * @var array
+     */
     public $config;
 
-    // Data handler instance
+    /**
+     * Data handler instance.
+     *
+     * @var DataHandler
+     */
     public $dh;
 
-    // ILSWS patron field description information
-    public $field_desc = [];
+    /**
+     * ILSWS patron field description information.
+     *
+     * @var array
+     */
+    public $fieldDesc = [];
 
-    // Constructor for this class
-    public function __construct ($yaml_file)
+    /**
+     * Constructor for this class.
+     *
+     * @param string $yamlFile The path to the YAML configuration file.
+     * @throws Exception If the YAML file is bad.
+     */
+    public function __construct(string $yamlFile)
     {
         $this->dh = new DataHandler();
 
-        // Read the YAML configuration file and assign private varaibles
-        if ( filesize($yaml_file) > 0 && substr($yaml_file, -4, 4) == 'yaml' ) {
-            $this->config = Yaml::parseFile($yaml_file);
+        // Read the YAML configuration file and assign private variables
+        if (filesize($yamlFile) > 0 && substr($yamlFile, -4, 4) == 'yaml') {
+            $this->config = Yaml::parseFile($yamlFile);
 
-            if ( $this->config['debug']['config'] ) {
+            if ($this->config['debug']['config']) {
                 error_log('DEBUG_CONFIG ' . json_encode($this->config, JSON_PRETTY_PRINT), 0);
             }
-
         } else {
-            throw new Exception("Bad YAML file: $yaml_file");
+            throw new Exception("Bad YAML file: {$yamlFile}");
         }
 
-        $this->base_url = 'https://' 
-            . $this->config['ilsws']['hostname'] 
-            . ':' 
-            . $this->config['ilsws']['port'] 
-            . '/' 
+        $this->baseUrl = 'https://'
+            . $this->config['ilsws']['hostname']
+            . ':'
+            . $this->config['ilsws']['port']
+            . '/'
             . $this->config['ilsws']['webapp'];
     }
 
-    private function handle_exception($message = '')
+    /**
+     * Handles exceptions, logging to STDERR in CLI or error log in web mode.
+     *
+     * @param string $message The exception message.
+     * @return void
+     */
+    private function handleException(string $message = ''): void
     {
-        if ( php_sapi_name() === 'cli' || PHP_SAPI === 'cli') {
-
+        if (php_sapi_name() === 'cli' || PHP_SAPI === 'cli') {
             // Running in CLI mode: print to STDERR
-            fwrite(STDERR, "Error: " . $message . PHP_EOL);
-
+            fwrite(STDERR, "Error: {$message}" . PHP_EOL);
         } else {
-
             // Running in web mode: log the error
             error_log($message);
         }
     }
 
     /**
-     * Validate call or item input fields using the API describe function
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $field_list  Comma-delimited list of fields to be validated
-     * @return object $response    Object containing include list, index list, 
-     *                             and array of include fields
+     * Validate call or item input fields using the API describe function.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $type Type of catalog item ('item' or 'call').
+     * @param string $fieldList Comma-delimited list of fields to be validated.
+     * @return int Always returns 1, if it doesn't throw an exception.
+     * @throws Exception If validation fails.
      */
-
-    private function validate_fields ($token = null, $type = null, $field_list = '')
+    private function validateFields(?string $token = null, ?string $type = null, string $fieldList = ''): int
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('type', $type, 'v:item|call');
 
-        if ($type == 'item' && preg_match('/call{.*}/', $field_list)) {
-            $calls = preg_replace('/^(.*)(call{.*})(.*)$/', "$2", $field_list);
-            $this->validate_fields($token, 'call', $calls);
-            $field_list = preg_replace('/^(.*)(call{.*})(.*)$/', "$1,$3", $field_list);
-            $field_list = preg_replace('/,{2}/', ',', $field_list);
+        if ($type == 'item' && preg_match('/call{.*}/', $fieldList)) {
+            $calls = preg_replace('/^(.*)(call{.*})(.*)$/', '$2', $fieldList);
+            $this->validateFields($token, 'call', $calls);
+            $fieldList = preg_replace('/^(.*)(call{.*})(.*)$/', '$1,$3', $fieldList);
+            $fieldList = preg_replace('/,{2}/', ',', $fieldList);
         }
 
-        if ( $field_list != '*' ) {
-
+        if ($fieldList != '*') {
             // Convert the input fields to an array
-            $inner_fields = preg_replace('/^(.*){(.*)}(.*)$/', "$2", $field_list);
-            $field_list = preg_replace('/^(.*){(.*)}(.*)$/', "$1$3", $field_list);
-            $field_list .= ",$inner_fields";
-            $input_fields = preg_split('/[,{}]+/', $field_list, -1, PREG_SPLIT_NO_EMPTY);
-            $input_fields = array_unique($input_fields, SORT_STRING);
+            $innerFields = preg_replace('/^(.*){(.*)}(.*)$/', '$2', $fieldList);
+            $fieldList = preg_replace('/^(.*){(.*)}(.*)$/', '$1$3', $fieldList);
+            $fieldList .= ",{$innerFields}";
+            $inputFields = preg_split('/[,{}]+/', $fieldList, -1, PREG_SPLIT_NO_EMPTY);
+            $inputFields = array_unique($inputFields, SORT_STRING);
 
             // Get the fields described by the API
             $fields = [];
-            $describe = $this->send_get("$this->base_url/catalog/$type/describe", $token, []);
+            $describe = $this->sendGet("{$this->baseUrl}/catalog/{$type}/describe", $token, []);
             for ($i = 0; $i < count($describe['fields']); $i++) {
                 array_push($fields, $describe['fields'][$i]['name']);
             }
-            // Get the item fields as well, if we're validating a get_call field_list
-            if ( $type == 'call' ) {
-                $describe = $this->send_get("$this->base_url/catalog/item/describe", $token, []);
+            // Get the item fields as well, if we're validating a get_call fieldList
+            if ($type == 'call') {
+                $describe = $this->sendGet("{$this->baseUrl}/catalog/item/describe", $token, []);
                 for ($i = 0; $i < count($describe['fields']); $i++) {
                     array_push($fields, $describe['fields'][$i]['name']);
                 }
             }
-            $valid_list = implode('|', $fields);
+            $validList = implode('|', $fields);
 
-            foreach ($input_fields as $field) {
-                $this->validate('includeFields', $field, "v:$valid_list|*");
+            foreach ($inputFields as $field) {
+                $this->validate('includeFields', $field, "v:{$validList}|*");
             }
         }
 
@@ -181,86 +212,82 @@ class Libilsws
     }
 
     /**
-     * Validation by rule, using datahandler/validate. If 
+     * Validation by rule, using datahandler/validate. If
      * dataHandler/validate receives a null value, it will return
      * 0. However, if it receives an empty value, the function will
      * return a 1. This is why function parameters within this class
-     * are set to default to null even if they are actually 
+     * are set to default to null even if they are actually
      * required, so long as they are being validated by this function.
-     * 
-     * @access private
-     * @param  string  Name of parameter to validate
-     * @param  string  Value to be validated
-     * @param  string  Rule to apply
-     * @return integer Always returns 1, if it doesn't throw an exception
+     *
+     * @param string $param Name of parameter to validate.
+     * @param mixed $value Value to be validated.
+     * @param string $rule Rule to apply.
+     * @return int Always returns 1, if it doesn't throw an exception.
+     * @throws Exception If validation fails.
      */
-
-    private function validate ($param, $value, $rule)
+    private function validate(string $param, $value, string $rule): int
     {
         $result = $this->dh->validate($value, $rule);
-        if ( $result === 0 ) {
-            throw new Exception ("Invalid $param: \"$value\" (rule: '$rule')");
+        if ($result === 0) {
+            throw new Exception("Invalid {$param}: \"{$value}\" (rule: '{$rule}')");
         }
 
         return $result;
     }
 
     /**
-     * Connect to ILSWS
-     * 
-     * @return string $token The x-sirs-sessionToken to be used in all subsequent headers
+     * Connect to ILSWS.
+     *
+     * @return string The x-sirs-sessionToken to be used in all subsequent headers.
      */
-    public function connect ()
+    public function connect(): string
     {
-        $url = $this->base_url . '/user/staff/login';
-        $query_json = '{"login":"' . $this->config['ilsws']['username'] . '","password":"' . $this->config['ilsws']['password'] . '"}';
-        $req_num = rand(1, 1000000000);
+        $url = $this->baseUrl . '/user/staff/login';
+        $queryJson = '{"login":"' . $this->config['ilsws']['username'] . '","password":"' . $this->config['ilsws']['password'] . '"}';
+        $reqNum = rand(1, 1000000000);
 
         $headers = [
             'Content-Type: application/json',
             'Accept: application/json',
-            "SD-Response-Tracker: $req_num",
+            "SD-Response-Tracker: {$reqNum}",
             'SD-Originating-App-ID: ' . $this->config['ilsws']['app_id'],
             'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
-            ];
+        ];
 
         $options = [
-            CURLOPT_URL              => $url,
-            CURLOPT_CUSTOMREQUEST    => 'POST',
-            CURLOPT_RETURNTRANSFER   => true,
+            CURLOPT_URL => $url,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYSTATUS => true,
-            CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
-            CURLOPT_HTTPHEADER       => $headers,
-            CURLOPT_POSTFIELDS       => $query_json,
-            ];
+            CURLOPT_CONNECTTIMEOUT => $this->config['ilsws']['timeout'],
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POSTFIELDS => $queryJson,
+        ];
 
         try {
-
             $ch = curl_init();
             curl_setopt_array($ch, $options);
 
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            if ( $this->config['debug']['connect'] ) {
-                error_log("DEBUG_CONNECT HTTP $this->code: $json", 0);
+            if ($this->config['debug']['connect']) {
+                error_log("DEBUG_CONNECT HTTP {$this->code}: {$json}", 0);
             }
 
-            if ( !preg_match('/^2\d\d$/', $this->code) ) {
-                $obfuscated_url =  $this->base_url . "/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
-                $this->error = "Connect failure: $obfuscated_url: " . curl_error($ch);
+            if (!preg_match('/^2\d\d$/', (string) $this->code)) {
+                $obfuscatedUrl =  $this->baseUrl . "/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
+                $this->error = "Connect failure: {$obfuscatedUrl}: " . curl_error($ch);
                 throw new APIException($this->error);
             }
 
-            $response = json_decode($json, true);
+            $response = json_decode((string) $json, true, 10, JSON_OBJECT_AS_ARRAY);
             $token = $response['sessionToken'];
 
             curl_close($ch);
-
         } catch (APIException $e) {
-
-            $this->handle_exception($e->errorMessage($this->error, $this->code));
-        } 
+            $this->handleException($e->errorMessage($this->error, $this->code));
+        }
 
         return $token;
     }
@@ -268,23 +295,23 @@ class Libilsws
     /**
      * Create a standard GET request object. Used by most API functions.
      *
-     * @param  string $url      The URL to connect with
-     * @param  string $token    The session token returned by ILSWS
-     * @param  object $params   Associative array of optional parameters
-     * @return object $response Associative array containing response from ILSWS
+     * @param string|null $url The URL to connect with.
+     * @param string|null $token The session token returned by ILSWS.
+     * @param array $params Associative array of optional parameters.
+     * @return array Associative array containing response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function send_get ($url = null, $token = null, $params = []) 
+    public function sendGet(?string $url = null, ?string $token = null, array $params = []): ?array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('url', $url, 'u');
- 
+
         // Encode the query parameters, as they will be sent in the URL
-        if ( !empty($params) ) {
-            $url .= "?";
+        if (!empty($params)) {
+            $url .= '?';
             foreach ($params as $key => $value) {
-                if ( !empty($params[$key]) ) {
-                    $url .= "$key=" . urlencode($params[$key]) . '&';
+                if (!empty($params[$key])) {
+                    $url .= "{$key}=" . urlencode((string) $params[$key]) . '&';
                 }
             }
             $url = substr($url, 0, -1);
@@ -293,258 +320,254 @@ class Libilsws
         $url = preg_replace('/(.*)\#(.*)/', '$1%23$2', $url);
 
         // Define a random request tracker. Can help when talking with SirsiDynix
-        $req_num = rand(1, 1000000000);
+        $reqNum = rand(1, 1000000000);
 
-        /** Set $error to the URL being submitted so that it can be accessed 
+        /**
+         * Set $error to the URL being submitted so that it can be accessed
          * in debug mode, when there is no error
          */
-        if ( $this->config['debug']['query'] ) {
-            error_log("DEBUG_QUERY $url", 0);
+        if ($this->config['debug']['query']) {
+            error_log("DEBUG_QUERY {$url}", 0);
         }
 
         $headers = [
             'Content-Type: application/json',
             'Accept: application/json',
             'SD-Originating-App-ID: ' . $this->config['ilsws']['app_id'],
-            "SD-Request-Tracker: $req_num",
+            "SD-Request-Tracker: {$reqNum}",
             'x-sirs-clientID: ' . $this->config['ilsws']['client_id'],
-            "x-sirs-sessionToken: $token",
-            ];
+            "x-sirs-sessionToken: {$token}",
+        ];
 
         $options = [
-            CURLOPT_URL              => $url,
-            CURLOPT_RETURNTRANSFER   => true,
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYSTATUS => true,
-            CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
-            CURLOPT_HTTPHEADER       => $headers,
-            ];
+            CURLOPT_CONNECTTIMEOUT => $this->config['ilsws']['timeout'],
+            CURLOPT_HTTPHEADER => $headers,
+        ];
 
         try {
-
             $ch = curl_init();
             curl_setopt_array($ch, $options);
 
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            if ( $this->config['debug']['query'] ) {
-                error_log("DEBUG_QUERY Request number: $req_num", 0);
-                error_log("DEBUG_QUERY HTTP $this->code: $json", 0);
+            if ($this->config['debug']['query']) {
+                error_log("DEBUG_QUERY Request number: {$reqNum}", 0);
+                error_log("DEBUG_QUERY HTTP {$this->code}: {$json}", 0);
             }
-            
+
             // Check for errors
-            if ( $this->code != 200 ) {
+            if ($this->code != 200) {
                 $this->error = curl_error($ch);
-                if ( !$this->error ) {
-                    $this->error = $json;
+                if (!$this->error) {
+                    $this->error = (string) $json;
                 }
                 throw new APIException($this->error);
             }
 
             curl_close($ch);
-
         } catch (APIException $e) {
+            $this->handleException($e->errorMessage($this->error, $this->code));
+        }
 
-            $this->handle_exception($e->errorMessage($this->error, $this->code));
-        } 
-
-        return json_decode($json, true);
+        return json_decode((string) $json, true, 10, JSON_OBJECT_AS_ARRAY);
     }
 
-    /** 
+    /**
      * Create a standard POST request object. Used by most updates and creates.
-     * 
-     * @param  string $url        The URL to connect with
-     * @param  string $token      The session token returned by ILSWS
-     * @param  string $query_json JSON containing the required query elements
-     * @param  string $query_type The query type: POST or PUT
-     * @param  array  $options    Associative array of options (role, client_id, header)
-     * @return object $response   Associative array containing the response from ILSWS 
+     *
+     * @param string|null $url The URL to connect with.
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $queryJson JSON containing the required query elements.
+     * @param string|null $queryType The query type: POST or PUT.
+     * @param array $options Associative array of options (role, clientId, header).
+     * @return array Associative array containing the response from ILSWS.
+     * @throws Exception If validation fails.
      */
+    public function sendQuery(
+        ?string $url = null,
+        ?string $token = null,
+        ?string $queryJson = null,
+        ?string $queryType = null,
+        array $options = []
+    ): ?array {
 
-    public function send_query ($url = null, $token = null, $query_json = null, $query_type = null, $options = [])
-    {
         $this->validate('url', $url, 'u');
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('query_type', $query_type, 'v:POST|PUT|DELETE');
+        $this->validate('queryType', $queryType, 'v:POST|PUT|DELETE');
 
         $role = !empty($options['role']) ? $options['role'] : 'PATRON';
         $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
 
-        $client_id = !empty($options['client_id']) ? $options['client_id'] : $this->config['ilsws']['client_id'];
-        $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#'); 
+        $clientId = !empty($options['clientId']) ? $options['clientId'] : $this->config['ilsws']['client_id'];
+        $this->validate('clientId', $clientId, 'r:#^[A-Za-z]{4,20}$#');
 
         $header = !empty($options['header']) ? $options['header'] : '';
         $this->validate('header', $header, 's:40');
 
-        if ( $query_json ) {
-            $this->validate('query_json', $query_json, 'j');
+        if ($queryJson) {
+            $this->validate('queryJson', $queryJson, 'j');
         }
 
         // Define a random request tracker
-        $req_num = rand(1, 1000000000);
+        $reqNum = rand(1, 1000000000);
 
         // Define the request headers
         $headers = [
             'Content-Type: application/json',
             'Accept: application/json',
             'SD-Originating-App-Id: ' . $this->config['ilsws']['app_id'],
-            "SD-Response-Tracker: $req_num",
-            "SD-Preferred-Role: $role",
+            "SD-Response-Tracker: {$reqNum}",
+            "SD-Preferred-Role: {$role}",
             'SD-Prompt-Return: USER_PRIVILEGE_OVRCD/' . $this->config['ilsws']['user_privilege_override'],
-            "x-sirs-clientID: $client_id",
-            "x-sirs-sessionToken: $token",
-            ];
+            "x-sirs-clientID: {$clientId}",
+            "x-sirs-sessionToken: {$token}",
+        ];
 
         // Add an optional header if it exists
         array_push($headers, $header);
 
-        $options = [
-            CURLOPT_URL              => $url,
-            CURLOPT_CUSTOMREQUEST    => $query_type,
-            CURLOPT_RETURNTRANSFER   => true,
+        $curlOptions = [
+            CURLOPT_URL => $url,
+            CURLOPT_CUSTOMREQUEST => $queryType,
+            CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYSTATUS => true,
-            CURLOPT_CONNECTTIMEOUT   => $this->config['ilsws']['timeout'],
-            CURLOPT_HTTPHEADER       => $headers,
-            ];
+            CURLOPT_CONNECTTIMEOUT => $this->config['ilsws']['timeout'],
+            CURLOPT_HTTPHEADER => $headers,
+        ];
 
         try {
-
             $ch = curl_init();
-            curl_setopt_array($ch, $options);
+            curl_setopt_array($ch, $curlOptions);
 
-            if ( $query_json ) {
-                curl_setopt($ch, CURLOPT_POSTFIELDS, $query_json);
+            if ($queryJson) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $queryJson);
             }
 
             $json = curl_exec($ch);
             $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-            if ( $this->config['debug']['query'] ) {
-                error_log("DEBUG_QUERY Request number: $req_num", 0);
-                error_log("DEBUG_QUERY HTTP $this->code: $json", 0);
+            if ($this->config['debug']['query']) {
+                error_log("DEBUG_QUERY Request number: {$reqNum}", 0);
+                error_log("DEBUG_QUERY HTTP {$this->code}: {$json}", 0);
             }
 
             // Check for errors
-            if ( !preg_match('/^2\d\d$/', $this->code) ) {
+            if (!preg_match('/^2\d\d$/', (string) $this->code)) {
                 $this->error = curl_error($ch);
-                if ( !$this->error ) {
-                    $this->error = $json;
+                if (!$this->error) {
+                    $this->error = (string) $json;
                 }
                 throw new APIException($this->error);
             }
 
             curl_close($ch);
-
         } catch (APIException $e) {
-
-            $this->handle_exception($e->errorMessage($this->error, $this->code));
+            $this->handleException($e->errorMessage($this->error, $this->code));
         }
-        
-        return json_decode($json, true);
+
+        return json_decode((string) $json, true, 10, JSON_OBJECT_AS_ARRAY);
     }
 
     /**
-     * Get policy returns a policy record
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $policy_name Policy name for policy
-     * @param  string $policy_key  Policy key for policy
-     * @return object              Associative array containing the response from ILSWS
+     * Get policy returns a policy record.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $policyName Policy name for policy.
+     * @param string|null $policyKey Policy key for policy.
+     * @return array Associative array containing the response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function get_policy ($token = null, $policy_name = null, $policy_key = null)
+    public function getPolicy(?string $token = null, ?string $policyName = null, ?string $policyKey = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('policy_name', $policy_name, 'r:#^[A-Za-z0-9]{1,20}$#');
-        $this->validate('policy_key', $policy_key, 'r:#^[A-Za-z\- 0-9]{1,10}$#');
-        
-        return $this->send_get("$this->base_url/policy/$policy_name/key/$policy_key", $token, []);
+        $this->validate('policy_name', $policyName, 'r:#^[A-Za-z0-9]{1,20}$#');
+        $this->validate('policy_key', $policyKey, 'r:#^[A-Za-z\- 0-9]{1,10}$#');
+
+        return $this->sendGet("{$this->baseUrl}/policy/{$policyName}/key/{$policyKey}", $token, []);
     }
 
     /**
-     * Flattens callList structure into simple hash
-     * 
-     * @access private 
-     * @param  string  $token    Session token
-     * @param  object  $callList Complex object with call list
-     * @return array             Flat associative array
+     * Flattens callList structure into simple hash.
+     *
+     * @param string $token Session token.
+     * @param array $callList Complex object with call list.
+     * @return array Flat associative array.
      */
-
-    private function flatten_call_list ($token, $call_list)
+    private function flattenCallList(string $token, array $callList): array
     {
-        $item_list = [];
+        $itemList = [];
 
-        for ($i = 0; $i < count($call_list); $i++) {
-            array_push($item_list, $this->flatten_call($token, $call_list[$i]));
+        for ($i = 0; $i < count($callList); $i++) {
+            array_push($itemList, $this->flattenCall($token, $callList[$i]));
         }
 
-        return $item_list;
+        return $itemList;
     }
 
     /**
-     * Flatten call number record into array of items
-     * 
-     * @access private
-     * @param  object $call Complex object with call number record
-     * @return array        Flat associative array
+     * Flatten call number record into array of items.
+     *
+     * @param string $token Session token.
+     * @param array $call Complex object with call number record.
+     * @return array Flat associative array.
      */
-
-    function flatten_call ($token, $call)
+    private function flattenCall(string $token, array $call): array
     {
-        $item_list = [];
+        $itemList = [];
 
         foreach ($call['fields'] as $field => $value) {
-            if ( !is_array($value) ) {
-                $item_list[$field] = $value;
-            } elseif ( !empty($call['fields'][$field]['key']) ) {
-                $item_list[$field] = $call['fields'][$field]['key'];
-            } elseif ( $field == 'itemList' ) {
+            if (!is_array($value)) {
+                $itemList[$field] = $value;
+            } elseif (!empty($call['fields'][$field]['key'])) {
+                $itemList[$field] = $call['fields'][$field]['key'];
+            } elseif ($field == 'itemList') {
                 foreach ($call['fields']['itemList'] as $item) {
-                    $item = $this->flatten_item($token, $item);
-                    foreach ($item as $item_field => $item_value) {
-                        $item_list[$item_field] = $item_value;
+                    $item = $this->flattenItem($token, $item);
+                    foreach ($item as $itemField => $itemValue) {
+                        $itemList[$itemField] = $itemValue;
                     }
                 }
             }
         }
 
-        return $item_list;
+        return $itemList;
     }
 
     /**
-     * Flattens item structure into simple hash
+     * Flattens item structure into simple hash.
      *
-     * @access private 
-     * @param  object  $record Complex object with item list
-     * @return array           Flat associative array
+     * @param string $token Session token.
+     * @param array $record Complex object with item list.
+     * @return array Flat associative array.
      */
-
-    private function flatten_item ($token, $record)
+    private function flattenItem(string $token, array $record): array
     {
         $item = [];
 
         $item['key'] = $record['key'];
 
         foreach ($record['fields'] as $key => $value) {
-
-            if ( $key === 'itemCircInfo' ) {
-                $item['itemCircInfo'] = $this->get_item_circ_info($token, $record['fields']['itemCircInfo']['key']);
-            } elseif ( $key === 'holdRecordList' ) {
+            if ($key === 'itemCircInfo') {
+                $item['itemCircInfo'] = $this->getItemCircInfo($token, $record['fields']['itemCircInfo']['key']);
+            } elseif ($key === 'holdRecordList') {
                 for ($i = 0; $i < count($record['fields']['holdRecordList']); $i++) {
-                    if ( !empty($record['fields']['holdRecordList'][$i]['key']) ) {
-                        $item['holdRecordList'][$i] = $this->get_hold($token, $record['fields']['holdRecordList'][$i]['key']);
+                    if (!empty($record['fields']['holdRecordList'][$i]['key'])) {
+                        $item['holdRecordList'][$i] = $this->getHold($token, $record['fields']['holdRecordList'][$i]['key']);
                     }
                 }
-            } elseif ( $key === 'call' ) {
-                foreach ($this->flatten_call($token, $record['fields']['call']) as $key => $value) {
-                    $item[$key] = $value;
+            } elseif ($key === 'call') {
+                foreach ($this->flattenCall($token, $record['fields']['call']) as $subKey => $subValue) {
+                    $item[$subKey] = $subValue;
                 }
-            } elseif ( $key === 'price' ) {
-                $item['price'] = $record['fields']['price']['currencyCode'] 
-                    . ' ' 
+            } elseif ($key === 'price') {
+                $item['price'] = $record['fields']['price']['currencyCode']
+                    . ' '
                     . $record['fields']['price']['amount'];
-            } elseif ( !empty($record['fields'][$key]['key']) ) {
+            } elseif (!empty($record['fields'][$key]['key'])) {
                 $item[$key] = $record['fields'][$key]['key'];
             } else {
                 $item[$key] = $value;
@@ -553,56 +576,44 @@ class Libilsws
 
         return $item;
     }
-        
-    /**
-     * Flattens bib record into simple hash
-     * 
-     * @param  object $record Complex record object
-     * @return array          Flat asociative array
-     */
 
-    private function flatten_bib ($token, $record)
+    /**
+     * Flattens bib record into simple hash.
+     *
+     * @param string $token Session token.
+     * @param array $record Complex record object.
+     * @return array Flat associative array.
+     */
+    private function flattenBib(string $token, array $record): array
     {
         $bib = [];
 
         // Extract the data from the structure so that it can be returned in a flat hash
         foreach ($record as $key => $value) {
-
-            if ( $key == 'bib' ) {
-
+            if ($key == 'bib') {
                 for ($i = 0; $i < count($record['bib']['fields']); $i++) {
                     for ($x = 0; $x < count($record['bib']['fields'][$i]['subfields']); $x++) {
-                        if ( $record['bib']['fields'][$i]['subfields'][$x]['code'] === '_' ) {
+                        if ($record['bib']['fields'][$i]['subfields'][$x]['code'] === '_') {
                             $bib[$record['bib']['fields'][$i]['tag']] = $record['bib']['fields'][$i]['subfields'][$x]['data'];
                         } else {
-                            $bib[$record['bib']['fields'][$i]['tag'] 
-                                . '_' 
-                                . $record['bib']['fields'][$i]['subfields'][$x]['code']] 
+                            $bib[$record['bib']['fields'][$i]['tag']
+                                . '_'
+                                . $record['bib']['fields'][$i]['subfields'][$x]['code']]
                                 = $record['bib']['fields'][$i]['subfields'][$x]['data'];
                         }
                     }
                 }
-
-            } elseif ( $key == 'bibCircInfo' ) {
-
-                $bib['bibCircInfo'] = $this->get_bib_circ_info($token, $record[$key]['key']);
-
-            } elseif ( $key == 'callList' ) {
-   
-                $bib['callList'] = $this->flatten_call_list($token, $record['callList']);
-
-            } elseif ( $key == 'holdRecordList' ) {
-   
-                for ($i = 0; $i < count($record['holdRecordList']); $i++) { 
-                    $bib['holdRecordList'][$i] = $this->get_hold($token, $record['holdRecordList'][$i]['key']);
+            } elseif ($key == 'bibCircInfo') {
+                $bib['bibCircInfo'] = $this->getBibCircInfo($token, $record[$key]['key']);
+            } elseif ($key == 'callList') {
+                $bib['callList'] = $this->flattenCallList($token, $record['callList']);
+            } elseif ($key == 'holdRecordList') {
+                for ($i = 0; $i < count($record['holdRecordList']); $i++) {
+                    $bib['holdRecordList'][$i] = $this->getHold($token, $record['holdRecordList'][$i]['key']);
                 }
-
-            } elseif ( !empty($record[$key]['key']) ) {
-
+            } elseif (!empty($record[$key]['key'])) {
                 $bib[$key] = $record[$key]['key'];
-
             } else {
-
                 $bib[$key] = $value;
             }
         }
@@ -611,55 +622,54 @@ class Libilsws
     }
 
     /**
-     * Get catalog search indexes
+     * Get catalog search indexes.
      *
-     * @access public
-     * @param  string $token          Session token returned by ILSWS
-     * @return array  $search_indexes Array of valid index names
+     * @param string|null $token Session token returned by ILSWS.
+     * @return array Array of valid index names.
+     * @throws Exception If validation fails.
      */
-
-    public function get_catalog_indexes ($token = null)
+    public function getCatalogIndexes(?string $token = null): array
     {
-        $search_indexes = [];
+        $searchIndexes = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
-        $describe = $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
+        $describe = $this->sendGet("{$this->baseUrl}/catalog/bib/describe", $token, []);
 
         foreach ($describe['searchIndexList'] as $index) {
-            array_push($search_indexes, $index['name']);
+            array_push($searchIndexes, $index['name']);
         }
 
-        return $search_indexes;
+        return $searchIndexes;
     }
 
     /**
-     * Get bib MARC data
-     * 
-     * @param  string $token        Session token returned by ILSWS
-     * @param  string $bib_key      Bibliographic record key
-     * @return array                Flat associative array with MARC record
+     * Get bib MARC data.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $bibKey Bibliographic record key.
+     * @return array Flat associative array with MARC record.
+     * @throws Exception If validation fails.
      */
-
-    public function get_bib_marc ($token = null, $bib_key = null) 
+    public function getBibMarc(?string $token = null, ?string $bibKey = null): array
     {
         $bib = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
+        $this->validate('bib_key', $bibKey, 'r:#^\d{1,8}$#');
 
-        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key", $token, []);
+        $response = $this->sendGet("{$this->baseUrl}/catalog/bib/key/{$bibKey}", $token, []);
 
-        if ( !empty($response['fields']['bib']) ) {
+        if (!empty($response['fields']['bib'])) {
             $bib['key'] = $response['key'];
-            foreach ($response['fields']['bib'] as $marc_key => $marc_value) {
-                if ( !is_array($marc_value) ) {
-                    $bib[$marc_key] = $marc_value;
+            foreach ($response['fields']['bib'] as $marcKey => $marcValue) {
+                if (!is_array($marcValue)) {
+                    $bib[$marcKey] = $marcValue;
                 } else {
-                    foreach ($marc_value as $tag) {
-                        if ( !empty($tag['tag']) ) {
+                    foreach ($marcValue as $tag) {
+                        if (!empty($tag['tag'])) {
                             foreach ($tag['subfields'] as $subfield) {
-                                if ( $subfield['code'] == '_' ) {
+                                if ($subfield['code'] == '_') {
                                     $bib[$tag['tag']] = $subfield['data'];
                                 } else {
                                     $bib[$tag['tag'] . ' ' . $tag['inds'] . ' _' . $subfield['code']] = $subfield['data'];
@@ -675,44 +685,40 @@ class Libilsws
     }
 
     /**
-     * Validate bib field names using the API describe functions
+     * Validate bib field names using the API describe functions.
      *
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $field_list  Comma-delimited list of fields to be validated
-     * @return object $response    Object containing include list, array of 
-     *                             valid_fields, array of filter fields, array 
-     *                             of include fields, and index list.
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string $fieldList Comma-delimited list of fields to be validated.
+     * @return int Always returns 1, if it doesn't throw an exception.
+     * @throws Exception If validation fails.
      */
-
-    private function validate_bib_fields ($token = null, $field_list = '')
+    private function validateBibFields(?string $token = null, string $fieldList = ''): int
     {
-        $response = [];
-
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
         // Convert the input fields to an array
-        $input_fields = preg_split("/[,{}]/", $field_list, -1, PREG_SPLIT_NO_EMPTY);
+        $inputFields = preg_split("/[,{}]/", $fieldList, -1, PREG_SPLIT_NO_EMPTY);
 
         // Get the fields to validate against
-        $bib_fields = []; 
-        $describe = $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
+        $bibFields = [];
+        $describe = $this->sendGet("{$this->baseUrl}/catalog/bib/describe", $token, []);
         foreach ($describe['fields'] as $field) {
-            array_push($bib_fields, $field['name']);
+            array_push($bibFields, $field['name']);
         }
-        array_push($bib_fields, '*');
-        array_push($bib_fields, 'key');
+        array_push($bibFields, '*');
+        array_push($bibFields, 'key');
 
         /**
          * Check if there are unvalidated fields left after checking against
          * bib fields. If there are, check against call fields, next.
          */
-        $diff_fields = array_diff($input_fields, $bib_fields);
+        $diffFields = array_diff($inputFields, $bibFields);
 
-        $call_fields = [];
-        if ( !empty($diff_fields) ) {
-            $describe = $this->send_get("$this->base_url/catalog/call/describe", $token, []);
+        $callFields = [];
+        if (!empty($diffFields)) {
+            $describe = $this->sendGet("{$this->baseUrl}/catalog/call/describe", $token, []);
             foreach ($describe['fields'] as $field) {
-                array_push($call_fields, $field['name']);
+                array_push($callFields, $field['name']);
             }
         }
 
@@ -720,13 +726,13 @@ class Libilsws
          * Check again. if there are still unvalidated fields after checking against
          * the call fields, check against item fields.
          */
-        $diff_fields = array_diff($diff_fields, $call_fields);
+        $diffFields = array_diff($diffFields, $callFields);
 
-        $item_fields = [];
-        if ( !empty($diff_fields) ) {
-            $describe = $this->send_get("$this->base_url/catalog/item/describe", $token, []);
+        $itemFields = [];
+        if (!empty($diffFields)) {
+            $describe = $this->sendGet("{$this->baseUrl}/catalog/item/describe", $token, []);
             foreach ($describe['fields'] as $field) {
-                array_push($item_fields, $field['name']);
+                array_push($itemFields, $field['name']);
             }
         }
 
@@ -735,12 +741,12 @@ class Libilsws
          * bibliographic tag fields used for filtering results. Throw an error if we find
          * anything that doesn't look like a filter field.
          */
-        $diff_fields = array_diff($diff_fields, $item_fields);
+        $diffFields = array_diff($diffFields, $itemFields);
 
-        if ( !empty($diff_fields) ) {
-            foreach ($diff_fields as $field) {
-                if ( !preg_match("/^\d{3}(_[a-zA-Z0-9]{1})*$/", $field) ) {
-                    throw new Exception ("Invalid field \"$field\" in includeFields");
+        if (!empty($diffFields)) {
+            foreach ($diffFields as $field) {
+                if (!preg_match("/^\d{3}(_[a-zA-Z0-9]{1})*$/", $field)) {
+                    throw new Exception("Invalid field \"{$field}\" in includeFields");
                 }
             }
         }
@@ -749,121 +755,122 @@ class Libilsws
     }
 
     /**
-     * Put item into transit
-     * 
-     * @access public
-     * @param  string $token    Session token returned by ILSWS
-     * @param  string $item_key Item record key
-     * @param  string $library  Library code
-     * @return object $response Response from API server
+     * Put item into transit.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $itemKey Item record key.
+     * @param string|null $newLibrary Library code.
+     * @param string|null $workingLibrary Working library code.
+     * @return array Response from API server.
+     * @throws Exception If validation fails.
      */
-
-    public function transit_item ($token = null, $item_key = null, $new_library = null, $working_library = null)
-    {
+    public function transitItem(
+        ?string $token = null,
+        ?string $itemKey = null,
+        ?string $newLibrary = null,
+        ?string $workingLibrary = null
+    ): array {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
-        $this->validate('library', $new_library, 'r:#^[A-Z]{3,9}$#');
-        $this->validate('working_library', $working_library, 'r:#^[A-Z]{3,9}$#');
+        $this->validate('item_key', $itemKey, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
+        $this->validate('library', $newLibrary, 'r:#^[A-Z]{3,9}$#');
+        $this->validate('working_library', $workingLibrary, 'r:#^[A-Z]{3,9}$#');
 
         $data = [
             'resource' => '/circulation/transit',
             'fields' => [
-                'destinationLibrary' => ['resource' => '/policy/library', 'key' => $new_library],
-                'item' => ['resource' => '/catalog/item', 'key' => $item_key],
+                'destinationLibrary' => ['resource' => '/policy/library', 'key' => $newLibrary],
+                'item' => ['resource' => '/catalog/item', 'key' => $itemKey],
                 'transitReason' => 'EXCHANGE',
-                ]
-            ];
-        $json =  json_encode($data);
+            ]
+        ];
+        $json = json_encode($data);
 
         // Add header and role required for this API endpoint
         $options = [];
-        $options['header'] = "SD-Working-LibraryID: $working_library";
+        $options['header'] = "SD-Working-LibraryID: {$workingLibrary}";
         $options['role'] = 'STAFF';
- 
+
         // Describe patron register function
-        $response = $this->send_query("$this->base_url/circulation/transit", $token, $json, 'POST', $options);
+        $response = $this->sendQuery("{$this->baseUrl}/circulation/transit", $token, $json, 'POST', $options);
 
         return $response;
     }
 
     /**
-     * Receive an intransit item
+     * Receive an intransit item.
      *
-     * @access public
-     * @param  string  $token    Session token returned by ILSWS
-     * @param  integer $item_id  Item record barcode
-     * @return object  $response Response from API server
+     * @param string|null $token Session token returned by ILSWS.
+     * @param int|null $itemId Item record barcode.
+     * @return array Response from API server.
+     * @throws Exception If validation fails.
      */
-
-    public function untransit_item ($token = null, $item_id = null)
+    public function untransitItem(?string $token = null, ?int $itemId = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('item_id', $item_id, 'i:30000000000000,39999999999999');
+        $this->validate('item_id', $itemId, 'i:30000000000000,39999999999999');
 
-        $json = "{\"itemBarcode\":\"$item_barcode\"}";
-        $response = $this->send_query("$this->base_url/circulation/untransit", $token, $json, 'POST');
+        $json = "{\"itemBarcode\":\"{$itemId}\"}";
+        $response = $this->sendQuery("{$this->baseUrl}/circulation/untransit", $token, $json, 'POST');
 
         return $response;
     }
 
     /**
-     * Change item library
-     * 
-     * @access public
-     * @param  string $token    Session token returned by ILSWS
-     * @param  string $item_key Item record key
-     * @return object $response Response from API server
+     * Change item library.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $itemKey Item record key.
+     * @param string|null $library Library code.
+     * @return array Response from API server.
+     * @throws Exception If validation fails.
      */
-
-    public function change_item_library ($token = null, $item_key = null, $library = null)
+    public function changeItemLibrary(?string $token = null, ?string $itemKey = null, ?string $library = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
+        $this->validate('itemKey', $itemKey, 'r:#^\d{5,8}:\d{1,2}:\d{1,2}$#');
         $this->validate('library', $library, 'r:#^[A-Z]{3,9}$#');
 
-        $json = "{\"resource\":\"/catalog/item\",\"key\":\"$item_key\",\"fields\":{\"library\":{\"resource\":\"/policy/library\",\"key\":\"$library\"}}}";
-        $response = $this->send_query("$this->base_url/catalog/item/key/$item_key", $token, $json, 'PUT');
+        $json = "{\"resource\":\"/catalog/item\",\"key\":\"{$itemKey}\",\"fields\":{\"library\":{\"resource\":\"/policy/library\",\"key\":\"{$library}\"}}}";
+        $response = $this->sendQuery("{$this->baseUrl}/catalog/item/key/{$itemKey}", $token, $json, 'PUT');
 
         return $response;
     }
 
     /**
-     * Retrieves bib information
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $bib_key     Bibliographic record key
-     * @param  string $field_list  Comma or comma and space delimited list of fields
-     *                             to be returned
-     * @return object              Flat associative array containing bib information
+     * Retrieves bib information.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $bibKey Bibliographic record key.
+     * @param string $fieldList Comma or comma and space delimited list of fields to be returned.
+     * @return array Flat associative array containing bib information.
+     * @throws Exception If validation fails.
      */
-
-    public function get_bib ($token = null, $bib_key = null, $field_list = '') 
+    public function getBib(?string $token = null, ?string $bibKey = null, string $fieldList = ''): array
     {
         $bib = [];
-        $fields = preg_split("/[,{}]+/", $field_list, -1, PREG_SPLIT_NO_EMPTY);
+        $fields = preg_split("/[,{}]+/", $fieldList, -1, PREG_SPLIT_NO_EMPTY);
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
+        $this->validate('bibKey', $bibKey, 'r:#^\d{1,8}$#');
 
-        // Validate the $field_list
-        if ( $this->config['symphony']['validate_catalog_fields'] ) {
-            $this->validate_bib_fields($token, $field_list);
+        // Validate the $fieldList
+        if ($this->config['symphony']['validate_catalog_fields']) {
+            $this->validateBibFields($token, $fieldList);
         } else {
-            $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},*]{2,256}$#');
+            $this->validate('fieldList', $fieldList, 'r:#^[A-Z0-9a-z_{},*]{2,256}$#');
         }
 
-        $response = $this->send_get("$this->base_url/catalog/bib/key/$bib_key?includeFields=" . $field_list, $token, []);
+        $response = $this->sendGet("{$this->baseUrl}/catalog/bib/key/{$bibKey}?includeFields=" . $fieldList, $token, []);
 
-        if ( !empty($response['fields']) ) {
-   
-            // Flatten the structure to a simple hash 
-            $temp = $this->flatten_bib($token, $response['fields']);
+        if (!empty($response['fields'])) {
+            // Flatten the structure to a simple hash
+            $temp = $this->flattenBib($token, $response['fields']);
 
-            // Filter out empty or not requested fields 
-            
+            // Filter out empty or not requested fields
+
             $bib['key'] = $response['key'];
             foreach ($fields as $field) {
-                if ( !empty($temp[$field]) ) {
+                if (!empty($temp[$field])) {
                     $bib[$field] = $temp[$field];
                 }
             }
@@ -873,116 +880,112 @@ class Libilsws
     }
 
     /**
-     * Retrieves item information
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $item_key    Item key
-     * @param  string $field_list  Comma or comma and space delimited list of fields
-     *                             to be returned
-     * @return object              Flat associative array containing item information
+     * Retrieves item information.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $itemKey Item key.
+     * @param string $fieldList Comma or comma and space delimited list of fields to be returned.
+     * @return array Flat associative array containing item information.
+     * @throws Exception If validation fails.
      */
-
-    public function get_item ($token = null, $item_key = null, $field_list = '*')
+    public function getItem(?string $token = null, ?string $itemKey = null, string $fieldList = '*'): array
     {
-        $item = [];
-
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('item_key', $item_key, 'r:#^(\d{6,8})(:\d{1,2}){0,2}$#');
+        $this->validate('itemKey', $itemKey, 'r:#^(\d{5,8})(:\d{1,2}){0,2}$#');
 
-        // Validate the $field_list
-        if ( $this->config['symphony']['validate_catalog_fields'] ) {
-            $this->validate_fields($token, 'item', $field_list);
+        // Validate the $fieldList
+        if ($this->config['symphony']['validate_catalog_fields']) {
+            $this->validateFields($token, 'item', $fieldList);
         } else {
-            $this->validate('field_list', $field_list, 'r:#^[A-Za-z0-9_{},*]{2,256}$#');
+            $this->validate('fieldList', $fieldList, 'r:#^[A-Za-z0-9_{},*]{2,256}$#');
         }
 
-        $item = $this->send_get("$this->base_url/catalog/item/key/$item_key?includeFields=$field_list", $token, []);
+        $item = $this->sendGet("{$this->baseUrl}/catalog/item/key/{$itemKey}?includeFields={$fieldList}", $token, []);
 
-        if ( !empty($item['fields']) ) {
-            $item = $this->flatten_item($token, $item);
+        if (!empty($item['fields'])) {
+            $item = $this->flattenItem($token, $item);
         }
 
         return $item;
     }
 
     /**
-     * Get a call number
+     * Get a call number.
      *
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $call_key    Call number key
-     * @return object              Flat associative array containing the response from ILSWS
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $callKey Call number key.
+     * @param string $fieldList Comma or comma and space delimited list of fields to be returned.
+     * @return array Flat associative array containing the response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function get_call_number ($token = null, $call_key = null, $field_list = '*')
+    public function getCallNumber(?string $token = null, ?string $callKey = null, string $fieldList = '*'): array
     {
-        $call = [];
-
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('call_key', $call_key, 'r:#^\d{6,8}:\d{1,2}$#');
+        $this->validate('callKey', $callKey, 'r:#^\d{6,8}:\d{1,2}$#');
 
-        // Validate the $field_list
-        if ( $this->config['symphony']['validate_catalog_fields'] ) {
-            $this->validate_fields($token, 'call', $field_list);
+        // Validate the $fieldList
+        if ($this->config['symphony']['validate_catalog_fields']) {
+            $this->validateFields($token, 'call', $fieldList);
         } else {
-            $this->validate('field_list', $field_list, 'r:#^[A-Z0-9a-z_{},*]{2,256}$#');
+            $this->validate('fieldList', $fieldList, 'r:#^[A-Z0-9a-z_{},*]{2,256}$#');
         }
 
-        $call = $this->send_get("$this->base_url/catalog/call/key/$call_key?includeFields=$field_list", $token);
+        $call = $this->sendGet("{$this->baseUrl}/catalog/call/key/{$callKey}?includeFields={$fieldList}", $token);
 
-        if ( !empty($call['fields']) ) {
-            $call = $this->flatten_call($token, $call);
+        if (!empty($call['fields'])) {
+            $call = $this->flattenCall($token, $call);
         }
 
         return $call;
     }
 
     /**
-     * Describes the item record (used to determine valid indexes and fields)
-     * 
-     * @param  string $token The session token returned by ILSWS
-     * @return object        Associative array of response from ILSWS
+     * Describes the item record (used to determine valid indexes and fields).
+     *
+     * @param string|null $token The session token returned by ILSWS.
+     * @return array Associative array of response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function describe_item ($token = null)
+    public function describeItem(?string $token = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-     
-        return $this->send_get("$this->base_url/catalog/item/describe", $token, []);
+
+        return $this->sendGet("{$this->baseUrl}/catalog/item/describe", $token, []);
     }
 
     /**
-     * Describes the bib record (used to determine valid indexes and fields)
-     * 
-     * @param  string $token The session token returned by ILSWS
-     * @return object        Associative array of response from ILSWS
+     * Describes the bib record (used to determine valid indexes and fields).
+     *
+     * @param string|null $token The session token returned by ILSWS.
+     * @return array Associative array of response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function describe_bib ($token = null)
+    public function describeBib(?string $token = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-     
-        return $this->send_get("$this->base_url/catalog/bib/describe", $token, []);
+
+        return $this->sendGet("{$this->baseUrl}/catalog/bib/describe", $token, []);
     }
 
     /**
      * Removes accents, punctuation, and non-ascii characters to
-     * create search string acceptable to ILSWS
+     * create search string acceptable to ILSWS.
      *
-     * @param  string $terms
-     * @return string $terms
+     * @param string|null $terms The search terms.
+     * @return string The prepared search terms.
+     * @throws Exception If validation fails.
      */
-
-    public function prepare_search ($terms = null)
+    public function prepareSearch(?string $terms = null): string
     {
         // Trim leading and trailing whitespace
-        $terms = trim($terms);
+        $terms = trim((string) $terms);
 
         // Validate
         $this->validate('terms', $terms, 's:256');
 
         // Change utf8 letters with accents to ascii characters
-        setlocale(LC_ALL, "en_US.utf8");
-        $terms = iconv("utf-8", "ASCII//TRANSLIT", $terms);
+        setlocale(LC_ALL, 'en_US.utf8');
+        $terms = iconv('utf-8', 'ASCII//TRANSLIT', $terms);
 
         // Remove boolean operators
         $terms = preg_replace("/(\s+)(and|or|not)(\s+)/", ' ', $terms);
@@ -994,7 +997,7 @@ class Libilsws
         $terms = preg_replace("/[!?&+=><%#\'\"\{\}\(\)\[\]]/", '', $terms);
 
         // Remove internal non-printing characters
-        $terms = preg_replace('/[^\x20-\x7E]/','', $terms);
+        $terms = preg_replace('/[^\x20-\x7E]/', '', $terms);
 
         // Replace multiple spaces with a single space
         $terms = preg_replace('/\s+/', ' ', $terms);
@@ -1003,72 +1006,67 @@ class Libilsws
     }
 
     /**
-     * Search the catalog for bib records
-     * 
-     * @param  string $token    The session token returned by ILSWS
-     * @param  string $index    The index to search
-     * @param  string $value    The value to search for
-     * @param  object $params   Associative array of optional parameters
-     * @return object           Associative array containing search results
+     * Search the catalog for bib records.
+     *
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $index The index to search.
+     * @param string|null $value The value to search for.
+     * @param array|null $params Associative array of optional parameters.
+     * @return array Associative array containing search results.
+     * @throws Exception If validation fails.
      */
-
-    public function search_bib ($token = null, $index = null, $value = null, $params = null)
+    public function searchBib(?string $token = null, ?string $index = null, ?string $value = null, ?array $params = null): array
     {
-        $fields = preg_split("/[,{}]+/", $params['includeFields'], -1, PREG_SPLIT_NO_EMPTY);
+        $fields = preg_split("/[,{}]+/", (string) $params['includeFields'], -1, PREG_SPLIT_NO_EMPTY);
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('value', $value, 's:40');
 
-        if ( $this->config['symphony']['validate_catalog_fields'] ) {
-
+        if ($this->config['symphony']['validate_catalog_fields']) {
             // Validate fields and get valid search indexes
-            $this->validate_bib_fields($token, $params['includeFields']);
+            $this->validateBibFields($token, (string) $params['includeFields']);
 
-            // Validate the search index 
-            $index_list = $this->get_catalog_indexes($token);
-            $this->validate('index', $index, 'v:' . implode('|', $index_list));
-
+            // Validate the search index
+            $indexList = $this->getCatalogIndexes($token);
+            $this->validate('index', $index, 'v:' . implode('|', $indexList));
         } else {
             $this->validate('includeFields', $params['includeFields'], 'r:#^[A-Z0-9a-z_{},]{2,256}$#');
         }
 
-        /** 
-         * Valid incoming params are: 
-         * ct            = number of results to return,
-         * rw            = row to start on (so you can page through results),
-         * j             = boolean AND or OR to use with multiple search terms, and
+        /**
+         * Valid incoming params are:
+         * ct = number of results to return,
+         * rw = row to start on (so you can page through results),
+         * j = boolean AND or OR to use with multiple search terms, and
          * includeFields = fields to return in result.
          *
          * Any incoming q will be replaced by the values $index and $value.
          */
 
         $params = [
-            'q'             => "$index:$value",
-            'ct'            => $params['ct'] ?? '1000',
-            'rw'            => $params['rw'] ?? '1',
-            'j'             => $params['j'] ?? 'AND',
+            'q' => "{$index}:{$value}",
+            'ct' => $params['ct'] ?? '1000',
+            'rw' => $params['rw'] ?? '1',
+            'j' => $params['j'] ?? 'AND',
             'includeFields' => $params['includeFields'],
-            ];
+        ];
 
-        $response = $this->send_get("$this->base_url/catalog/bib/search", $token, $params);
+        $response = $this->sendGet("{$this->baseUrl}/catalog/bib/search", $token, $params);
 
         $records = [];
-        if ( !empty($response['totalResults']) && $response['totalResults'] > 0 ) {
-
+        if (!empty($response['totalResults']) && $response['totalResults'] > 0) {
             for ($i = 0; $i < count($response['result']); $i++) {
-
-                if ( !is_null($response['result'][$i]) ) {
-
-                    $bib = $this->flatten_bib($token, $response['result'][$i]['fields']);
+                if (!is_null($response['result'][$i])) {
+                    $bib = $this->flattenBib($token, $response['result'][$i]['fields']);
                     $bib['key'] = $response['result'][$i]['key'];
 
-                    $filtered_bib = [];
+                    $filteredBib = [];
                     foreach ($fields as $field) {
-                        if ( !empty($bib[$field]) ) {
-                            $filtered_bib[$field] = $bib[$field];
+                        if (!empty($bib[$field])) {
+                            $filteredBib[$field] = $bib[$field];
                         }
                     }
-                    array_push($records, $filtered_bib);
+                    array_push($records, $filteredBib);
                 }
             }
         }
@@ -1077,26 +1075,25 @@ class Libilsws
     }
 
     /**
-     * Pulls list of items checked out to a patron
-     * 
-     * @access public
-     * @param  string  $token          Session token returned by ILSWS
-     * @param  integer $patron_key     Patron key of patron whose records we need to see
-     * @param  string  $include_fields Optional 
-     * @return array   $return         Associative array of item keys and libraries
+     * Pulls list of items checked out to a patron.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param int|null $patronKey Patron key of patron whose records we need to see.
+     * @param string|null $includeFields Optional.
+     * @return array Associative array of item keys and libraries.
+     * @throws Exception If validation fails.
      */
-
-    public function get_patron_checkouts ($token = null, $patron_key = null, $include_fields = null)
+    public function getPatronCheckouts(?string $token = null, ?int $patronKey = null, ?string $includeFields = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
 
-        if (!$include_fields) {
-            $include_fields = 'item,library';
+        if (!$includeFields) {
+            $includeFields = 'item,library';
         }
 
-        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key?includeFields=circRecordList{*}", $token, []);
-        $fields = preg_split('/,/', $include_fields);
+        $response = $this->sendGet("{$this->baseUrl}/user/patron/key/{$patronKey}?includeFields=circRecordList{*}", $token, []);
+        $fields = preg_split('/,/', $includeFields);
 
         $return = [];
         $i = 0;
@@ -1118,23 +1115,23 @@ class Libilsws
     }
 
     /**
-     * Get bibliographic circulation statistics
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $bib_key     Bibliographic record key
-     * @return object              Flat associative array with circulation numbers
+     * Get bibliographic circulation statistics.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $bibKey Bibliographic record key.
+     * @return array Flat associative array with circulation numbers.
+     * @throws Exception If validation fails.
      */
-
-    public function get_bib_circ_info ($token = null, $bib_key = null)
+    public function getBibCircInfo(?string $token = null, ?string $bibKey = null): array
     {
         $stats = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('bib_key', $bib_key, 'r:#^\d{1,8}$#');
-        
-        $response = $this->send_get("$this->base_url/circulation/bibCircInfo/key/$bib_key", $token, []);
+        $this->validate('bibKey', $bibKey, 'r:#^\d{1,8}$#');
 
-        if ( !empty($response['fields']) ) {
+        $response = $this->sendGet("{$this->baseUrl}/circulation/bibCircInfo/key/{$bibKey}", $token, []);
+
+        if (!empty($response['fields'])) {
             foreach ($response['fields'] as $field => $value) {
                 $stats[$field] = $value;
             }
@@ -1144,25 +1141,25 @@ class Libilsws
     }
 
     /**
-     * Get item circulation statistics
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $item_key    Item record key
-     * @return object              Flat associative array with circulation numbers
+     * Get item circulation statistics.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $itemKey Item record key.
+     * @return array Flat associative array with circulation numbers.
+     * @throws Exception If validation fails.
      */
-
-    public function get_item_circ_info ($token = null, $item_key = null)
+    public function getItemCircInfo(?string $token = null, ?string $itemKey = null): array
     {
         $stats = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('item_key', $item_key, 'r:#^\d{6,8}:\d{1,2}:\d{1,2}$#');
-        
-        $response = $this->send_get("$this->base_url/circulation/itemCircInfo/key/$item_key", $token, []);
+        $this->validate('itemKey', $itemKey, 'r:#^\d{5,8}:\d{1,2}:\d{1,2}$#');
 
-        if ( !empty($response['fields']) ) {
+        $response = $this->sendGet("{$this->baseUrl}/circulation/itemCircInfo/key/{$itemKey}", $token, []);
+
+        if (!empty($response['fields'])) {
             foreach ($response['fields'] as $field => $value) {
-                if ( !empty($response['fields'][$field]['key']) ) {
+                if (!empty($response['fields'][$field]['key'])) {
                     $stats[$field] = $response['fields'][$field]['key'];
                 } else {
                     $stats[$field] = $value;
@@ -1174,21 +1171,19 @@ class Libilsws
     }
 
     /**
-     * Flatten hold record
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  object $record      Hold record object
-     * @return array               Flat associative array of hold fields
+     * Flatten hold record.
+     *
+     * @param array $record Hold record object.
+     * @return array Flat associative array of hold fields.
      */
-
-    private function flatten_hold ($record)
+    private function flattenHold(array $record): array
     {
         $hold = [];
 
-        if ( !empty($record['fields']) ) {
+        if (!empty($record['fields'])) {
             $hold['key'] = $record['key'];
             foreach ($record['fields'] as $field => $value) {
-                if ( !empty($record['fields'][$field]['key']) ) {
+                if (!empty($record['fields'][$field]['key'])) {
                     $hold[$field] = $record['fields'][$field]['key'];
                 } else {
                     $hold[$field] = $value;
@@ -1200,46 +1195,44 @@ class Libilsws
     }
 
     /**
-     * Get a hold record
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $hold_key    Hold record key
-     * @return object              Associative array containing the response from ILSWS
+     * Get a hold record.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $holdKey Hold record key.
+     * @return array Associative array containing the response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function get_hold ($token = null, $hold_key = null)
+    public function getHold(?string $token = null, ?string $holdKey = null): array
     {
         $hold = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('hold_key', $hold_key, 'r:#^\d{6,8}$#');
+        $this->validate('holdKey', $holdKey, 'r:#^\d{6,8}$#');
 
-        $hold = $this->send_get("$this->base_url/circulation/holdRecord/key/$hold_key", $token, []);
+        $hold = $this->sendGet("{$this->baseUrl}/circulation/holdRecord/key/{$holdKey}", $token, []);
 
-        if ( !empty($hold['fields']) ) {
-            $hold = $this->flatten_hold($hold);
+        if (!empty($hold['fields'])) {
+            $hold = $this->flattenHold($hold);
         }
 
         return $hold;
     }
 
-
     /**
-     * Removes URLs from the trailing end of a string
+     * Removes URLs from the trailing end of a string.
      *
-     * @param  string $string String to be modifed
-     * @return string $string Modified string
-     */ 
-
-    private function remove_url ($string)
+     * @param string $string String to be modifed.
+     * @return string Modified string.
+     */
+    private function removeUrl(string $string): string
     {
         $string = trim($string);
- 
+
         $words = preg_split("/[\s]+/", $string);
         $new = [];
 
         foreach ($words as $word) {
-            if ( !preg_match("#^(http)(s{0,1})(:\/\/)(.*)$#", $word) ) {
+            if (!preg_match("#^(http)(s{0,1})(://)(.*)$#", $word)) {
                 array_push($new, $word);
             }
         }
@@ -1248,24 +1241,24 @@ class Libilsws
     }
 
     /**
-     * Pulls a hold list for a given library
-     * 
-     * @param  string $token       Session token returned by ILSWS
-     * @param  string $library_key Library key (three character)
-     * @return object              Associative array containing the response from ILSWS
+     * Pulls a hold list for a given library.
+     *
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $libraryKey Library key (three character).
+     * @return array Associative array containing the response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function get_library_paging_list ($token = null, $library_key = null)
+    public function getLibraryPagingList(?string $token = null, ?string $libraryKey = null): array
     {
         $list = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('library_key', $library_key, 'r:#^[A-Z]$#');
+        $this->validate('libraryKey', $libraryKey, 'r:#^[A-Z0-9]{3,9}$#');
 
-        $include_fields = 'pullList{holdRecord{holdType,status,pickupLibrary},item{call{bib{author,title},callNumber,sortCallNumber},barcode,currentLocation{description}itemType}}';
-        $response = $this->send_get("$this->base_url/circulation/holdItemPullList/key/$library_key", $token, ['includeFields' => $include_fields]);
-        
-        if ( !empty($response['fields']['pullList']) ) {
+        $includeFields = 'pullList{holdRecord{holdType,status,pickupLibrary},item{barcode,itemType,currentLocation{description},bib{author,title},call{callNumber,sortCallNumber}}}';
+        $response = $this->sendGet("{$this->baseUrl}/circulation/holdItemPullList/key/{$libraryKey}", $token, ['includeFields' => $includeFields]);
+
+        if (!empty($response['fields']['pullList'])) {
             foreach ($response['fields']['pullList'] as $hold) {
 
                 $record = [];
@@ -1274,18 +1267,18 @@ class Libilsws
                 $record['status'] = $hold['fields']['holdRecord']['fields']['status'];
                 $record['pickupLibrary'] = $hold['fields']['holdRecord']['fields']['pickupLibrary']['key'];
                 $record['item'] = $hold['fields']['item']['key'];
-                $record['bib'] = $hold['fields']['item']['fields']['call']['fields']['bib']['key'];
-                $record['author'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['author'];
-                $record['title'] = $hold['fields']['item']['fields']['call']['fields']['bib']['fields']['title'];
+                $record['bib'] = $hold['fields']['item']['fields']['bib']['key'];
+                $record['author'] = $hold['fields']['item']['fields']['bib']['fields']['author'];
+                $record['title'] = $hold['fields']['item']['fields']['bib']['fields']['title'];
                 $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'];
                 $record['sortCallNumber'] = $hold['fields']['item']['fields']['call']['fields']['sortCallNumber'];
                 $record['barcode'] = $hold['fields']['item']['fields']['barcode'];
                 $record['currentLocation'] = $hold['fields']['item']['fields']['currentLocation']['key'];
                 $record['locationDescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'];
                 $record['itemType'] = $hold['fields']['item']['fields']['itemType']['key'];
-               
-                // Remove URL from author field 
-                $record['author'] = $this->remove_url($record['author']);
+
+                // Remove URL from author field
+                $record['author'] = !empty($record['author']) ? $this->removeUrl($record['author']) : '';
 
                 array_push($list, $record);
             }
@@ -1295,23 +1288,23 @@ class Libilsws
     }
 
     /**
-     * Deletes a patron
+     * Deletes a patron.
      *
-     * @param  string $token       The session token returned by ILSWS
-     * @param  string $patron_key  The patron key of the user to delete
-     * @return string              Returns 1 if successful, 0 if not
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronKey The patron key of the user to delete.
+     * @return int Returns 1 if successful, 0 if not.
+     * @throws Exception If validation fails.
      */
-
-    public function delete_patron ($token = null, $patron_key = null)
+    public function deletePatron(?string $token = null, ?string $patronKey = null): int
     {
         $retval = 0;
         $json = '';
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
 
-        $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'DELETE');
-        if ( $this->code == 204 ) {
+        $this->sendQuery("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, $json, 'DELETE');
+        if ($this->code == 204) {
             $retval = 1;
         }
 
@@ -1319,73 +1312,70 @@ class Libilsws
     }
 
     /**
-     * Resets a user password
+     * Resets a user password.
      *
-     * @param  string $token      The session token returned by ILSWS
-     * @param  string $json       JSON containing either currentPassword and newPassword or
-     *                            resetPasswordToken and newPassword
-     * @param  array  $options    Associative array of options (role, client_id)
-     * @return object             Associative array containing response from ILSWS
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $json JSON containing either currentPassword and newPassword or
+     * resetPasswordToken and newPassword.
+     * @param array $options Associative array of options (role, clientId).
+     * @return array Associative array containing response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function change_patron_password ($token = null, $json = null, $options = [])
+    public function changePatronPassword(?string $token = null, ?string $json = null, array $options = []): array
     {
-
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('json', $json, 'j');
 
-        return $this->send_query("$this->base_url/user/patron/changeMyPassword", $token, $json, 'POST', $options);
-    } 
+        return $this->sendQuery("{$this->baseUrl}/user/patron/changeMyPassword", $token, $json, 'POST', $options);
+    }
 
     /**
-     * Resets a user password via call-back to a web application and email
+     * Resets a user password via call-back to a web application and email.
      *
-     * @param  string $token      The session token returned by ILSWS
-     * @param  string $patron_id  The patron barcode
-     * @param  string $url        The call-back URL for the web application
-     * @param  string $email      Optional email address to use and validate
-     * @return object             Associative array containing response from ILSWS
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronId The patron barcode.
+     * @param string|null $url The call-back URL for the web application.
+     * @param string|null $email Optional email address to use and validate.
+     * @return array Associative array containing response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function reset_patron_password ($token = null, $patron_id = null, $url = null, $email = null)
+    public function resetPatronPassword(?string $token = null, ?string $patronId = null, ?string $url = null, ?string $email = null): array
     {
-
-
         $data = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'r:#[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#[A-Z0-9]{6,20}$#');
         $this->validate('url', $url, 'u');
 
         $data = [
-            'barcode' => $patron_id,
+            'barcode' => $patronId,
             'resetPasswordUrl' => $url,
-            ];
+        ];
 
-        if ( $email ) {
+        if ($email) {
             $this->validate('email', $email, 'e');
             $data['email'] = $email;
         }
 
         $json = json_encode($data);
 
-        return $this->send_query("$this->base_url/user/patron/resetMyPassword", $token, $json, 'POST');
-    } 
+        return $this->sendQuery("{$this->baseUrl}/user/patron/resetMyPassword", $token, $json, 'POST');
+    }
 
     /**
-     * Get patron indexes
-     * 
-     * @param  string $token     The session token returned by ILSWS
-     * @return array             Array of valid patron indexes
+     * Get patron indexes.
+     *
+     * @param string|null $token The session token returned by ILSWS.
+     * @return array Array of valid patron indexes.
+     * @throws Exception If validation fails.
      */
-
-    public function get_patron_indexes ($token = null)
+    public function getPatronIndexes(?string $token = null): array
     {
         $indexes = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
-        $describe = $this->send_get("$this->base_url/user/patron/describe", $token, []);
+        $describe = $this->sendGet("{$this->baseUrl}/user/patron/describe", $token, []);
 
         foreach ($describe['searchIndexList'] as $index) {
             array_push($indexes, $index['name']);
@@ -1396,18 +1386,23 @@ class Libilsws
 
     /**
      * Function to check for duplicate accounts by searching in two indexes
-     * and comparing the resulting arrays
+     * and comparing the resulting arrays.
      *
-     * @param  string $token     The session token returned by ILSWS
-     * @param  string $index1    First search index
-     * @param  string $search1   First search string
-     * @param  string $index2    Second search index
-     * @param  string $search2   Second search string
-     * @return string            Boolean 1 or 0 depending on whether a duplicate is found
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $index1 First search index.
+     * @param string|null $search1 First search string.
+     * @param string|null $index2 Second search index.
+     * @param string|null $search2 Second search string.
+     * @return int Boolean 1 or 0 depending on whether a duplicate is found.
+     * @throws Exception If validation fails.
      */
-
-    public function check_duplicate ($token = null, $index1 = null, $search1 = null, $index2 = null, $search2 = null)
-    {
+    public function checkDuplicate(
+        ?string $token = null,
+        ?string $index1 = null,
+        ?string $search1 = null,
+        ?string $index2 = null,
+        ?string $search2 = null
+    ): int {
         $duplicate = 0;
         $matches = 0;
 
@@ -1415,92 +1410,87 @@ class Libilsws
         $this->validate('search1', $search1, 's:40');
         $this->validate('search2', $search2, 's:40');
 
-        if ( $this->config['symphony']['validate_patron_indexes'] ) {
-            $patron_indexes = $this->get_patron_indexes($token);
-            $this->validate('index1', $index1, 'v:' . implode('|', $patron_indexes));
-            $this->validate('index2', $index2, 'v:' . implode('|', $patron_indexes));
+        if ($this->config['symphony']['validate_patron_indexes']) {
+            $patronIndexes = $this->getPatronIndexes($token);
+            $this->validate('index1', $index1, 'v:' . implode('|', $patronIndexes));
+            $this->validate('index2', $index2, 'v:' . implode('|', $patronIndexes));
         } else {
             $this->validate('index1', $index1, 'r:#^[A-Z0-9a-z_]{2,9}$#');
             $this->validate('index2', $index2, 'r:#^[A-Z0-9a-z_]{2,9}$#');
         }
 
-        if ( preg_match('/street/i', $index1) ) {
-            $search1 = preg_replace('/[^A-Za-z0-9\- ]/', '', $search1);
+        if (preg_match('/street/i', (string) $index1)) {
+            $search1 = preg_replace('/[^A-Za-z0-9\- ]/', '', (string) $search1);
         }
-        if ( preg_match('/street/i', $index2) ) {
-            $search2 = preg_replace('/[^A-Za-z0-9\- ]/', '', $search2);
+        if (preg_match('/street/i', (string) $index2)) {
+            $search2 = preg_replace('/[^A-Za-z0-9\- ]/', '', (string) $search2);
         }
-        if ( preg_match('/date/i', $index1) ) {
-            $search1 = preg_replace('/-/', '', $this->create_field_date('search', $search1));
+        if (preg_match('/date/i', (string) $index1)) {
+            $search1 = preg_replace('/-/', '', $this->createFieldDate('search', (string) $search1));
         }
-        if ( preg_match('/date/i', $index2) ) {
-            $search2 = preg_replace('/-/', '', $this->create_field_date('search2', $search2));
-        }
-
-        if ( $this->config['debug']['query'] ) {
-            error_log("DEBUG_QUERY $index1:$search1", 0);
-            error_log("DEBUG_QUERY $index2:$search2", 0);
+        if (preg_match('/date/i', (string) $index2)) {
+            $search2 = preg_replace('/-/', '', $this->createFieldDate('search2', (string) $search2));
         }
 
-        $result1 = $this->search_patron($token, $index1, $search1, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
+        if ($this->config['debug']['query']) {
+            error_log("DEBUG_QUERY {$index1}:{$search1}", 0);
+            error_log("DEBUG_QUERY {$index2}:{$search2}", 0);
+        }
 
-        if ( isset($result1['totalResults']) && $result1['totalResults'] >= 1 ) {
+        $result1 = $this->searchPatron($token, (string) $index1, (string) $search1, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
-            $start_row = 1;
-            $result_rows = 0;
+        if (isset($result1['totalResults']) && $result1['totalResults'] >= 1) {
+            $startRow = 1;
+            $resultRows = 0;
 
-            $result2 = $this->search_patron($token, $index2, $search2, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
+            $result2 = $this->searchPatron($token, (string) $index2, (string) $search2, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
-            if ( isset($result2['totalResults']) && $result2['totalResults'] > 1 ) {
-
+            if (isset($result2['totalResults']) && $result2['totalResults'] > 1) {
                 foreach (array_filter($result1['result']) as $record1) {
                     foreach (array_filter($result2['result']) as $record2) {
-                        if ( $record1['key'] === $record2['key'] ) {
+                        if ($record1['key'] === $record2['key']) {
                             $matches++;
-                            if ( $matches > 1 ) {
+                            if ($matches > 1) {
                                 break;
                             }
                         }
                     }
-                    if ( $matches > 1 ) {
+                    if ($matches > 1) {
                         break;
                     }
                 }
-                if ( $matches > 1 ) {
+                if ($matches > 1) {
                     $duplicate = 1;
                 }
-
             } else {
+                $resultRows = $result2['totalResults'];
+                $startRow += 1000;
 
-                $result_rows = $result2['totalResults'];
-                $start_row += 1000;
-                
-                while ( $result_rows >= $start_row ) {
-
-                    $result2 = $this->search_patron($token, $index2, $search2, ['rw' => $start_row, 'ct' => 1000, 'includeFields' => 'key']);
+                while ($resultRows >= $startRow) {
+                    $result2 = $this->searchPatron($token, (string) $index2, (string) $search2, ['rw' => $startRow, 'ct' => 1000, 'includeFields' => 'key']);
 
                     foreach (array_filter($result1['result']) as $record1) {
                         foreach (array_filter($result2['result']) as $record2) {
-                            if ( $record1['key'] === $record2['key'] ) {
+                            if ($record1['key'] === $record2['key']) {
                                 $matches++;
-                                if ( $matches > 1 ) {
+                                if ($matches > 1) {
                                     break;
                                 }
                             }
                         }
-                        if ( $matches > 1 ) {
+                        if ($matches > 1) {
                             break;
                         }
                     }
-                    if ( $matches > 1 ) {
+                    if ($matches > 1) {
                         break;
                     }
-                    $start_row += 1000;
+                    $startRow += 1000;
                 }
             }
         }
 
-        if ( $matches > 1 ) {
+        if ($matches > 1) {
             $duplicate = 1;
         }
 
@@ -1511,75 +1501,75 @@ class Libilsws
      * Use an email, telephone or other value to retrieve a user barcode (ID)
      * and then see if we can authenticate with that barcode and the user password.
      *
-     * Should return a patron key or 0. On error,it should throw an exception. 
+     * Should return a patron key or 0. On error,it should throw an exception.
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @param  string $token      The session token returned by ILSWS
-     * @param  string $index      The Symphony index to search
-     * @param  string $search     The value to search for
-     * @param  string $password   The patron password
-     * @return string $patron_key The patron ID (barcode)
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $index The Symphony index to search.
+     * @param string|null $search The value to search for.
+     * @param string|null $password The patron password.
+     * @return string The patron ID (barcode).
+     * @throws Exception If validation fails.
      */
-
-    public function search_authenticate ($token = null, $index = null, $search = null, $password = null)
+    public function searchAuthenticate(?string $token = null, ?string $index = null, ?string $search = null, ?string $password = null): string
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('search', $search, 's:40');
         $this->validate('password', $password, 's:40');
 
-        if ( $this->config['symphony']['validate_patron_indexes'] ) {
-            $indexes = $this->get_patron_indexes($token);
+        if ($this->config['symphony']['validate_patron_indexes']) {
+            $indexes = $this->getPatronIndexes($token);
             $this->validate('index', $index, 'v:' . implode('|', $indexes));
         } else {
             $this->validate('index', $index, 'r:#^[A-Z0-9a-z_]{2,9}$#');
         }
 
         $params = [
-                'rw'            => '1',
-                'ct'            => $this->config['ilsws']['max_search_count'],
-                'j'             => 'AND',
-                'includeFields' => 'barcode',
-                ];
+            'rw' => '1',
+            'ct' => $this->config['ilsws']['max_search_count'],
+            'j' => 'AND',
+            'includeFields' => 'barcode',
+        ];
 
-        $response = $this->search_patron($token, $index, $search, $params);
+        $response = $this->searchPatron($token, (string) $index, (string) $search, $params);
 
-        if ( $this->error ) {
-            return 0;
+        if ($this->error) {
+            return '0';
         }
 
         /**
-         * Symphony Web Services' with return nulls for records that have been deleted 
-         * but still count them in the results. So, you can't trust the totalResults count 
-         * match the number of actual records returned, and you have to loop through all 
+         * Symphony Web Services' with return nulls for records that have been deleted
+         * but still count them in the results. So, you can't trust the totalResults count
+         * match the number of actual records returned, and you have to loop through all
          * possible result objects to see if there is data.
          */
-        $patron_key = 0;
+        $patronKey = '0';
         $count = 0;
-        if ( $response['totalResults'] > 0 && $response['totalResults'] <= $this->config['ilsws']['max_search_count'] ) {
+        if ($response['totalResults'] > 0 && $response['totalResults'] <= $this->config['ilsws']['max_search_count']) {
             for ($i = 0; $i <= $response['totalResults'] - 1; $i++) {
-                if ( isset($response['result'][$i]['fields']['barcode']) ) {
-                    $patron_id = $response['result'][$i]['fields']['barcode'];
+                if (isset($response['result'][$i]['fields']['barcode'])) {
+                    $patronId = $response['result'][$i]['fields']['barcode'];
 
                     // Get the patron key from ILSWS via the patron ID and password
-                    $patron_key = $this->authenticate_patron_id($token, $patron_id, $password);
+                    $patronKey = $this->authenticatePatronId($token, (string) $patronId, (string) $password);
 
-                    if ( $patron_key ) {
+                    if ($patronKey) {
                         $count++;
                     }
                 }
-                if ( $count > 1 ) {
-                    $patron_key = 0;
+                if ($count > 1) {
+                    $patronKey = '0';
                     break;
                 }
             }
         }
 
-        return $patron_key;
+        return $patronKey;
     }
 
     /**
-     * Authenticate via patron_id (barcode) and password.
+     * Authenticate via patronId (barcode) and password.
      *
      * On a successful login, this function should return the user's patron key. On failure,
      * it should throw an exception. If the error was caused by the user entering the wrong
@@ -1587,30 +1577,30 @@ class Libilsws
      *
      * Note that both the username and the password are UTF-8 encoded.
      *
-     * @param  string $token      The session token returned by ILSWS
-     * @param  string $patron_id  The patron ID (barcode)
-     * @param  string $password   The patron password
-     * @return string $patron_key The patron key (internal ID)
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronId The patron ID (barcode).
+     * @param string|null $password The patron password.
+     * @return string The patron key (internal ID).
+     * @throws Exception If validation fails.
      */
-
-    public function authenticate_patron_id ($token = null, $patron_id = null, $password = null)
+    public function authenticatePatronId(?string $token = null, ?string $patronId = null, ?string $password = null): string
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
         $this->validate('password', $password, 's:20');
 
-        $patron_key = 0;
+        $patronKey = '0';
 
-        $action = "/user/patron/authenticate";
-        $json = json_encode(['barcode' => $patron_id, 'password' => $password]);
+        $action = '/user/patron/authenticate';
+        $json = json_encode(['barcode' => $patronId, 'password' => $password]);
 
-        $response = $this->send_query("$this->base_url/$action", $token, $json, 'POST');
+        $response = $this->sendQuery("{$this->baseUrl}/{$action}", $token, $json, 'POST');
 
-        if ( isset($response['patronKey']) ) {
-            $patron_key = $response['patronKey'];
+        if (isset($response['patronKey'])) {
+            $patronKey = $response['patronKey'];
         }
 
-        return $patron_key;
+        return (string) $patronKey;
     }
 
     /**
@@ -1618,19 +1608,19 @@ class Libilsws
      *
      * This function returns a patron's attributes.
      *
-     * @param  string $token      The session token returned by ILSWS
-     * @param  string $patron_key The user's internal ID number
-     * @return object $attributes Associative array with the user's attributes
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronKey The user's internal ID number.
+     * @return array Associative array with the user's attributes.
+     * @throws Exception If validation fails.
      */
-
-    public function get_patron_attributes ($token = null, $patron_key = null)
+    public function getPatronAttributes(?string $token = null, ?string $patronKey = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
-        
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+
         $attributes = [];
 
-        $include_fields = [
+        $includeFields = [
             'lastName',
             'firstName',
             'middleName',
@@ -1644,35 +1634,34 @@ class Libilsws
             'category02',
             'category03',
             'standing',
-            ];
+        ];
 
-        $include_str = implode(',', $include_fields);
+        $includeStr = implode(',', $includeFields);
 
-        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, ['includeFields' => $include_str]);
+        $response = $this->sendGet("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, ['includeFields' => $includeStr]);
 
         // Extract patron attributes from the ILSWS response and assign to $attributes.
-        if ( isset($response['key']) ) {
-            foreach ( $include_fields as &$field ) {
-
-                if ( $field == 'address1' ) {
-                    if ( isset($response['fields']['address1']) ) {
+        if (isset($response['key'])) {
+            foreach ($includeFields as &$field) {
+                if ($field == 'address1') {
+                    if (isset($response['fields']['address1'])) {
                         foreach ($response['fields']['address1'] as &$i) {
-                            if ( $i['fields']['code']['key'] == 'EMAIL' ) {
+                            if ($i['fields']['code']['key'] == 'EMAIL') {
                                 $attributes['email'] = $i['fields']['data'];
-                            } elseif ( $i['fields']['code']['key'] == 'CITY/STATE' ) {
+                            } elseif ($i['fields']['code']['key'] == 'CITY/STATE') {
                                 $parts = preg_split("/,\s*/", $i['fields']['data']);
                                 $attributes['city'] = $parts[0];
                                 $attributes['state'] = $parts[1];
-                            } elseif ( $i['fields']['code']['key'] == 'ZIP' ) {
+                            } elseif ($i['fields']['code']['key'] == 'ZIP') {
                                 $attributes['zip'] = $i['fields']['data'];
-                            } elseif ( $i['fields']['code']['key'] == 'PHONE' ) {
+                            } elseif ($i['fields']['code']['key'] == 'PHONE') {
                                 $attributes['telephone'] = $i['fields']['data'];
                             }
                         }
                     }
-                } elseif ( isset($response['fields'][$field]['key']) ) {
+                } elseif (isset($response['fields'][$field]['key'])) {
                     $attributes[$field] = $response['fields'][$field]['key'];
-                } elseif ( isset($response['fields'][$field]) ) {
+                } elseif (isset($response['fields'][$field])) {
                     $attributes[$field] = $response['fields'][$field];
                 } else {
                     $attributes[$field] = '';
@@ -1680,21 +1669,21 @@ class Libilsws
             }
         }
         // Generate a displayName
-        if ( isset($response['fields']['lastName']) && isset($response['fields']['firstName']) ) {
+        if (isset($response['fields']['lastName']) && isset($response['fields']['firstName'])) {
             $attributes['displayName'] = $response['fields']['firstName'] . ' ' . $response['fields']['lastName'];
         }
         // Generate a commonName
-        if ( isset($response['fields']['lastName']) && isset($response['fields']['firstName']) ) {
-            if ( isset($response['fields']['middleName']) ) {
-                $attributes['commonName'] = $response['fields']['lastName'] 
-                  . ', ' 
-                  . $response['fields']['firstName'] 
-                  . ' ' 
-                  . $response['fields']['middleName'];
+        if (isset($response['fields']['lastName']) && isset($response['fields']['firstName'])) {
+            if (isset($response['fields']['middleName'])) {
+                $attributes['commonName'] = $response['fields']['lastName']
+                    . ', '
+                    . $response['fields']['firstName']
+                    . ' '
+                    . $response['fields']['middleName'];
             } else {
-                $attributes['commonName'] = $response['fields']['lastName'] 
-                  . ', ' 
-                  . $response['fields']['firstName'];
+                $attributes['commonName'] = $response['fields']['lastName']
+                    . ', '
+                    . $response['fields']['firstName'];
             }
         }
 
@@ -1702,159 +1691,164 @@ class Libilsws
     }
 
     /**
-     * Authenticate a patron via ID (barcode) and password
+     * Authenticate a patron via ID (barcode) and password.
      *
-     * @param  string $token     The session token returned by ILSWS
-     * @param  string $patron_id The patron's ID (barcode)
-     * @return object            Associative array contain the response from ILSWS
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronId The patron's ID (barcode).
+     * @param string|null $password The patron password.
+     * @return array Associative array contain the response from ILSWS.
+     * @throws Exception If validation fails.
      */
-
-    public function authenticate_patron ($token = null, $patron_id = null, $password = null)
+    public function authenticatePatron(?string $token = null, ?string $patronId = null, ?string $password = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
 
-        $json = "{ \"barcode\": \"$patron_id\", \"password\": \"$password\" }";
+        $json = "{ \"barcode\": \"{$patronId}\", \"password\": \"{$password}\" }";
 
-        return $this->send_query("$this->base_url/user/patron/authenticate", $token, $json, 'POST');
+        return $this->sendQuery("{$this->baseUrl}/user/patron/authenticate", $token, $json, 'POST');
     }
 
     /**
-     * Describe the patron resource
-     * 
-     * @param  string $token The session token returned by ILSWS
-     * @return object        Associative array containing information about the patron record
-     *                       structure used by SirsiDynix Symphony
+     * Describe the patron resource.
+     *
+     * @param string $token The session token returned by ILSWS.
+     * @return array Associative array containing information about the patron record
+     * structure used by SirsiDynix Symphony.
+     * @throws Exception If validation fails.
      */
-
-    public function describe_patron ($token) 
+    public function describePatron(string $token): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
 
-        return $this->send_get("$this->base_url/user/patron/describe", $token);
+        return $this->sendGet("{$this->baseUrl}/user/patron/describe", $token);
     }
 
-    /** 
-     * Search for patron by any valid single field
+    /**
+     * Search for patron by any valid single field.
      *
-     * @param  string $token    The session token returned by ILSWS
-     * @param  string $index    The index to search
-     * @param  string $value    The value to search for
-     * @param  object $params   Associative array of optional parameters
-     * @return object           Associative array containing search results
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $index The index to search.
+     * @param string|null $value The value to search for.
+     * @param array|null $params Associative array of optional parameters.
+     * @return array Associative array containing search results.
+     * @throws Exception If validation fails.
      */
-
-    public function search_patron ($token = null, $index = null, $value = null, $params = null)
+    public function searchPatron(?string $token = null, ?string $index = null, ?string $value = null, ?array $params = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('value', $value, 's:40');
 
-        if ( $this->config['symphony']['validate_patron_indexes'] ) {
-            $indexes = $this->get_patron_indexes($token);
+        if ($this->config['symphony']['validate_patron_indexes']) {
+            $indexes = $this->getPatronIndexes($token);
             $this->validate('index', $index, 'v:' . implode('|', $indexes));
         } else {
             $this->validate('index', $index, 'r:#^[A-Z0-9a-z_]{2,9}$#');
         }
 
-        /** 
-         * Valid incoming params are: 
-         * ct            = number of results to return,
-         * rw            = row to start on (so you can page through results),
-         * j             = boolean AND or OR to use with multiple search terms, and
+        /**
+         * Valid incoming params are:
+         * ct = number of results to return,
+         * rw = row to start on (so you can page through results),
+         * j = boolean AND or OR to use with multiple search terms, and
          * includeFields = fields to return in result.
          *
          * Any incoming q will be replaced by the values $index and $value.
          */
 
         $params = [
-            'q'             => "$index:$value",
-            'ct'            => $params['ct'] ?? '1000',
-            'rw'            => $params['rw'] ?? '1',
-            'j'             => $params['j'] ?? 'AND',
+            'q' => "{$index}:{$value}",
+            'ct' => $params['ct'] ?? '1000',
+            'rw' => $params['rw'] ?? '1',
+            'j' => $params['j'] ?? 'AND',
             'includeFields' => $params['includeFields'] ?? $this->config['symphony']['default_patron_include_fields'],
-            ];
+        ];
 
-        return $this->send_get("$this->base_url/user/patron/search", $token, $params);
+        return $this->sendGet("{$this->baseUrl}/user/patron/search", $token, $params);
     }
 
     /**
-     * Search by alternate ID number
-     * 
-     * @param  string $token  The session token returned by ILSWS
-     * @param  string $alt_id The user's alternate ID number
-     * @param  string $count  How many records to return per page
-     * @return object         Associative array containing search results
-     */
-
-    public function search_patron_alt_id ($token = null, $alt_id = null, $count = null)
-    {
-        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('alt_id', $alt_id, 'i:1,99999999');
-        $this->validate('count', $count, 'i:1,1000');
-
-        return $this->search_patron($token, 'ALT_ID', $alt_id, ['ct' => $count]);
-    }
-
-    /**
-     * Search for patron by ID (barcode)
+     * Search by alternate ID number.
      *
-     * @param  string $token     The session token returned by ILSWS
-     * @param  string $patron_id The user's alternate ID number
-     * @param  string $count     How many records to return per page
-     * @return object            Associative array containing search results
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $altId The user's alternate ID number.
+     * @param string|null $count How many records to return per page.
+     * @return array Associative array containing search results.
+     * @throws Exception If validation fails.
      */
-
-    public function search_patron_id ($token = null, $patron_id = null, $count = null) 
+    public function searchPatronAltId(?string $token = null, ?string $altId = null, ?string $count = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('altId', $altId, 'i:1,99999999');
         $this->validate('count', $count, 'i:1,1000');
 
-        return $this->search_patron($token, 'ID', $patron_id, ['ct' => $count]);
+        return $this->searchPatron($token, 'ALT_ID', (string) $altId, ['ct' => $count]);
+    }
+
+    /**
+     * Search for patron by ID (barcode).
+     *
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronId The user's alternate ID number.
+     * @param string|null $count How many records to return per page.
+     * @return array Associative array containing search results.
+     * @throws Exception If validation fails.
+     */
+    public function searchPatronId(?string $token = null, ?string $patronId = null, ?string $count = null): array
+    {
+        $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('count', $count, 'i:1,1000');
+
+        return $this->searchPatron($token, 'ID', (string) $patronId, ['ct' => $count]);
     }
 
     /**
      * Uses a birth day to determine what profile the patron should receive, assuming
-     * a profile has not been set in the incoming data
+     * a profile has not been set in the incoming data.
      *
-     * @access private
-     * @param  object  $patron
-     * @return string  $profile The profile
+     * @param array $patron Associative array of patron data elements.
+     * @return string The profile.
+     * @throws Exception If validation fails.
      */
-    private function get_profile ($patron)
+    private function getProfile(array $patron): string
     {
         // Look in all the places we might find an incoming profile
         $profile = '';
-        if (!empty($patron['profile']) ) {
+        if (!empty($patron['profile'])) {
             $profile = $patron['profile'];
-        } elseif ( !empty($this->config['symphony']['new_fields']['alias']) 
-            && !empty($patron[$this->config['symphony']['new_fields']['alias']]) ) {
+        } elseif (!empty($this->config['symphony']['new_fields']['alias'])
+            && !empty($patron[$this->config['symphony']['new_fields']['alias']])
+        ) {
             $profile = $patron[$this->config['symphony']['new_fields']['alias']];
-        } elseif ( !empty($this->config['symphony']['overlay_fields']['alias']) 
-            && !empty($patron[$this->config['symphony']['overlay_fields']['alias']]) ) {
+        } elseif (!empty($this->config['symphony']['overlay_fields']['alias'])
+            && !empty($patron[$this->config['symphony']['overlay_fields']['alias']])
+        ) {
             $profile = $patron[$this->config['symphony']['overlay_fields']['alias']];
         }
-            
+
         // If we found an incoming profile, it takes precedence, so return it.
-        if ( $profile ) {
+        if ($profile) {
             return $profile;
         }
 
         // Check everywhere we might find a birth date
         $dob = '';
-        if ( !empty($patron['birthDate']) ) {
-            $dob = $this->create_field_date('birthDate', $patron['birthDate']);
-        } elseif ( !empty($this->config['symphony']['new_fields']['birthDate']['alias']) 
-            && !empty($patron[$this->config['symphony']['new_fields']['birthDate']['alias']]) ) {
-            $dob = $this->create_field_date('birthDate', $patron[$this->config['symphony']['new_fields']['birthDate']['alias']]);
-        } elseif ( !empty($this->config['symphony']['overlay_fields']['birthDate']['alias']) 
-            && !empty($patron[$this->config['symphony']['overlay_fields']['birthDate']['alias']]) ) {
-            $dob = $this->create_field_date('birthDate', $patron[$this->config['symphony']['overlay_fields']['birthDate']['alias']]);
+        if (!empty($patron['birthDate'])) {
+            $dob = $this->createFieldDate('birthDate', $patron['birthDate']);
+        } elseif (!empty($this->config['symphony']['new_fields']['birthDate']['alias'])
+            && !empty($patron[$this->config['symphony']['new_fields']['birthDate']['alias']])
+        ) {
+            $dob = $this->createFieldDate('birthDate', $patron[$this->config['symphony']['new_fields']['birthDate']['alias']]);
+        } elseif (!empty($this->config['symphony']['overlay_fields']['birthDate']['alias'])
+            && !empty($patron[$this->config['symphony']['overlay_fields']['birthDate']['alias']])
+        ) {
+            $dob = $this->createFieldDate('birthDate', $patron[$this->config['symphony']['overlay_fields']['birthDate']['alias']]);
         }
 
         // If we got a birth date, calculate the age
         $age = 0;
-        if ( $dob )  {
+        if ($dob) {
             $today = date('Y-m-d');
             $d1 = new DateTime($today);
             $d2 = new DateTime($dob);
@@ -1863,12 +1857,11 @@ class Libilsws
         }
 
         // Check if the age fits into a range
-        if ( $age && !empty($this->config['symphony']['age_ranges']) ) {
-
+        if ($age && !empty($this->config['symphony']['age_ranges'])) {
             $ranges = $this->config['symphony']['age_ranges'];
             foreach ($ranges as $range => $value) {
                 list($min, $max) = preg_split('/-/', $range);
-                if ( $age >= $min && $age <= $max ) {
+                if ($age >= $min && $age <= $max) {
                     $profile = $ranges[$range];
                 }
             }
@@ -1878,19 +1871,17 @@ class Libilsws
     }
 
     /**
-     * Check for field aliases
+     * Check for field aliases.
      *
-     * @param object $patron Associative array of patron data elements
-     * @param  array $fields Associative array field data from YAML configuration
-     * @return array $patron Associative array of patron data elements
+     * @param array $patron Associative array of patron data elements.
+     * @param array $fields Associative array field data from YAML configuration.
+     * @return array Associative array of patron data elements.
      */
-
-    private function check_aliases ($patron, $fields)
+    private function checkAliases(array $patron, array $fields): array
     {
         foreach ($fields as $field => $value) {
-
             // Check if the data is coming in with a different field name (alias)
-            if ( !empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']]) ) {
+            if (!empty($fields[$field]['alias']) && isset($patron[$fields[$field]['alias']])) {
                 $patron[$field] = $patron[$fields[$field]['alias']];
             }
         }
@@ -1899,30 +1890,29 @@ class Libilsws
     }
 
     /**
-     * Check for defaults and required fields and validate field values
-     * 
-     * @param object $patron Associative array of patron data elements
-     * @param  array $fields Associative array field data from YAML configuration
-     * @return array $patron Associative array of patron data elements
+     * Check for defaults and required fields and validate field values.
+     *
+     * @param array $patron Associative array of patron data elements.
+     * @param array $fields Associative array field data from YAML configuration.
+     * @return array Associative array of patron data elements.
+     * @throws Exception If a required field is missing or validation fails.
      */
-
-    private function check_fields ($patron, $fields)
+    private function checkFields(array $patron, array $fields): array
     {
         // Loop through each field
         foreach ($fields as $field => $value) {
-
             // Assign default values to empty fields, where appropriate
-            if ( empty($patron[$field]) && !empty($fields[$field]['default']) ) {
+            if (empty($patron[$field]) && !empty($fields[$field]['default'])) {
                 $patron[$field] = $fields[$field]['default'];
             }
 
             // Check for missing required fields
-            if ( empty($patron[$field]) && !empty($fields[$field]['required']) && $fields[$field]['required'] === 'true' ) {
-                throw new Exception ("The $field field is required");
+            if (empty($patron[$field]) && !empty($fields[$field]['required']) && $fields[$field]['required'] === 'true') {
+                throw new Exception("The {$field} field is required");
             }
 
             // Validate
-            if ( !empty($patron[$field]) && !empty($fields[$field]['validation']) ) {
+            if (!empty($patron[$field]) && !empty($fields[$field]['validation'])) {
                 $this->validate($field, $patron[$field], $fields[$field]['validation']);
             }
         }
@@ -1931,187 +1921,206 @@ class Libilsws
     }
 
     /**
-     * Create new field structures for JSON
-     * 
-     * @param  object  $patron     Associative array of patron data elements
-     * @param  array   $fields     Associative array field data from YAML configuration
-     * @param  integer $addr_num   Address number 1, 2, or 3
-     * @param  integer $patron_key Internal SirsiDynix patron key
-     * @return object  $new        Patron data structure for conversion to JSON
+     * Create new field structures for JSON.
+     *
+     * @param array $patron Associative array of patron data elements.
+     * @param array $fields Associative array field data from YAML configuration.
+     * @param int $addrNum Address number 1, 2, or 3.
+     * @return array Patron data structure for conversion to JSON.
      */
-
-    private function create_fields ($patron, $fields, $addr_num)
+    private function createFields(array $patron, array $fields, int $addrNum): array
     {
         $new = [];
-        $new['fields']["address$addr_num"] = [];
+        $new['fields']["address{$addrNum}"] = [];
 
         // Loop through each field
         foreach ($fields as $field => $value) {
-            if ( !empty($patron[$field]) ) {
-                if ( !empty($fields[$field]['type']) && $fields[$field]['type'] === 'address' ) {
-                    array_push($new['fields']["address$addr_num"], $this->create_field($field, $patron[$field], 'list', $addr_num, $fields[$field]));
-                } elseif ( $field != 'phoneList' ) {
-                    $new['fields'][$field] = $this->create_field($field, $patron[$field], $this->field_desc[$field]['type'], $addr_num);
+            if (!empty($patron[$field])) {
+                if (!empty($fields[$field]['type']) && $fields[$field]['type'] === 'address') {
+                    array_push($new['fields']["address{$addrNum}"], $this->createField($field, $patron[$field], 'list', $addrNum, $fields[$field]));
+                } elseif ($field != 'phoneList' && $field != 'key') {
+                    $new['fields'][$field] = $this->createField($field, $patron[$field], $this->fieldDesc[$field]['type'], $addrNum);
                 }
             }
         }
-    
+
         return $new;
     }
 
     /**
-     * Create patron data structure for overlays (overlay_fields)
+     * Create patron data structure for overlays (overlay_fields).
      *
-     * @param  object $patron     Associative array of patron data elements
-     * @param  string $token      The sessions key returned by ILSWS
-     * @param  string $patron_key Optional patron key to include if updating existing record
-     * @return string $json       Complete Symphony patron record JSON
+     * @param array $patron Associative array of patron data elements.
+     * @param string|null $token The sessions key returned by ILSWS.
+     * @param string|null $patronKey Optional patron key to include if updating existing record.
+     * @param int|null $addrNum Address number to update (1, 2, or 3).
+     * @return string Complete Symphony patron record JSON.
+     * @throws Exception If validation fails.
      */
-
-    private function create_update_json ($patron, $token = null, $patron_key = null, $addr_num = null)
+    private function createUpdateJson(?array $patron, ?string $token = null, ?string $patronKey = null, ?int $addrNum = null): string
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
-        $this->validate('addr_num', $addr_num, 'i:1,3');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('addrNum', $addrNum, 'i:1,3');
 
         // Go get field descriptions if they aren't already available
-        if ( empty($this->field_desc) ) {
-            $this->get_field_desc($token, 'patron');
+        if (empty($this->fieldDesc)) {
+            $this->getFieldDesc($token, 'patron');
         }
 
         // Extract the field definitions from the configuration
         $fields = $this->config['symphony']['overlay_fields'];
 
         // Create the field structure
-        $new = $this->create_fields($patron, $fields, $addr_num);
+        $new = $this->createFields((array) $patron, $fields, (int) $addrNum);
         $new['resource'] = '/user/patron';
-        $new['key'] = $patron_key;
+        $new['key'] = $patronKey;
 
         // Return a JSON string suitable for use in patron_create
         return json_encode($new, JSON_PRETTY_PRINT);
     }
 
     /**
-     * Validates and formats fields based on their type
-     * 
-     * @param  string $name  The field to be processed
-     * @param  string $value The value to checked
-     * @param  string $type  The type of field to be processed
-     * @return               The output of the appropriate function
+     * Validates and formats fields based on their type.
+     *
+     * @param string $field The field to be processed.
+     * @param mixed $value The value to checked.
+     * @param string $type The type of field to be processed.
+     * @param int $addrNum Address number 1, 2, or 3.
+     * @param array|null $fieldData Associative array field data from YAML configuration.
+     * @return mixed The output of the appropriate function.
+     * @throws Exception If the field type is unknown.
      */
-
-    private function create_field ($field, $value, $type, $addr_num = 1, $field_data = null)
+    private function createField(string $field, $value, string $type, int $addrNum = 1, ?array $fieldData = null) 
     {
         switch ($type) {
             case 'boolean':
-                return $this->create_field_boolean($field, $value);
+                return $this->createFieldBoolean($field, $value);
             case 'date':
-                return $this->create_field_date($field, $value);
+                return $this->createFieldDate($field, $value);
             case 'resource':
-                return $this->create_field_resource($field, $value);
+                return $this->createFieldResource($field, $value);
             case 'set':
-                return $this->create_field_set($field, $value);
+                return $this->createFieldSet($field, $value);
             case 'string':
-                return $this->create_field_string($field, $value);
+                return $this->createFieldString($field, $value);
             case 'list':
-                return $this->create_field_address($field, $value, $field_data, $addr_num);
+                return $this->createFieldAddress($field, $value, (array) $fieldData, $addrNum);
+            case 'numeric':
+                return $this->createFieldNumeric($field, $value);
+            default:
+                throw new Exception("Unknown field type: {$type}");
         }
     }
 
     /**
-     * Process generic set fields
+     * Process generic numeric (integer) fields
      * 
-     * @access private
-     * @param  string $name  The name of the field
-     * @param  string $value The incoming value to be processed
-     * @return string        The validated field value
+     * @param string $name The name of the field.
+     * @param string $value The incoming value to be processed.
+     * @return string The validated field value.
+     * @throws Exception If the value is not an integer.
      */
- 
-    private function create_field_set ($name, $value)
+    private function createFieldNumeric(string $name, int $value): string
     {
-        foreach ($this->field_desc[$name]['setMembers'] as $allowed) {
-            if ( $value === $allowed ) {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        // If we got here, we weren't passed an integer
+        throw new Exception("Invalid integer \"{$value}\" in {$name}");
+    }
+
+    /**
+     * Process generic set fields.
+     *
+     * @param string $name The name of the field.
+     * @param string $value The incoming value to be processed.
+     * @return string The validated field value.
+     * @throws Exception If the value is not an allowed set member.
+     */
+    private function createFieldSet(string $name, string $value): string
+    {
+        foreach ($this->fieldDesc[$name]['setMembers'] as $allowed) {
+            if ($value === $allowed) {
                 return $value;
             }
         }
 
-        # If we got here, we didn't match any of the acceptable values
-        throw new Exception ("Invalid set member \"$value\" in $name");
+        // If we got here, we didn't match any of the acceptable values
+        throw new Exception("Invalid set member \"{$value}\" in {$name}");
     }
 
     /**
-     * Process generic boolean fields
-     * 
-     * @access private
-     * @param  string $name  The name of the field
-     * @param  string $value The incoming value to be processed
-     * @return string        "true" or "false"
+     * Process generic boolean fields.
+     *
+     * @param string $name The name of the field.
+     * @param mixed $value The incoming value to be processed.
+     * @return string "true" or "false".
      */
-
-    private function create_field_boolean ($name, $value)
+    private function createFieldBoolean(string $name, $value): string
     {
-        if ( is_bool($value) ) {
+        if (is_bool($value)) {
             return (boolval($value) ? 'true' : 'false');
-        } elseif ( preg_match('/^true$/i', $value) ) {
+        } elseif (preg_match('/^true$/i', (string) $value)) {
             return 'true';
-        } elseif ( preg_match('/^false$/i', $value) ) {
+        } elseif (preg_match('/^false$/i', (string) $value)) {
             return 'false';
         }
+        return 'false'; // Default for invalid input
     }
 
     /**
      * Process date for generic date field. Converts incoming strings
-     * in any supported format (see $supported_formats) into Symphony's 
+     * in any supported format (see $supported_formats) into Symphony's
      * preferred YYYY-MM-DD format.
-     * 
-     * @access private
-     * @param  string $name   The name of the field
-     * @param  string $value  The incoming value
-     * @return string $date   The outgoing validated date string
+     *
+     * @param string $name The name of the field.
+     * @param string $value The incoming value.
+     * @return string The outgoing validated date string.
+     * @throws Exception If the date format is invalid.
      */
-
-    private function create_field_date ($name, $value)
+    private function createFieldDate(string $name, string $value): string
     {
         $date = '';
 
-        $supported_formats = [
+        $supportedFormats = [
             'YYYYMMDD',
             'YYYY-MM-DD',
             'YYYY/MM/DD',
             'MM-DD-YYYY',
             'MM/DD/YYYY',
-            ];
+        ];
 
-        foreach ($supported_formats as $format) {
-            $date = $this->dh->validate_date($value, $format);
-            if ( $date ) {
+        foreach ($supportedFormats as $format) {
+            $date = $this->dh->validateDate($value, $format);
+            if ($date) {
                 break;
             }
         }
-        
-        if ( !$date ) {
-            throw new Exception ("Invalid date format: \"$value\" in $name field");
+
+        if (!$date) {
+            throw new Exception("Invalid date format: \"{$value}\" in {$name} field");
         }
 
         return $date;
     }
 
     /**
-     * Create structure for a generic resource field
+     * Create structure for a generic resource field.
      *
-     * @access private
-     * @param  string $name   The name of the field
-     * @param  string $value  The incoming value
-     * @return object $object The outgoing associative array object
+     * @param string $name The name of the field.
+     * @param string $key The key for the resource.
+     * @param string $data Optional additional data for the resource.
+     * @return array The outgoing associative array object.
      */
-
-    private function create_field_resource ($name, $key, $data = '')
+    private function createFieldResource(string $name, string $key, string $data = ''): array
     {
-        $object['resource'] = $this->field_desc[$name]['uri'];
+        $object['resource'] = $this->fieldDesc[$name]['uri'];
         $object['key'] = $key;
 
         // Not all resource fields have data
-        if ( $data ) {
+        if ($data) {
             $object['data'] = $data;
         }
 
@@ -2119,19 +2128,18 @@ class Libilsws
     }
 
     /**
-     * Create structure for a generic string field
+     * Create structure for a generic string field.
      *
-     * @access private
-     * @param  string $name   The name of the field
-     * @param  string $value  The incoming value
-     * @return string $value  The outgoing value
+     * @param string $name The name of the field.
+     * @param string $value The incoming value.
+     * @return string The outgoing value.
+     * @throws Exception If the field length is invalid.
      */
-
-    private function create_field_string ($name, $value)
+    private function createFieldString(string $name, string $value): string
     {
         $length = strlen($value);
-        if ( $length < intval($this->field_desc[$name]['min']) && $length > intval($this->field_desc[$name]['max']) ) {
-            throw new Exception("Invalid field length $length in $name field");
+        if ($length < (int) $this->fieldDesc[$name]['min'] || $length > (int) $this->fieldDesc[$name]['max']) {
+            throw new Exception("Invalid field length {$length} in {$name} field");
         }
 
         return $value;
@@ -2142,20 +2150,18 @@ class Libilsws
      * with SMS messaging. Note: this function only supports a single number for SMS, although
      * individual types of messages may be turned on or off.
      *
-     * @access private
-     * @param  string $patron_key The patron key
-     * @param  array  $params     SMS message types with which to use this number
-     * @return object $structure  Associative array containing result
+     * @param string|null $patronKey The patron key.
+     * @param array|null $params SMS message types with which to use this number.
+     * @return array Associative array containing result.
+     * @throws Exception If validation fails.
      */
-
-    private function create_field_phone ($patron_key = null, $params = null)
+    private function createFieldPhone(?string $patronKey = null, ?array $params = null): array
     {
-
         // Remove non-digit characters from the number
-        $telephone = preg_replace('/\D/', '', $params['number']);
+        $telephone = preg_replace('/\D/', '', (string) $params['number']);
 
-        // Validate everthing!
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
+        // Validate everything!
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
         $this->validate('telephone', $telephone, 'i:1000000000,9999999999');
         $this->validate('countryCode', $params['countryCode'], 'r:/^[A-Z]{2}$/');
         $this->validate('bills', $params['bills'], 'o');
@@ -2167,90 +2173,93 @@ class Libilsws
         // Assign default values as needed
         $params = [
             'countryCode' => $params['countryCode'] ?? 'US',
-            'bills'       => $params['bills'] ?? true,
-            'general'     => $params['general'] ?? true,
-            'holds'       => $params['holds'] ?? true,
-            'manual'      => $params['manual'] ?? true,
-            'overdues'    => $params['overdues'] ?? true,
-            ];
+            'bills' => $params['bills'] ?? true,
+            'general' => $params['general'] ?? true,
+            'holds' => $params['holds'] ?? true,
+            'manual' => $params['manual'] ?? true,
+            'overdues' => $params['overdues'] ?? true,
+        ];
 
-        // Create the phoneList structure required by Symphony 
+        // Create the phoneList structure required by Symphony
         $structure = [
             'resource' => '/user/patron/phone',
             'fields' => [
                 'patron' => [
                     'resource' => '/user/patron',
-                    'key' => $patron_key,
-                    ],
+                    'key' => $patronKey,
+                ],
                 'countryCode' => [
                     'resource' => '/policy/countryCode',
                     'key' => $params['countryCode'],
-                    ],
+                ],
                 'number' => $telephone,
                 'bills' => $params['bills'],
                 'general' => $params['general'],
                 'holds' => $params['holds'],
                 'manual' => $params['manual'],
                 'overdues' => $params['overdues'],
-                ],
-            ];
+            ],
+        ];
 
         return $structure;
     }
 
     /**
-     * Create address structure for use in patron update
-     * 
-     * @access private
-     * @param  string $field   Name of address field
-     * @return object $address Address object for insertion into a patron record
+     * Create address structure for use in patron update.
+     *
+     * @param string $field Name of address field.
+     * @param mixed $fieldValue The value for the address field.
+     * @param array $fields Associative array field data from YAML configuration.
+     * @param int $addrNum Address number for the field.
+     * @return array Address object for insertion into a patron record.
+     * @throws Exception If a required address subfield is missing.
      */
-
-    private function create_field_address ($field, $field_value, $fields, $addr_num)
+    private function createFieldAddress(string $field, $fieldValue, array $fields, int $addrNum): array
     {
-        foreach ($fields as $subfield => $value) {
+        $patron = []; // Initialize patron for this scope
 
+        foreach ($fields as $subfield => $value) {
             // Check if the data is coming in with a different field name (alias)
-            if ( empty($patron[$subfield]) && !empty($fields[$field][$subfield]['alias']) ) {
+            if (empty($patron[$subfield]) && !empty($fields[$field][$subfield]['alias'])) {
                 $patron[$subfield] = $patron[$fields[$field][$subfield]['alias']];
             }
 
             // Assign default values where appropriate
-            if ( empty($patron[$subfield]) && !empty($fields[$field][$subfield]['default']) ) {
+            if (empty($patron[$subfield]) && !empty($fields[$field][$subfield]['default'])) {
                 $patron[$subfield] = $fields[$field][$subfield]['default'];
             }
 
             // Check for missing required fields
-            if ( empty($patron[$subfield]) && !empty($fields[$subfield]['required']) && boolval($fields[$subfield]['required']) ) {
-                throw new Exception ("The $field $subfield field is required");
+            if (empty($patron[$subfield]) && !empty($fields[$subfield]['required']) && boolval($fields[$subfield]['required'])) {
+                throw new Exception("The {$field} {$subfield} field is required");
             }
 
             // Create address structure
             $address = [];
-            $address['resource'] = "/user/patron/address$addr_num";
-            $address['fields']['code']['resource'] = "/policy/patronAddress$addr_num";
+            $address['resource'] = "/user/patron/address{$addrNum}";
+            $address['fields']['code']['resource'] = "/policy/patronAddress{$addrNum}";
             $address['fields']['code']['key'] = $field;
-            $address['fields']['data'] = $field_value;
+            $address['fields']['data'] = $fieldValue;
 
             // Add this subfield to the address one array
             return $address;
         }
+        return []; // Should not be reached if fields is not empty
     }
 
     /**
-     * Calculate expiration date based on configuration
-     * 
-     * @param  integer $days            Number of days to add to today's date to calculate expiration
-     * @return date    $expiration_date Todays date plus the online account expiration (days)
+     * Calculate expiration date based on configuration.
+     *
+     * @param int|null $days Number of days to add to today's date to calculate expiration.
+     * @return string|null Today's date plus the online account expiration (days), or null if $days is null.
      */
-
-    public function get_expiration ($days = null)
+    public function getExpiration(?int $days = null): ?string
     {
         $expiration = null;
 
-        if ( $days ) {
+        if ($days) {
             $today = date('Y-m-d');
-            $expiration = date('Y-m-d', strtotime($today . " + $days day"));
+            $expiration = date('Y-m-d', strtotime($today . " + {$days} day"));
         }
 
         return $expiration;
@@ -2258,35 +2267,35 @@ class Libilsws
 
     /**
      * Create patron data structure required by the patron_register
-     * function to create the JSON patron data structure required by the API
+     * function to create the JSON patron data structure required by the API.
      *
-     * @param  object  $patron     Associative array of patron data elements
-     * @param  string  $token      The session key returned by ILSWS
-     * @param  string  $patron_key Symphony patron key
-     * @param  integer $addr_num   Optional Address number to update (1, 2, or 3, defaults to 1)
-     * @return string  $new        Symphony patron record JSON
+     * @param array $patron Associative array of patron data elements.
+     * @param string|null $token The session key returned by ILSWS.
+     * @param int $addrNum Optional Address number to update (1, 2, or 3, defaults to 1).
+     * @return string Symphony patron record JSON.
+     * @throws Exception If validation fails or patron profile/barcode cannot be determined.
      */
-
-    private function create_register_json ($patron, $token = null, $addr_num = 1)
+    private function createRegisterJson(array $patron, ?string $token = null, int $addrNum = 1): string
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
+        $this->validate('addrNum', $addrNum, 'r:#^[123]{1}$#');
 
         // Get patron profile based on age of patron
-        if ( empty($patron['profile']) ) {
-            $patron['profile'] = $this->get_profile($patron);
+        if (empty($patron['profile'])) {
+            $patron['profile'] = $this->getProfile($patron);
         }
 
         // Get or generate the patron barcode
-        $patron['barcode'] = empty($patron['barcode']) ? $this->gen_temp_barcode($patron['lastName'], $patron['firstName'], $patron['street']) : $patron['barcode'];
+        $patron['barcode'] = empty($patron['barcode']) ?
+            $this->genTempBarcode($patron['lastName'], $patron['firstName'], $patron['street']) : $patron['barcode'];
 
         // Create the data structure
-        $new = $this->create_fields($patron, $this->config['symphony']['new_fields'], $addr_num, null);
+        $new = $this->createFields($patron, $this->config['symphony']['new_fields'], $addrNum);
         $new['resource'] = '/user/patron';
-        if ( $patron['profile'] === 'ONLINE' ) {
-            $new['fields']['privilegeExpiresDate'] = $this->get_expiration($this->config['symphony']['online_account_expiration']);
+        if ($patron['profile'] === 'ONLINE') {
+            $new['fields']['privilegeExpiresDate'] = $this->getExpiration($this->config['symphony']['online_account_expiration']);
         }
-         
+
         // Return a JSON string suitable for use in patron_register
         return json_encode($new, JSON_PRETTY_PRINT);
     }
@@ -2294,27 +2303,27 @@ class Libilsws
     /**
      * Register a new patron and send welcome email to patron. Defaults to
      * English, but supports alternate language templates.
-     * 
-     * @param  object  $patron     Associative array containing patron data
-     * @param  string  $token      The session token returned by ILSWS
-     * @param  integer $addr_num   Optional Address number to update (1, 2, or 3, defaults to 1)
-     * @param  array   $options    Associative array of options (role, client_id, template, subject)
-     * @return object  $response   Associative array containing response from ILSWS
+     *
+     * @param array $patron Associative array containing patron data.
+     * @param string|null $token The session token returned by ILSWS.
+     * @param int|null $addrNum Optional Address number to update (1, 2, or 3, defaults to 1).
+     * @param array $options Associative array of options (role, clientId, template, subject).
+     * @return array Associative array containing response from ILSWS.
+     * @throws Exception If validation fails, barcode cannot be set, SMS update fails, or email fails.
      */
-
-    public function register_patron ($patron, $token = null, $addr_num = null, $options = [])
+    public function registerPatron(array $patron, ?string $token = null, ?int $addrNum = null, array $options = []): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('addr_num', $addr_num, 'r:#^[123]{1}$#');
+        $this->validate('addrNum', $addrNum, 'r:#^[123]{1}$#');
 
         $role = !empty($options['role']) ? $options['role'] : 'PATRON';
         $this->validate('role', $role, 'v:STAFF|PATRON|GUEST');
 
-        $client_id = !empty($options['client_id']) ? $options['client_id'] : $this->config['ilsws']['client_id'];
-        $this->validate('client_id', $client_id, 'r:#^[A-Za-z]{4,20}$#');
+        $clientId = !empty($options['clientId']) ? $options['clientId'] : $this->config['ilsws']['clientId'];
+        $this->validate('clientId', $clientId, 'r:#^[A-Za-z]{4,20}$#');
 
         $template = !empty($options['template']) ? $options['template'] : '';
-        $this->validate('template', $template, 'r:#^([a-zA-Z0-9]{1,40})(\.)(html|text)(\.)(twig)$#');
+        $this->validate('template', $template, 'r:#^([a-zA-Z0-9\-_]{1,40})(\.)(html|text)(\.)(twig)$#');
 
         $subject = !empty($options['subject']) ? $options['subject'] : '';
         $this->validate('subject', $subject, 's:20');
@@ -2322,14 +2331,14 @@ class Libilsws
         $response = [];
 
         // Get field metadata from Symphony and config
-        $this->get_field_desc($token, 'patron');
+        $this->getFieldDesc($token, 'patron');
         $fields = $this->config['symphony']['new_fields'];
 
         // Convert aliases to Symphony fields
-        $patron = $this->check_aliases($patron, $fields);
+        $patron = $this->checkAliases($patron, $fields);
 
         // Check fields for required and default values and validate
-        $patron = $this->check_fields($patron, $fields);
+        $patron = $this->checkFields($patron, $fields);
 
         // Determine the language code to use for the template
         $languages = [
@@ -2346,57 +2355,62 @@ class Libilsws
             'SOMALI' => 'so',
             'SPANISH' => 'es',
             'VIETNAMESE' => 'vi',
-            ];
+        ];
         $language = !empty($patron['language']) ? $languages[$patron['language']] : 'en';
 
-        if ( $template ) {
-            if ( is_readable($this->config['symphony']['template_path'] . '/' . $template . '.' . $language) ) {
+        if ($template) {
+            if (is_readable($this->config['symphony']['template_path'] . '/' . $template . '.' . $language)) {
                 $template = $template . '.' . $language;
             } else {
-                if ( is_readable($this->config['symphony']['template_path'] . '/' . $template . '.' . 'en') ) {
+                if (is_readable($this->config['symphony']['template_path'] . '/' . $template . '.' . 'en')) {
                     $template = $template . '.' . 'en';
                 } else {
-                    throw new Exception("Missing or unreadable template file: $template");
+                    throw new Exception("Missing or unreadable template file: {$template}");
                 }
             }
         }
 
         // Create the required record structure for a registration
-        $json = $this->create_register_json($patron, $token, $addr_num);
-        if ( $this->config['debug']['register'] ) {
-            error_log("DEBUG_REGISTER $json", 0);
+        $json = $this->createRegisterJson($patron, $token, (int) $addrNum);
+        if ($this->config['debug']['register']) {
+            error_log("DEBUG_REGISTER {$json}", 0);
         }
 
         // Send initial registration (and generate email)
-        $options = [];
-        $options['role'] = $role;
-        $options['client_id'] = $client_id;
-        $response = $this->send_query("$this->base_url/user/patron", $token, $json, 'POST', $options);
+        $requestOptions = [];
+        $requestOptions['role'] = $role;
+        $requestOptions['clientId'] = $clientId;
+        $response = $this->sendQuery("{$this->baseUrl}/user/patron", $token, $json, 'POST', $requestOptions);
 
-        if ( !empty($response['key']) ) { 
-            $patron_key = $response['key'];
+        if (!empty($response['key'])) {
+            $patronKey = $response['key'];
 
             // If the barcode doesn't look like a real 14-digit barcode then change it to the patron key
-            if ( empty($patron['barcode']) || !preg_match('/^\d{14}$/', $patron['barcode']) ) {
-
-                // Assign the patron_key from the initial registration to the update array
-                $patron['barcode'] = $patron_key;
-                if ( !$this->change_barcode($token, $patron_key, $patron_key, $options) ) {
+            if (empty($patron['barcode']) || !preg_match('/^\d{14}$/', (string) $patron['barcode'])) {
+                // Assign the patronKey from the initial registration to the update array
+                $patron['barcode'] = $patronKey;
+                if (!$this->changeBarcode($token, (string) $patronKey, (string) $patronKey, $requestOptions)) {
                     throw new Exception('Unable to set barcode to patron key');
                 }
             }
 
-            if ( !empty($patron['phoneList']) ) {
-                if ( !$this->update_phone_list($patron['phoneList'], $token, $patron_key, $options) ) {
+            if (!empty($patron['phoneList'])) {
+                if (!$this->updatePhoneList($patron['phoneList'], $token, (string) $patronKey, $requestOptions)) {
                     throw new Exception('SMS phone list update failed');
                 }
             }
 
-            if ( $template && $this->validate('EMAIL', $patron['EMAIL'], 'e') ) {
-                if ( !$subject ) {
+            if ($template && $this->validate('EMAIL', $patron['EMAIL'], 'e')) {
+                if (!$subject) {
                     $subject = !empty($this->config['smtp']['smtp_default_subject']) ? $this->config['smtp']['smtp_default_subject'] : '';
                 }
-                if ( !$this->email_template($patron, $this->config['smtp']['smtp_from'], $patron['EMAIL'], $subject, $template) ) {
+                if (!$this->emailTemplate(
+                    $patron,
+                    $this->config['smtp']['smtp_from'],
+                    $patron['EMAIL'],
+                    $subject,
+                    $template
+                )) {
                     throw new Exception('Email to patron failed');
                 }
             }
@@ -2406,42 +2420,44 @@ class Libilsws
     }
 
     /**
-     * Update existing patron record
+     * Update existing patron record.
      *
-     * @param  string $token The session token returned by ILSWS
-     * @param  string $json  Complete JSON of patron record including barcode
-     * @return object        Associative array containing result
+     * @param array $patron Associative array containing patron data.
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronKey The Symphony patron key.
+     * @param int $addrNum Address number to update (1, 2, or 3, defaults to 1).
+     * @return array Associative array containing result.
+     * @throws Exception If validation fails or SMS update fails.
      */
-
-    public function update_patron ($patron, $token = null, $patron_key = null, $addr_num = 1) 
+    public function updatePatron(array $patron, ?string $token = null, ?string $patronKey = null, int $addrNum = 1): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
-        $this->validate('addr_num', $addr_num, 'i:1,3');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('addrNum', $addrNum, 'i:1,3');
 
         $response = [];
 
         // Get field metadata from Symphony and config
-        $this->get_field_desc($token, 'patron');
+        $this->getFieldDesc($token, 'patron');
         $fields = $this->config['symphony']['overlay_fields'];
 
         // Convert aliases to Symphony fields
-        $patron = $this->check_aliases($patron, $fields);
+        $patron = $this->checkAliases($patron, $fields);
 
         // Check fields for required and default values and validate
-        $patron = $this->check_fields($patron, $fields);
+        $patron = $this->checkFields($patron, $fields);
 
         // Create the JSON data structure
-        $json = $this->create_update_json($patron, $token, $patron_key, $addr_num);
+        $json = $this->createUpdateJson($patron, $token, $patronKey, $addrNum);
 
-        if ( $this->config['debug']['update'] ) {
-            error_log("DEBUG_UPDATE $json", 0);
+        if ($this->config['debug']['update']) {
+            error_log("DEBUG_UPDATE {$json}", 0);
         }
 
-        $response = $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json, 'PUT');
+        $response = $this->sendQuery("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, $json, 'PUT');
 
-        if ( !empty($patron['phoneList']) ) {
-            if ( !$this->update_phone_list($patron['phoneList'], $token, $patron_key) ) {
+        if (!empty($patron['phoneList'])) {
+            if (!$this->updatePhoneList($patron['phoneList'], $token, (string) $patronKey)) {
                 throw new Exception('SMS phone list update failed');
             }
         }
@@ -2450,78 +2466,72 @@ class Libilsws
     }
 
     /**
-     * Update patron extended information fields related to user IDs, specifically 
-     * ACTIVEID, INACTVID, PREV_ID, PREV_ID2, and STUDENT_ID
-     * 
+     * Update patron extended information fields related to user IDs, specifically
+     * ACTIVEID, INACTVID, PREV_ID, PREV_ID2, and STUDENT_ID.
+     *
      * Please note: this function does not test to see if these fields are defined
      * in your Symphony configuration. It will throw errors if they are not.
-     * 
-     * @param  string  $token      The sesions token returned by ILSWS
-     * @param  string  $patron_key Primary key of the patron record to be modified
-     * @param  string  $patron_id  The patron ID (barcode)
-     * @param  string  $option     Single character option:
-     *                               a = Add active ID
-     *                               i = Add inactive ID
-     *                               d = Delete an ID from the ACTIVEID, INACTVID, PREV_ID, PREV_ID2, or STUDENT_ID
-     * @return integer $retval     Return value:
-     *                               1 = Success
-     *                               0 = Failure
+     *
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronKey Primary key of the patron record to be modified.
+     * @param string|null $patronId The patron ID (barcode).
+     * @param string|null $option Single character option:
+     * a = Add active ID
+     * i = Add inactive ID
+     * d = Delete an ID from the ACTIVEID, INACTVID, PREV_ID, PREV_ID2, or STUDENT_ID.
+     * @return int Return value: 1 = Success, 0 = Failure.
+     * @throws Exception If validation fails.
      */
-
-    public function update_patron_activeid ($token = null, $patron_key = null, $patron_id = null, $option = null)
+    public function updatePatronActiveId(?string $token = null, ?string $patronKey = null, ?string $patronId = null, ?string $option = null): int 
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
         $this->validate('option', $option, 'v:a|i|d');
 
         $retval = 0;
         $custom = [];
 
         // Get the current customInformation from the patron record
-        $res = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, ['includeFields' => 'customInformation{*}']);
+        $res = $this->sendGet("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, ['includeFields' => 'customInformation{*}']);
 
-        if ( $res ) {
-            if ( $option == 'a' ) {
-                if ( !empty($res['fields']['customInformation']) ) {
+        if ($res) {
+            if ($option == 'a') {
+                if (!empty($res['fields']['customInformation'])) {
                     $custom = $res['fields']['customInformation'];
-                    for ( $i = 0; $i < count($custom); $i++ ) {
-                        if ( $custom[$i]['fields']['code']['key'] == 'ACTIVEID' && $custom[$i]['fields']['data'] ) {
+                    for ($i = 0; $i < count($custom); $i++) {
+                        if ($custom[$i]['fields']['code']['key'] == 'ACTIVEID' && $custom[$i]['fields']['data']) {
                             $values = preg_split("/,/", $custom[$i]['fields']['data']);
-                            array_push($values, $patron_id);
+                            array_push($values, (string) $patronId);
                             $custom[$i]['fields']['data'] = implode(',', $values);
                         }
                     }
                 }
-
-            } elseif ( $option == 'i' ) {
-
-                if ( !empty($res['fields']['customInformation']) ) {
+            } elseif ($option == 'i') {
+                if (!empty($res['fields']['customInformation'])) {
                     $custom = $res['fields']['customInformation'];
-                    for ( $i = 0; $i < count($custom); $i++ ) {
-                        if ( $custom[$i]['fields']['code']['key'] == 'INACTVID' && $custom[$i]['fields']['data'] ) {
+                    for ($i = 0; $i < count($custom); $i++) {
+                        if ($custom[$i]['fields']['code']['key'] == 'INACTVID' && $custom[$i]['fields']['data']) {
                             $values = preg_split("/,/", $custom[$i]['fields']['data']);
-                            array_push($values, $patron_id);
+                            array_push($values, (string) $patronId);
                             $custom[$i]['fields']['data'] = implode(',', $values);
                         }
                     }
                 }
-
-            } elseif ( $option == 'd' ) {
-
-                if ( !empty($res['fields']['customInformation']) ) {
+            } elseif ($option == 'd') {
+                if (!empty($res['fields']['customInformation'])) {
                     $custom = $res['fields']['customInformation'];
-                    for ( $i = 0; $i < count($custom); $i++ ) {
-                        $fields = array('ACTIVEID','INACTVID','PREV_ID','PREV_ID2','STUDENT_ID');
-                        if ( in_array($custom[$i]['fields']['code']['key'], $fields) && $custom[$i]['fields']['data'] ) {
+                    for ($i = 0; $i < count($custom); $i++) {
+                        $fields = ['ACTIVEID', 'INACTVID', 'PREV_ID', 'PREV_ID2', 'STUDENT_ID'];
+                        if (in_array($custom[$i]['fields']['code']['key'], $fields) && $custom[$i]['fields']['data']) {
                             $values = preg_split("/,/", $custom[$i]['fields']['data']);
-                            $new_values = [];
-                            foreach ( $values as $value ) {
-                                if ( $value != $patron_id ) {
-                                    array_push($new_values, $value);
+                            $newValues = [];
+                            foreach ($values as $value) {
+                                if ($value != $patronId) {
+                                    array_push($newValues, $value);
                                 }
                             }
-                            $custom[$i]['fields']['data'] = implode(',', $new_values);
+                            $custom[$i]['fields']['data'] = implode(',', $newValues);
                         }
                     }
                 }
@@ -2529,13 +2539,14 @@ class Libilsws
 
             $patron = [];
             $patron['resource'] = '/user/patron';
-            $patron['key'] = $patron_key;
+            $patron['key'] = $patronKey;
             $patron['fields']['customInformation'] = $custom;
- 
+
             // Update the patron
-            $res = $this->update_patron($patron, $token, $patron_key);
- 
-            if ( $res ) {
+            $jsonStr = json_encode($patron, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            $res = $this->updatePatron($patron, $token, (string) $patronKey);
+
+            if ($res) {
                 $retval = 1;
             }
         }
@@ -2544,137 +2555,140 @@ class Libilsws
     }
 
     /**
-     * Update the patron lastActivityDate
+     * Update the patron lastActivityDate.
      *
-     * @param  string $token     The session token returned by ILSWS
-     * @param  string $patron_id The patron ID (barcode)
-     * @return object            Associative array containing result
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronId The patron ID (barcode).
+     * @return array Associative array containing result.
+     * @throws Exception If validation fails.
      */
-
-    public function update_patron_activity ($token = null, $patron_id = null)
+    public function updatePatronActivity(?string $token = null, ?string $patronId = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
 
-        $json = "{\"patronBarcode\": \"$patron_id\"}";
+        $json = "{\"patronBarcode\": \"{$patronId}\"}";
 
-        return $this->send_query("$this->base_url/user/patron/updateActivityDate", $token, $json, 'POST');
+        return $this->sendQuery("{$this->baseUrl}/user/patron/updateActivityDate", $token, $json, 'POST');
     }
 
     /**
-     * Get access-point field metadata from Symphony
-     * 
-     * @param string $name The access point metadata to retrieve
-     * @return             Updates $this->field_desc
+     * Get access-point field metadata from Symphony.
+     *
+     * @param string $token The session token returned by ILSWS.
+     * @param string $name The access point metadata to retrieve.
+     * @return void
      */
-
-    private function get_field_desc ($token, $name) 
+    private function getFieldDesc(string $token, string $name): void
     {
-        $field_arrays = [];
-        if ( $name === 'patron' ) {
-            $field_arrays = $this->describe_patron($token);
+        $fieldArrays = [];
+        if ($name === 'patron') {
+            $fieldArrays = $this->describePatron($token);
             $type = 'fields';
         } else {
-            $field_arrays = $this->send_get("$this->base_url/user/patron/$name/describe", $token, []);
+            $fieldArrays = $this->sendGet("{$this->baseUrl}/user/patron/{$name}/describe", $token, []);
             $type = 'params';
         }
 
         // Make the fields descriptions accessible by name
-        foreach ($field_arrays[$type] as $object) {
-            $name = $object['name'];
+        foreach ($fieldArrays[$type] as $object) {
+            $fieldName = $object['name'];
             foreach ($object as $key => $value) {
-                $this->field_desc[$name][$key] = $object[$key];
+                $this->fieldDesc[$fieldName][$key] = $object[$key];
             }
         }
 
-        if ( $this->config['debug']['fields'] ) {
-            $json = json_encode($this->field_desc, JSON_PRETTY_PRINT);
-            error_log("DEBUG_FIELDS $json", 0);
+        if ($this->config['debug']['fields']) {
+            $json = json_encode($this->fieldDesc, JSON_PRETTY_PRINT);
+            error_log("DEBUG_FIELDS {$json}", 0);
         }
     }
 
     /**
-     * Change a patron barcode
-     * 
-     * @param  string  $token       The session token returned by ILSWS
-     * @param  integer $patron_key  The Symphony patron key
-     * @param  string  $patron_id   The new Symphony barcode (patron ID)
-     * @return integer $return_code 1 for success, 0 for failure
+     * Change a patron barcode.
+     *
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronKey The Symphony patron key.
+     * @param string|null $patronId The new Symphony barcode (patron ID).
+     * @param array $options Optional array of options.
+     * @return int 1 for success, 0 for failure.
+     * @throws Exception If validation fails.
      */
-
-    public function change_barcode ($token = null, $patron_key = null, $patron_id = null, $options = [])
+    public function changeBarcode(?string $token = null, ?string $patronKey = null, ?string $patronId = null, array $options = []): int
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
-        $this->validate('patron_id', $patron_id, 'r:#^[0-9A-Z]{6,20}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronId', $patronId, 'r:#^[0-9A-Z]{6,20}$#');
 
         $new = [];
         $new['resource'] = '/user/patron';
-        $new['key'] = $patron_key;
-        $new['fields']['barcode'] = $patron_id;
+        $new['key'] = $patronKey;
+        $new['fields']['barcode'] = $patronId;
 
         $json = json_encode($new, JSON_PRETTY_PRINT);
-        $response = $this->send_query($this->base_url . "/user/patron/key/$patron_key", $token, $json, 'PUT', $options);
+        $response = $this->sendQuery("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, $json, 'PUT', $options);
 
-        $return_code = 0;
-        if ( !empty($response['fields']['barcode']) && $response['fields']['barcode'] == $patron_id ) {
-            $return_code = 1;
+        $returnCode = 0;
+        if (!empty($response['fields']['barcode']) && $response['fields']['barcode'] == $patronId) {
+            $returnCode = 1;
         }
 
-        return $return_code;
+        return $returnCode;
     }
 
     /**
-     * Update the SMS phone list
-     * 
-     * @param  array   $phone_list     Elements to include in the phone list
-     * @param  string  $token          The session token returned by ILSWS
-     * @param  integer $patron_key     The Symphony patron key
-     * @return integer $return_code    1 for success, 0 for failure
+     * Update the SMS phone list.
+     *
+     * @param array $phoneList Elements to include in the phone list.
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronKey The Symphony patron key.
+     * @param array $options Optional array of options.
+     * @return int 1 for success, 0 for failure.
+     * @throws Exception If validation fails.
      */
-
-    public function update_phone_list ($phone_list, $token = null, $patron_key = null, $options = [])
+    public function updatePhoneList(array $phoneList, ?string $token = null, ?string $patronKey = null, array $options = []): int
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
 
         $new = [];
         $new['resource'] = '/user/patron';
-        $new['key'] = $patron_key;
+        $new['key'] = $patronKey;
         $new['fields']['phoneList'] = [];
-        array_push($new['fields']['phoneList'], $this->create_field_phone($patron_key, $phone_list));
+        array_push($new['fields']['phoneList'], $this->createFieldPhone((string) $patronKey, $phoneList));
 
         $json = json_encode($new, JSON_PRETTY_PRINT);
-        $response = $this->send_query($this->base_url . "/user/patron/key/$patron_key", $token, $json, 'PUT', $options);
+        $response = $this->sendQuery($this->baseUrl . "/user/patron/key/{$patronKey}", $token, $json, 'PUT', $options);
 
-        if ( $this->config['debug']['update'] ) {
+        if ($this->config['debug']['update']) {
             error_log('DEBUG_UPDATE ' . json_encode($response, JSON_PRETTY_PRINT), 0);
         }
 
-        $return_code = 0;
-        if ( !empty($response['key']) && $response['key'] === $patron_key ) {
-            $return_code = 1;
+        $returnCode = 0;
+        if (!empty($response['key']) && $response['key'] === $patronKey) {
+            $returnCode = 1;
         }
 
-        return $return_code;
+        return $returnCode;
     }
 
     /**
-     * Get patron custom information
+     * Get patron custom information.
      *
-     * @param integer $patron_key Patron key
-     * @return string $custom     Associative array of custom keys and values
+     * @param string|null $token Session token returned by ILSWS.
+     * @param string|null $patronKey Patron key.
+     * @return array Associative array of custom keys and values.
+     * @throws Exception If validation fails.
      */
-
-    public function get_patron_custom_info ($token = null, $patron_key = null)
+    public function getPatronCustomInfo(?string $token = null, ?string $patronKey = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
-        
-        $response = $this->send_get("$this->base_url/user/patron/key/$patron_key", $token, ['includeFields' => 'customInformation{*}']);
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+
+        $response = $this->sendGet("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, ['includeFields' => 'customInformation{*}']);
 
         $custom = [];
-        if ( !empty($response['fields']['customInformation']) ) {
+        if (!empty($response['fields']['customInformation'])) {
             $custom = $response['fields']['customInformation'];
         }
 
@@ -2682,79 +2696,86 @@ class Libilsws
     }
 
     /**
-     * Set all matching custom info array to a value (be careful!)
-     * 
-     * @param  string  $token      The session token returned by ILSWS
-     * @param  integer $patron_key The Symphony patron key
-     * @param  string  $key        Key of the array entry we want to modify
-     * @param  string  $value      Value to put into the data field
-     * @return integer $ret_val    1 for success, 0 for failure
-     */ 
-
-    public function mod_patron_custom_info ($token = null, $patron_key = null, $key = null, $value = null)
-    {
-        $ret_val = 0;
+     * Set all matching custom info array to a value (be careful!).
+     *
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronKey The Symphony patron key.
+     * @param string|null $key Key of the array entry we want to modify.
+     * @param string|null $value Value to put into the data field.
+     * @return int 1 for success, 0 for failure.
+     * @throws Exception If validation fails.
+     */
+    public function modPatronCustomInfo(
+        ?string $token = null,
+        ?string $patronKey = null,
+        ?string $key = null,
+        ?string $value = null
+    ): int {
+        $retVal = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
         $this->validate('key', $key, 's:255');
         $this->validate('value', $value, 's:255');
 
-        $custom = $this->get_patron_custom_info($token, $patron_key);
+        $custom = $this->getPatronCustomInfo($token, (string) $patronKey);
 
         $found = 0;
         $new = [];
-        foreach ( $custom as $r ) {
-            if ( $r['fields']['code']['key'] == $key ) {
+        foreach ($custom as $r) {
+            if ($r['fields']['code']['key'] == $key) {
                 $r['fields']['data'] = $value;
                 $found = 1;
             }
             array_push($new, $r);
         }
-      
-        $patron = []; 
-        if ( $found ) {
+
+        $patron = [];
+        if ($found) {
             $patron['resource'] = '/user/patron';
-            $patron['key'] = $patron_key;
+            $patron['key'] = $patronKey;
             $patron['fields']['customInformation'] = $new;
 
             // Update the patron
-            $json_str = json_encode($patron, 6);
-            $response = $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json_str, 'PUT');
+            $jsonStr = json_encode($patron, JSON_UNESCAPED_SLASHES);
+            $response = $this->sendQuery("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, $jsonStr, 'PUT');
         }
 
-        if ( $response['key'] == $patron_key ) {
-            $ret_val = 1;
+        if (!empty($response['key']) && $response['key'] == $patronKey) {
+            $retVal = 1;
         }
 
-        return $ret_val;
+        return $retVal;
     }
 
     /**
-     * Add a custom information to the patron record
+     * Add a custom information to the patron record.
      *
-     * @param  string  $token      The session token returned by ILSWS
-     * @param  integer $patron_key The Symphony patron key
-     * @param  string  $key        Key of the array entry we want to modify
-     * @param  string  $value      Value to put into the data field
-     * @return integer $ret_val    1 for success, 0 for failure
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronKey The Symphony patron key.
+     * @param string|null $key Key of the array entry we want to modify.
+     * @param string|null $value Value to put into the data field.
+     * @return int 1 for success, 0 for failure.
+     * @throws Exception If validation fails.
      */
-
-    public function add_patron_custom_info ($token = null, $patron_key = null, $key = null, $value = null)
-    {
-        $ret_val = 0;
+    public function addPatronCustomInfo(
+        ?string $token = null,
+        ?string $patronKey = null,
+        ?string $key = null,
+        ?string $value = null
+    ): int {
+        $retVal = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
         $this->validate('key', $key, 's:255');
         $this->validate('value', $value, 's:255');
 
-        $custom = $this->get_patron_custom_info($token, $patron_key);
+        $custom = $this->getPatronCustomInfo($token, (string) $patronKey);
 
-        if ( !empty($custom) ) {
-            foreach ( $custom as $r ) {
-                if ( $r['fields']['data'] == $value ) {
-
+        if (!empty($custom)) {
+            foreach ($custom as $r) {
+                if ($r['fields']['data'] == $value) {
                     // The value already exists, so return for success
                     return 1;
                 }
@@ -2763,15 +2784,15 @@ class Libilsws
 
         // Get the maximum index key value
         $i = 1;
-        if ( !empty($custom) ) {
-            foreach ( $custom as $r ) {
-                if ( $r['key'] > $i ) {
+        if (!empty($custom)) {
+            foreach ($custom as $r) {
+                if ($r['key'] > $i) {
                     $i = $r['key'];
                 }
             }
         }
         $i++;
-            
+
         $new = [];
         $new = [
             'resource' => '/user/patron/customInformation',
@@ -2779,7 +2800,7 @@ class Libilsws
             'fields' => [
                 'code' => [
                     'resource' => '/policy/patronExtendedInformation',
-                    'key' => "$key"
+                    'key' => "{$key}"
                 ],
                 'data' => $value
             ]
@@ -2787,106 +2808,104 @@ class Libilsws
 
         array_push($custom, $new);
 
-        $patron = []; 
+        $patron = [];
         $patron['resource'] = '/user/patron';
-        $patron['key'] = $patron_key;
+        $patron['key'] = $patronKey;
         $patron['fields']['customInformation'] = $custom;
 
         // Update the patron
-        $json_str = json_encode($patron, 6);
-        $response = $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json_str, 'PUT');
+        $jsonStr = json_encode($patron, JSON_UNESCAPED_SLASHES);
+        $response = $this->sendQuery("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, $jsonStr, 'PUT');
 
-        if ( $response['key'] == $patron_key ) {
-            $ret_val = 1;
+        if ($response['key'] == $patronKey) {
+            $retVal = 1;
         }
 
-        return $ret_val;
+        return $retVal;
     }
-        
+
     /**
      * Delete custom information from the patron record. Be careful this will delete all matching keys.
      *
-     * @param  string  $token      The session token returned by ILSWS
-     * @param  integer $patron_key The Symphony patron key
-     * @param  string  $key        Key of the array entry we want to delete
-     * @return integer $ret_val    1 for success, 0 for failure
+     * @param string|null $token The session token returned by ILSWS.
+     * @param string|null $patronKey The Symphony patron key.
+     * @param string|null $key Key of the array entry we want to delete.
+     * @return int 1 for success, 0 for failure.
+     * @throws Exception If validation fails.
      */
-
-    public function del_patron_custom_info ($token = null, $patron_key = null, $key = null)
+    public function delPatronCustomInfo(?string $token = null, ?string $patronKey = null, ?string $key = null): int
     {
-        $ret_val = 0;
+        $retVal = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patron_key', $patron_key, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
         $this->validate('key', $key, 's:255');
 
-        $custom = $this->get_patron_custom_info($token, $patron_key);
+        $custom = $this->getPatronCustomInfo($token, (string) $patronKey);
 
         $new = [];
-        if ( !empty($custom) ) {
-            foreach ( $custom as $r ) {
-                if ( $r['fields']['code']['key'] != $key ) {
+        if (!empty($custom)) {
+            foreach ($custom as $r) {
+                if ($r['fields']['code']['key'] != $key) {
                     array_push($new, $r);
                 }
             }
         }
 
-        $patron = []; 
+        $patron = [];
         $patron['resource'] = '/user/patron';
-        $patron['key'] = $patron_key;
+        $patron['key'] = $patronKey;
         $patron['fields']['customInformation'] = $new;
 
         // Update the patron
-        $json_str = json_encode($patron, 6);
-        $response = $this->send_query("$this->base_url/user/patron/key/$patron_key", $token, $json_str, 'PUT');
+        $jsonStr = json_encode($patron, JSON_UNESCAPED_SLASHES);
+        $response = $this->sendQuery("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, $jsonStr, 'PUT');
 
-        if ( $response['key'] == $patron_key ) {
-            $ret_val = 1;
+        if ($response['key'] == $patronKey) {
+            $retVal = 1;
         }
 
-        return $ret_val;
+        return $retVal;
     }
 
     /**
-     * Return a unique temporary barcode
-     * 
-     * @param  string $last_name  Last name of patron
-     * @param  string $first_name First name of patron
-     * @param  string $street     Street address of patron
-     * @return string             Temporary barcode
+     * Return a unique temporary barcode.
+     *
+     * @param string $lastName Last name of patron.
+     * @param string $firstName First name of patron.
+     * @param string $street Street address of patron.
+     * @return string Temporary barcode.
      */
-
-    private function gen_temp_barcode ($last_name, $first_name, $street)
+    private function genTempBarcode(string $lastName, string $firstName, string $street): string
     {
-        $last_name = substr($last_name, 0, 4);
-        $first_name = substr($first_name, 0, 2);
-        $num = rand(1,99999);
+        $lastName = substr($lastName, 0, 4);
+        $firstName = substr($firstName, 0, 2);
+        $num = rand(1, 99999);
 
         // Extract the street name from the street address
         $words = preg_split('/\s+/', $street);
         foreach ($words as $word) {
-            if ( preg_match('/^(N|NW|NE|S|SW|SE|E|W|\d+)$/', $word) ) {
+            if (preg_match('/^(N|NW|NE|S|SW|SE|E|W|\d+)$/', $word)) {
                 continue;
             } else {
                 $street = substr($word, 0, 4);
             }
         }
 
-        return $last_name . $first_name . $street . $num;
+        return $lastName . $firstName . $street . $num;
     }
 
     /**
-     * Email text message from template
+     * Email text message from template.
      *
-     * @param  array  $patron    Array of patron fields to use in template
-     * @param  string $to        Email address to send to
-     * @param  string $from      Email address from which to send
-     * @param  string $subject   Subject of email
-     * @param  string $template  Template filename
-     * @return string $message   Result string
+     * @param array $patron Array of patron fields to use in template.
+     * @param string $from Email address from which to send.
+     * @param string $to Email address to send to.
+     * @param string $subject Subject of email.
+     * @param string $template Template filename.
+     * @return int Result: 1 for success, 0 for failure.
      */
-
-    public function email_template ($patron, $from, $to, $subject, $template)
+    public function emailTemplate(array $patron, string $from, string $to, string $subject, string $template): int
     {
         $result = 0;
 
@@ -2900,27 +2919,27 @@ class Libilsws
 
         try {
             // Server settings
-            if ( $this->config['debug']['smtp'] ) {
-                $mail->SMTPDebug = SMTP::DEBUG_SERVER;                // Enable verbose debug output
+            if ($this->config['debug']['smtp']) {
+                $mail->SMTPDebug = SMTP::DEBUG_SERVER; // Enable verbose debug output
             }
 
-            $mail->isSMTP();                                          // Send using SMTP
-            $mail->CharSet = 'UTF-8';                                 // Use unicode
-            $mail->Encoding = 'base64';                               // Encode test in base64
+            $mail->isSMTP(); // Send using SMTP
+            $mail->CharSet = 'UTF-8'; // Use unicode
+            $mail->Encoding = 'base64'; // Encode test in base64
 
-            $mail->Host = $this->config['smtp']['smtp_host'];         // Set the SMTP server to send through
+            $mail->Host = $this->config['smtp']['smtp_host']; // Set the SMTP server to send through
 
             // If we've got email account credentials, use them
-            if ( !empty($this->config['smtp']['smtp_username']) && !empty($this->config['smtp']['smtp_password']) ) {
-                $mail->SMTPAuth = true;                                   // Enable SMTP authentication
+            if (!empty($this->config['smtp']['smtp_username']) && !empty($this->config['smtp']['smtp_password'])) {
+                $mail->SMTPAuth = true; // Enable SMTP authentication
                 $mail->Username = $this->config['smtp']['smtp_username']; // SMTP username
                 $mail->Password = $this->config['smtp']['smtp_password']; // SMTP password
             } else {
                 $mail->SMTPAuth = false;
             }
 
-            if ( !empty($this->config['smtp']['smtp_protocol']) && $this->config['smtp']['smtp_protocol'] === 'tls' ) {
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;      // Enable implicit TLS encryption
+            if (!empty($this->config['smtp']['smtp_protocol']) && $this->config['smtp']['smtp_protocol'] === 'tls') {
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // Enable implicit TLS encryption
             }
 
             // TCP port to connect to. Use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
@@ -2931,35 +2950,30 @@ class Libilsws
 
             // Set recipients
             $addresses = preg_split('/,/', $to);
-            foreach ( $addresses as $address ) {
-                 $mail->addAddress(trim($address));                                   //Name is optional
+            foreach ($addresses as $address) {
+                $mail->addAddress(trim($address)); //Name is optional
             }
 
             // Reply-to
-            if ( !empty($this->config['smtp']['smtp_replyto']) ) {
+            if (!empty($this->config['smtp']['smtp_replyto'])) {
                 $mail->addReplyTo($this->config['smtp']['smtp_replyto']);
             }
 
             //Content
-            if ( !empty($this->config['smtp']['smtp_allowhtml']) && $this->config['smtp']['smtp_allowhtml'] === 'true' ) {
-                $mail->isHTML(true);                                  //Set email format to HTML
+            if (!empty($this->config['smtp']['smtp_allowhtml']) && $this->config['smtp']['smtp_allowhtml'] === 'true') {
+                $mail->isHTML(true); //Set email format to HTML
             }
 
             $mail->Subject = $subject;
-            $mail->Body    = $body;
+            $mail->Body = $body;
             $mail->AltBody = 'Welcome to Multnomah County Library. Your card number is ' . $patron['barcode'];
 
             $mail->send();
             $result = 1;
-
         } catch (MailerException $e) {
             error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
         }
-    
+
         return $result;
     }
-
-// End of class
 }
-
-// EOF

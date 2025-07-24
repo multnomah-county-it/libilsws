@@ -27,7 +27,7 @@ $params = [
     'ct' => '50',
     'rw' => '1',
     'j' => 'AND',
-    'includeFields' => 'key,firstName,middleName,lastName,language,profile,category01,category02,category03,category05,category06,category11,address1{*},phoneList{*},customInformation{*},',
+    'includeFields' => 'key,firstName,middleName,lastName,language,profile,category01,category02,category03,category05,category06,category11,address1{*},phoneList{*},customInformation{*}',
 ];
 $response = $ilsws->searchPatron($token, $index, $search, $params);
 print_r($response);

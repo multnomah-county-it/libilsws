@@ -1344,7 +1344,7 @@ class Libilsws
         $data = [];
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronId', $patronId, 'r:#[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#[A-Z0-9]{1,20}$#');
         $this->validate('url', $url, 'u');
 
         $data = [
@@ -1586,7 +1586,7 @@ class Libilsws
     public function authenticatePatronId(?string $token = null, ?string $patronId = null, ?string $password = null): string
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{1,20}$#');
         $this->validate('password', $password, 's:20');
 
         $patronKey = '0';
@@ -1702,7 +1702,7 @@ class Libilsws
     public function authenticatePatron(?string $token = null, ?string $patronId = null, ?string $password = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{1,20}$#');
 
         $json = "{ \"barcode\": \"{$patronId}\", \"password\": \"{$password}\" }";
 
@@ -1797,7 +1797,7 @@ class Libilsws
     public function searchPatronId(?string $token = null, ?string $patronId = null, ?string $count = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{1,20}$#');
         $this->validate('count', $count, 'i:1,1000');
 
         return $this->searchPatron($token, 'ID', (string) $patronId, ['ct' => $count]);
@@ -2486,7 +2486,7 @@ class Libilsws
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
-        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{1,20}$#');
         $this->validate('option', $option, 'v:a|i|d');
 
         $retval = 0;
@@ -2565,7 +2565,7 @@ class Libilsws
     public function updatePatronActivity(?string $token = null, ?string $patronId = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#^[A-Z0-9]{1,20}$#');
 
         $json = "{\"patronBarcode\": \"{$patronId}\"}";
 
@@ -2618,7 +2618,7 @@ class Libilsws
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
-        $this->validate('patronId', $patronId, 'r:#^[0-9A-Z]{6,20}$#');
+        $this->validate('patronId', $patronId, 'r:#^[0-9A-Z]{1,20}$#');
 
         $new = [];
         $new['resource'] = '/user/patron';

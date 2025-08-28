@@ -26,6 +26,7 @@ throw exceptions on error.
 - `connect()`
 - `sendGet($url, $token, $params)`
 - `sendQuery($url, $token, $queryJson, $queryType)`
+- `validate($parameter, $value, $rule)`
 
 ---
 ## Convenience Functions

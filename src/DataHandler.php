@@ -30,10 +30,10 @@ class DataHandler
      * 'email'      => 'e',
      * 'timestamp1' => 'd:YYYY/MM/DD HH:MM',
      * 'timestamp2' => 'd:YYYY-MM-DD HH:MM',
-     * 'integer'    => 'i:1,99999999',                  // integer between 1 and 99999999
+     * 'integer'    => 'i:1,99999999',                // integer between 1 and 99999999
      * 'JSON'       => 'j',                           // JSON
      * 'number'     => 'n:1,999',                     // decimal number between 1 and 999
-     * 'regex'      => '/^[A-Z]{2,4}$/',             // Regular expression pattern
+     * 'regex'      => 'r:/^[A-Z]{2,4}$/',            // Regular expression pattern
      * 'string'     => 's:256',                       // string of length <= 256
      * 'url'        => 'u',                           // URL
      * 'list'       => 'v:01|11',                     // list('01', '11')

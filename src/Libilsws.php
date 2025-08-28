@@ -1648,7 +1648,7 @@ class Libilsws
                         foreach ($response['fields']['address1'] as &$i) {
                             if ($i['fields']['code']['key'] == 'EMAIL') {
                                 $attributes['email'] = $i['fields']['data'];
-                            } elseif ($i['fields']['code']['key'] == 'CITY/STATE') {
+                            } elseif ($i['fields']['code']['key'] == 'CITY/STATE' && !empty($i['fields']['data'])) {
                                 $parts = preg_split("/,\s*/", $i['fields']['data']);
                                 $attributes['city'] = $parts[0];
                                 $attributes['state'] = $parts[1];

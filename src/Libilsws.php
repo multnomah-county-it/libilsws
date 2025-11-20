@@ -124,14 +124,23 @@ class Libilsws
         $this->dh = new DataHandler();
 
         // Read the YAML configuration file and assign private variables
-        if (filesize($yamlFile) > 0 && substr($yamlFile, -4, 4) == 'yaml') {
-            $this->config = Yaml::parseFile($yamlFile);
-
-            if ($this->config['debug']['config']) {
-                error_log('DEBUG_CONFIG ' . json_encode($this->config, JSON_PRETTY_PRINT), 0);
+        try {
+            if (filesize($yamlFile) > 0 && substr($yamlFile, -4, 4) == 'yaml') {
+                $this->config = Yaml::parseFile($yamlFile);
+                // Debug logging for configuration if enabled
+                if (
+                    isset($this->config['debug']['config']) &&
+                    $this->config['debug']['config']
+                ) {
+                    error_log("Loaded configuration: " . print_r($this->config, true));
+                }
+            } else {
+                throw new \Exception("Bad YAML file or size check failed: {$yamlFile}");
             }
-        } else {
-            throw new Exception("Bad YAML file: {$yamlFile}");
+        } catch (\Exception $e) {
+            // Log the specific exception message
+            error_log("Error loading configuration: " . $e->getMessage());
+            throw $e; // Re-throw to maintain original flow
         }
 
         $this->baseUrl = 'https://'
@@ -857,7 +866,7 @@ class Libilsws
         if ($this->config['symphony']['validate_catalog_fields']) {
             $this->validateBibFields($token, $fieldList);
         } else {
-            $this->validate('fieldList', $fieldList, 'r:#^[A-Z0-9a-z_{},*]{2,256}$#');
+            $this->validate('fieldList', $fieldList, 'r:#^[A-Z0-9a-z_{},\*]{1,256}$#');
         }
 
         $response = $this->sendGet("{$this->baseUrl}/catalog/bib/key/{$bibKey}?includeFields=" . $fieldList, $token, []);
@@ -897,7 +906,7 @@ class Libilsws
         if ($this->config['symphony']['validate_catalog_fields']) {
             $this->validateFields($token, 'item', $fieldList);
         } else {
-            $this->validate('fieldList', $fieldList, 'r:#^[A-Za-z0-9_{},*]{2,256}$#');
+            $this->validate('fieldList', $fieldList, 'r:#^[A-Za-z0-9_{},\*]{1,256}$#');
         }
 
         $item = $this->sendGet("{$this->baseUrl}/catalog/item/key/{$itemKey}?includeFields={$fieldList}", $token, []);
@@ -927,7 +936,7 @@ class Libilsws
         if ($this->config['symphony']['validate_catalog_fields']) {
             $this->validateFields($token, 'call', $fieldList);
         } else {
-            $this->validate('fieldList', $fieldList, 'r:#^[A-Z0-9a-z_{},*]{2,256}$#');
+            $this->validate('fieldList', $fieldList, 'r:#^[A-Z0-9a-z_{},\*]{1,256}$#');
         }
 
         $call = $this->sendGet("{$this->baseUrl}/catalog/call/key/{$callKey}?includeFields={$fieldList}", $token);
@@ -1086,7 +1095,7 @@ class Libilsws
     public function getPatronCheckouts(?string $token = null, ?int $patronKey = null, ?string $includeFields = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
 
         if (!$includeFields) {
             $includeFields = 'item,library';
@@ -1301,7 +1310,7 @@ class Libilsws
         $json = '';
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
 
         $this->sendQuery("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, $json, 'DELETE');
         if ($this->code == 204) {
@@ -1616,7 +1625,7 @@ class Libilsws
     public function getPatronAttributes(?string $token = null, ?string $patronKey = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
 
         $attributes = [];
 
@@ -1960,7 +1969,7 @@ class Libilsws
     private function createUpdateJson(?array $patron, ?string $token = null, ?string $patronKey = null, ?int $addrNum = null): string
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
         $this->validate('addrNum', $addrNum, 'i:1,3');
 
         // Go get field descriptions if they aren't already available
@@ -2161,7 +2170,7 @@ class Libilsws
         $telephone = preg_replace('/\D/', '', (string) $params['number']);
 
         // Validate everything!
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
         $this->validate('telephone', $telephone, 'i:1000000000,9999999999');
         $this->validate('countryCode', $params['countryCode'], 'r:/^[A-Z]{2}$/');
         $this->validate('bills', $params['bills'], 'o');
@@ -2432,7 +2441,7 @@ class Libilsws
     public function updatePatron(array $patron, ?string $token = null, ?string $patronKey = null, int $addrNum = 1): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
         $this->validate('addrNum', $addrNum, 'i:1,3');
 
         $response = [];
@@ -2485,7 +2494,7 @@ class Libilsws
     public function updatePatronActiveId(?string $token = null, ?string $patronKey = null, ?string $patronId = null, ?string $option = null): int 
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
         $this->validate('patronId', $patronId, 'r:#^[A-Za-z0-9]{1,20}$#');
         $this->validate('option', $option, 'v:a|i|d');
 
@@ -2617,7 +2626,7 @@ class Libilsws
     public function changeBarcode(?string $token = null, ?string $patronKey = null, ?string $patronId = null, array $options = []): int
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
         $this->validate('patronId', $patronId, 'r:#^[A-Za-z0-9]{1,20}$#');
 
         $new = [];
@@ -2649,7 +2658,7 @@ class Libilsws
     public function updatePhoneList(array $phoneList, ?string $token = null, ?string $patronKey = null, array $options = []): int
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
 
         $new = [];
         $new['resource'] = '/user/patron';
@@ -2683,7 +2692,7 @@ class Libilsws
     public function getPatronCustomInfo(?string $token = null, ?string $patronKey = null): array
     {
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
 
         $response = $this->sendGet("{$this->baseUrl}/user/patron/key/{$patronKey}", $token, ['includeFields' => 'customInformation{*}']);
 
@@ -2714,7 +2723,7 @@ class Libilsws
         $retVal = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
         $this->validate('key', $key, 's:255');
         $this->validate('value', $value, 's:255');
 
@@ -2767,7 +2776,7 @@ class Libilsws
         $retVal = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
         $this->validate('key', $key, 's:255');
         $this->validate('value', $value, 's:255');
 
@@ -2838,7 +2847,7 @@ class Libilsws
         $retVal = 0;
 
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
-        $this->validate('patronKey', $patronKey, 'r:#^\d{1,6}$#');
+        $this->validate('patronKey', $patronKey, 'r:#^\d{1,7}$#');
         $this->validate('key', $key, 's:255');
 
         $custom = $this->getPatronCustomInfo($token, (string) $patronKey);

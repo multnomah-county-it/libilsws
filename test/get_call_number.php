@@ -18,6 +18,6 @@ $ilsws = new Libilsws('./libilsws.yaml');
 // Connect and get token
 $token = $ilsws->connect();
 
-// Describe patron register function
+// Get call number function
 $response = $ilsws->getCallNumber($token, $callKey, $fieldList);
 print_r($response);

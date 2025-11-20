@@ -127,6 +127,13 @@ class Libilsws
         try {
             if (filesize($yamlFile) > 0 && substr($yamlFile, -4, 4) == 'yaml') {
                 $this->config = Yaml::parseFile($yamlFile);
+                // Debug logging for configuration if enabled
+                if (
+                    isset($this->config['debug']['config']) &&
+                    $this->config['debug']['config']
+                ) {
+                    error_log("Loaded configuration: " . print_r($this->config, true));
+                }
             } else {
                 throw new \Exception("Bad YAML file or size check failed: {$yamlFile}");
             }

@@ -34,9 +34,9 @@ echo "{$search}\n";
  */
 $params = [
     'q' => $search,
-    'ct' => $params['ct'] ?? '1000',
-    'rw' => $params['rw'] ?? '1',
-    'j' => $params['j'] ?? 'AND',
+    'ct' => '1000',
+    'rw' => '1',
+    'j' => 'AND',
     'includeFields' => $includeFields,
 ];
 

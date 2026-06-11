@@ -2,3 +2,4 @@
 composer-setup.php
 libilsws.yaml
 php_errors.log
+/templates/cache/*

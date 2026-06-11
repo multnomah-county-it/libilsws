@@ -69,9 +69,21 @@ YAML;
     public function testConstructorThrowsExceptionOnMissingFile(): void
     {
         $this->expectException(\Exception::class);
-        new Libilsws('/path/to/nowhere.yaml');
+        
+        // Redirect error_log to the null device to keep test output clean
+        $nullDevice = DIRECTORY_SEPARATOR === '\\' ? 'nul' : '/dev/null';
+        $originalLog = ini_set('error_log', $nullDevice);
+        
+        try {
+            new Libilsws('/path/to/nowhere.yaml');
+        } finally {
+            // Restore the original error_log setting
+            if ($originalLog !== false) {
+                ini_set('error_log', $originalLog);
+            }
+        }
     }
-
+    
     public function testGetPatronAttributesMapsFieldsProperly(): void
     {
         // 1. Create a partial mock, overriding ONLY the sendGet method

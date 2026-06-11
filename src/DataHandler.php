@@ -62,8 +62,8 @@ class DataHandler
 
         switch ($type) {
             case 'b':
-                // Value must be undefined
-                if (!defined($value)) {
+                // FIXED: Check if the value is actually empty, null, or a blank string
+                if (is_null($value) || trim((string) $value) === '') {
                     $retval = 1;
                 }
                 break;
@@ -126,8 +126,8 @@ class DataHandler
                 }
                 break;
             case 's':
-                // Check string for length
-                if (!defined((string) $value) || strlen((string) $value) <= (int) $param) {
+                // Removed defined() and check for string length properly
+                if ($value === null || strlen((string) $value) <= (int) $param) {
                     $retval = 1;
                 }
                 break;
@@ -169,45 +169,32 @@ class DataHandler
      */
     public function validateDate(string $date, string $format): string
     {
-        $retval = '';
+        // Normalize slashes to hyphens in both the date and the format for uniform matching
+        $normalizedDate = str_replace('/', '-', $date);
+        $normalizedFormat = str_replace('/', '-', $format);
+        
+        // Map the normalized custom formats to their strict PHP DateTime equivalents
+        $formatMap = [
+            'YYYY-MM-DD HH:MM' => 'Y-m-d H:i',
+            'YYYY-MM-DD'       => 'Y-m-d',
+            'MM-DD-YYYY'       => 'm-d-Y',
+            'YYYYMMDD'         => 'Ymd',
+        ];
 
-        switch (true) {
-            case preg_match('#^YYYY[\-\/]{1}MM[\-\/]{1}DD\sHH:MM$#', $format):
-                if (preg_match('/^\d{4}[\-\/]{1}\d{2}[\-\/]{1}\d{2}\s\d{2}:\d{2}$/', $date)) {
-                    list($year, $month, $day) = preg_split('/[\-\/\s]/', $date);
-                    if (checkdate((int) $month, (int) $day, (int) $year)) {
-                        $retval = $year . '-' . sprintf('%02d', (int) $month) . '-' . sprintf('%02d', (int) $day);
-                    }
-                }
-                break;
-            case preg_match('#^YYYY[\-\/]{1}MM[\-\/]{1}DD$#', $format):
-                if (preg_match('#^\d{4}[\-\/]{1}\d{2}[\-\/]{1}\d{2}(\s\d{2}:\d{2}){0,1}$#', $date)) {
-                    list($year, $month, $day) = preg_split('/[\-\/]/', $date);
-                    if (checkdate((int) $month, (int) $day, (int) $year)) {
-                        $retval = $year . '-' . sprintf('%02d', (int) $month) . '-' . sprintf('%02d', (int) $day);
-                    }
-                }
-                break;
-            case preg_match('#^MM[\-\/]{1}DD[\-\/]{1}YYYY$#', $format):
-                if (preg_match('#^\d{2}[\-\/]{1}\d{2}[\-\/]{1}\d{4}$#', $date)) {
-                    list($month, $day, $year) = preg_split('/[\-\/]/', $date);
-                    if (checkdate((int) $month, (int) $day, (int) $year)) {
-                        $retval = $year . '-' . sprintf('%02d', (int) $month) . '-' . sprintf('%02d', (int) $day);
-                    }
-                }
-                break;
-            case preg_match('#^YYYYMMDD$#', $format):
-                if (preg_match('/^\d{8}$/', $date)) {
-                    $year = substr($date, 0, 4);
-                    $month = substr($date, 4, 2);
-                    $day = substr($date, 6, 2);
-                    if (checkdate((int) $month, (int) $day, (int) $year)) {
-                        $retval = $year . '-' . sprintf('%02d', (int) $month) . '-' . sprintf('%02d', (int) $day);
-                    }
-                }
-                break;
+        // If the requested format isn't recognized at all, fail immediately
+        if (!isset($formatMap[$normalizedFormat])) {
+            return '';
         }
 
-        return $retval;
+        $phpFmt = $formatMap[$normalizedFormat];
+
+        $dt = \DateTime::createFromFormat($phpFmt, $normalizedDate);
+        
+        // Ensure the date parses correctly AND strictly matches the expected format
+        if ($dt !== false && $dt->format($phpFmt) === $normalizedDate) {
+            return $dt->format('Y-m-d');
+        }
+
+        return '';
     }
 }

@@ -43,6 +43,7 @@ ilsws:
   app_id: APP_ID
   client_id: CLIENT_ID
   user_privilege_override: OVERRIDE
+  connection_timeout: 20
   timeout: 60
   max_retries: 3
   max_search_count: 20
@@ -65,6 +66,21 @@ smtp:
 symphony:
   # Use this setting to determine the default fields to return from the search_patron function
   default_patron_include_fields: 'profile,birthDate,library,lastActivityDate,alternateID,firstName,middleName,displayName,lastName,address1,barcode,category01,category02,category07,category11,lastActivityDate'
+  # Languages used at the library and their codes
+  languages:
+    CHINESE: zh-hans
+    DUTCH: nl
+    ENGLISH: en
+    FRENCH: fr
+    FRENCH-AF: fr
+    GERMAN: de
+    HUNGARIAN: hu
+    JAPANESE: jp
+    ROMANIAN: ro
+    RUSSIAN: ru
+    SOMALI: so
+    SPANISH: es
+    VIETNAMESE: vi
   # Make Libilsws validate each field included in a $field_list variable
   # or includeFields parameter against the API. Set the item to false to 
   # increase performance for production systems, once testing is complete.

@@ -16,8 +16,7 @@ class LibilswsTest extends TestCase
     protected function setUp(): void
     {
         // 1. Create a safe, temporary location for our dummy config
-        $this->dummyYamlPath = sys_get_temp_dir() . '/dummy_ilsws_config.yaml';
-
+        $this->dummyYamlPath = sys_get_temp_dir() . '/dummy_ilsws_config_' . bin2hex(random_bytes(8)) . '.yaml';
         // 2. Write the minimum required configuration to pass validation
         $yamlContent = <<<YAML
 ilsws:

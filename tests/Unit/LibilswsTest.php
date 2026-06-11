@@ -6,9 +6,6 @@ namespace Libilsws\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Libilsws\Libilsws;
-use PHPMailer\PHPMailer\PHPMailer;
-use Twig\Environment;
-
 class LibilswsTest extends TestCase
 {
     private string $dummyYamlPath;

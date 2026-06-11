@@ -36,30 +36,33 @@ class APIException extends Exception
     public function errorMessage(string $error = '', int $code = 0): string
     {
         $message = '';
-        $errMessage = json_decode($error, true, 10, JSON_OBJECT_AS_ARRAY);
-        if (json_last_error() === JSON_ERROR_NONE) {
-            if (!empty($errMessage['messageList'][0]['message'])) {
-                $error = $errMessage['messageList'][0]['message'];
-            }
-        } else {
-            $error = 'HTML error';
+        
+        // Attempt to decode the error as JSON
+        $errMessage = json_decode($error, true);
+        
+        // FIXED: Only overwrite $error if we successfully found a SirsiDynix API error message
+        if (
+            json_last_error() === JSON_ERROR_NONE 
+            && isset($errMessage['messageList'][0]['message'])
+        ) {
+            $error = $errMessage['messageList'][0]['message'];
         }
 
         switch ($code) {
             case 400:
-                $message = "HTTP {$code}: Bad Request";
+                $message = "HTTP {$code}: Bad Request - {$error}";
                 break;
             case 401:
-                $message = "HTTP {$code}: Unauthorized";
+                $message = "HTTP {$code}: Unauthorized - {$error}";
                 break;
             case 403:
-                $message = "HTTP {$code}: Forbidden";
+                $message = "HTTP {$code}: Forbidden - {$error}";
                 break;
             case 404:
-                $message = "HTTP {$code}: Not Found";
+                $message = "HTTP {$code}: Not Found - {$error}";
                 break;
             case (preg_match('/^5\d\d$/', (string) $code) ? true : false):
-                $message = "HTTP {$code}: SirsiDynix Web Services unavailable";
+                $message = "HTTP {$code}: SirsiDynix Web Services unavailable - {$error}";
                 break;
             default:
                 $message = "HTTP {$code}: {$error}";
@@ -114,6 +117,42 @@ class Libilsws
     public $fieldDesc = [];
 
     /**
+     * Optional injected Twig Environment.
+     *
+     * @var \Twig\Environment|null
+     */
+    protected $twig = null;
+
+    /**
+     * Optional injected PHPMailer instance.
+     *
+     * @var PHPMailer|null
+     */
+    protected $mailer = null;
+
+    /**
+     * Inject a custom Twig Environment (useful for testing or shared containers).
+     *
+     * @param \Twig\Environment $twig
+     * @return void
+     */
+    public function setTwig(\Twig\Environment $twig): void
+    {
+        $this->twig = $twig;
+    }
+
+    /**
+     * Inject a custom PHPMailer instance (useful for testing or alternate SMTP setups).
+     *
+     * @param PHPMailer $mailer
+     * @return void
+     */
+    public function setMailer(PHPMailer $mailer): void
+    {
+        $this->mailer = $mailer;
+    }
+
+    /**
      * Constructor for this class.
      *
      * @param string $yamlFile The path to the YAML configuration file.
@@ -125,7 +164,7 @@ class Libilsws
 
         // Read the YAML configuration file and assign private variables
         try {
-            if (filesize($yamlFile) > 0 && substr($yamlFile, -4, 4) == 'yaml') {
+            if (is_readable($yamlFile) && filesize($yamlFile) > 0 && substr($yamlFile, -4, 4) == 'yaml') {
                 $this->config = Yaml::parseFile($yamlFile);
                 // Debug logging for configuration if enabled
                 if (
@@ -149,6 +188,29 @@ class Libilsws
             . $this->config['ilsws']['port']
             . '/'
             . $this->config['ilsws']['webapp'];
+    }
+
+    /**
+     * Masks sensitive configuration data when the object is dumped.
+     */
+    public function __debugInfo(): array
+    {
+        $safeConfig = $this->config;
+        
+        if (isset($safeConfig['ilsws']['password'])) {
+            $safeConfig['ilsws']['password'] = '********';
+        }
+        if (isset($safeConfig['smtp']['smtp_password'])) {
+            $safeConfig['smtp']['smtp_password'] = '********';
+        }
+
+        return [
+            'error' => $this->error,
+            'code' => $this->code,
+            'baseUrl' => $this->baseUrl,
+            'config' => $safeConfig,
+            'fieldDesc' => $this->fieldDesc,
+        ];
     }
 
     /**
@@ -253,7 +315,7 @@ class Libilsws
     {
         $url = $this->baseUrl . '/user/staff/login';
         $queryJson = '{"login":"' . $this->config['ilsws']['username'] . '","password":"' . $this->config['ilsws']['password'] . '"}';
-        $reqNum = rand(1, 1000000000);
+        $reqNum = random_int(1, 1000000000);
 
         $headers = [
             'Content-Type: application/json',
@@ -268,9 +330,10 @@ class Libilsws
             CURLOPT_CUSTOMREQUEST => 'POST',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYSTATUS => true,
-            CURLOPT_CONNECTTIMEOUT => $this->config['ilsws']['timeout'],
+            CURLOPT_CONNECTTIMEOUT => $this->config['ilsws']['connection_timeout'] ?? 30,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_POSTFIELDS => $queryJson,
+            CURLOPT_TIMEOUT => $this->config['ilsws']['timeout'] ?? 60,
         ];
 
         try {
@@ -285,17 +348,20 @@ class Libilsws
             }
 
             if (!preg_match('/^2\d\d$/', (string) $this->code)) {
-                $obfuscatedUrl =  $this->baseUrl . "/$action?" . preg_replace('/(password)=(.*?([;]|$))/', '${1}=***', "$params");
-                $this->error = "Connect failure: {$obfuscatedUrl}: " . curl_error($ch);
+                // FIXED: Target the actual $queryJson string and mask the password value
+                $obfuscatedPayload = preg_replace('/("password"\s*:\s*")(.*?)(")/', '${1}********${3}', $queryJson);
+                $this->error = "Connect failure: {$url} Payload: {$obfuscatedPayload} - " . curl_error($ch);
                 throw new APIException($this->error);
             }
-
+            
             $response = json_decode((string) $json, true);
             $token = $response['sessionToken'];
 
             curl_close($ch);
         } catch (APIException $e) {
             $this->handleException($e->errorMessage($this->error, $this->code));
+
+            throw $e;
         }
 
         return $token;
@@ -329,7 +395,7 @@ class Libilsws
         $url = preg_replace('/(.*)\#(.*)/', '$1%23$2', $url);
 
         // Define a random request tracker. Can help when talking with SirsiDynix
-        $reqNum = rand(1, 1000000000);
+        $reqNum = random_int(1, 1000000000);
 
         /**
          * Set $error to the URL being submitted so that it can be accessed
@@ -380,6 +446,8 @@ class Libilsws
             curl_close($ch);
         } catch (APIException $e) {
             $this->handleException($e->errorMessage($this->error, $this->code));
+
+            throw $e;
         }
 
         return json_decode((string) $json, true);
@@ -422,7 +490,7 @@ class Libilsws
         }
 
         // Define a random request tracker
-        $reqNum = rand(1, 1000000000);
+        $reqNum = random_int(1, 1000000000);
 
         // Define the request headers
         $headers = [
@@ -476,6 +544,8 @@ class Libilsws
             curl_close($ch);
         } catch (APIException $e) {
             $this->handleException($e->errorMessage($this->error, $this->code));
+
+            throw $e;
         }
 
         return json_decode((string) $json, true);
@@ -818,12 +888,13 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('item_id', $itemId, 'i:30000000000000,39999999999999');
 
-        $json = "{\"itemBarcode\":\"{$itemId}\"}";
+        // Use json_encode
+        $json = json_encode(['itemBarcode' => (string) $itemId]);
         $response = $this->sendQuery("{$this->baseUrl}/circulation/untransit", $token, $json, 'POST');
 
         return $response;
     }
-
+    
     /**
      * Change item library.
      *
@@ -1272,19 +1343,19 @@ class Libilsws
 
                 $record = [];
 
-                $record['holdType'] = $hold['fields']['holdRecord']['fields']['holdType'];
-                $record['status'] = $hold['fields']['holdRecord']['fields']['status'];
-                $record['pickupLibrary'] = $hold['fields']['holdRecord']['fields']['pickupLibrary']['key'];
-                $record['item'] = $hold['fields']['item']['key'];
-                $record['bib'] = $hold['fields']['item']['fields']['bib']['key'];
-                $record['author'] = $hold['fields']['item']['fields']['bib']['fields']['author'];
-                $record['title'] = $hold['fields']['item']['fields']['bib']['fields']['title'];
-                $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'];
-                $record['sortCallNumber'] = $hold['fields']['item']['fields']['call']['fields']['sortCallNumber'];
-                $record['barcode'] = $hold['fields']['item']['fields']['barcode'];
-                $record['currentLocation'] = $hold['fields']['item']['fields']['currentLocation']['key'];
-                $record['locationDescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'];
-                $record['itemType'] = $hold['fields']['item']['fields']['itemType']['key'];
+                $record['holdType'] = $hold['fields']['holdRecord']['fields']['holdType'] ?? '';
+                $record['status'] = $hold['fields']['holdRecord']['fields']['status'] ?? '';
+                $record['pickupLibrary'] = $hold['fields']['holdRecord']['fields']['pickupLibrary']['key'] ?? '';
+                $record['item'] = $hold['fields']['item']['key'] ?? '';
+                $record['bib'] = $hold['fields']['item']['fields']['bib']['key'] ?? '';
+                $record['author'] = $hold['fields']['item']['fields']['bib']['fields']['author'] ?? '';
+                $record['title'] = $hold['fields']['item']['fields']['bib']['fields']['title'] ?? '';
+                $record['callNumber'] = $hold['fields']['item']['fields']['call']['fields']['callNumber'] ?? '';
+                $record['sortCallNumber'] = $hold['fields']['item']['fields']['call']['fields']['sortCallNumber'] ?? '';
+                $record['barcode'] = $hold['fields']['item']['fields']['barcode'] ?? '';
+                $record['currentLocation'] = $hold['fields']['item']['fields']['currentLocation']['key'] ?? '';
+                $record['locationDescription'] = $hold['fields']['item']['fields']['currentLocation']['fields']['description'] ?? '';
+                $record['itemType'] = $hold['fields']['item']['fields']['itemType']['key'] ?? '';
 
                 // Remove URL from author field
                 $record['author'] = !empty($record['author']) ? $this->removeUrl($record['author']) : '';
@@ -1452,47 +1523,43 @@ class Libilsws
             $startRow = 1;
             $resultRows = 0;
 
+            // 1. Convert result1 into a fast lookup map (Hash Map)
+            $result1Map = [];
+            if (!empty($result1['result'])) {
+                foreach (array_filter($result1['result']) as $record1) {
+                    if (isset($record1['key'])) {
+                        $result1Map[$record1['key']] = true;
+                    }
+                }
+            }
+
             $result2 = $this->searchPatron($token, (string) $index2, (string) $search2, ['rw' => 1, 'ct' => 1000, 'includeFields' => 'key']);
 
             if (isset($result2['totalResults']) && $result2['totalResults'] > 1) {
-                foreach (array_filter($result1['result']) as $record1) {
-                    foreach (array_filter($result2['result']) as $record2) {
-                        if ($record1['key'] === $record2['key']) {
-                            $matches++;
-                            if ($matches > 1) {
-                                break;
-                            }
+                // 2. Do an O(1) lookup against the map instead of a nested loop
+                foreach (array_filter($result2['result']) as $record2) {
+                    if (isset($record2['key']) && isset($result1Map[$record2['key']])) {
+                        $matches++;
+                        if ($matches > 1) {
+                            break;
                         }
                     }
-                    if ($matches > 1) {
-                        break;
-                    }
-                }
-                if ($matches > 1) {
-                    $duplicate = 1;
                 }
             } else {
-                $resultRows = $result2['totalResults'];
+                // Page through remaining results
+                $resultRows = $result2['totalResults'] ?? 0;
                 $startRow += 1000;
 
                 while ($resultRows >= $startRow) {
                     $result2 = $this->searchPatron($token, (string) $index2, (string) $search2, ['rw' => $startRow, 'ct' => 1000, 'includeFields' => 'key']);
 
-                    foreach (array_filter($result1['result']) as $record1) {
-                        foreach (array_filter($result2['result']) as $record2) {
-                            if ($record1['key'] === $record2['key']) {
-                                $matches++;
-                                if ($matches > 1) {
-                                    break;
-                                }
+                    foreach (array_filter($result2['result']) as $record2) {
+                        if (isset($record2['key']) && isset($result1Map[$record2['key']])) {
+                            $matches++;
+                            if ($matches > 1) {
+                                break 2; // Break out of the while loop too
                             }
                         }
-                        if ($matches > 1) {
-                            break;
-                        }
-                    }
-                    if ($matches > 1) {
-                        break;
                     }
                     $startRow += 1000;
                 }
@@ -1713,11 +1780,12 @@ class Libilsws
         $this->validate('token', $token, 'r:#^[a-z0-9\-]{36}$#');
         $this->validate('patronId', $patronId, 'r:#^[A-Za-z0-9]{1,20}$#');
 
-        $json = "{ \"barcode\": \"{$patronId}\", \"password\": \"{$password}\" }";
+        // Use json_encode to prevent escaping errors and JSON injection
+        $json = json_encode(['barcode' => $patronId, 'password' => $password]);
 
         return $this->sendQuery("{$this->baseUrl}/user/patron/authenticate", $token, $json, 'POST');
     }
-
+    
     /**
      * Describe the patron resource.
      *
@@ -2349,8 +2417,8 @@ class Libilsws
         // Check fields for required and default values and validate
         $patron = $this->checkFields($patron, $fields);
 
-        // Determine the language code to use for the template
-        $languages = [
+        // FIXED: Pull from config if available, fallback to legacy defaults to preserve BC
+        $languages = $this->config['symphony']['languages'] ?? [
             'CHINESE' => 'zh-hans',
             'DUTCH' => 'nl',
             'ENGLISH' => 'en',
@@ -2365,7 +2433,9 @@ class Libilsws
             'SPANISH' => 'es',
             'VIETNAMESE' => 'vi',
         ];
-        $language = !empty($patron['language']) ? $languages[$patron['language']] : 'en';
+        
+        // Use null coalescing to default to English safely
+        $language = $languages[$patron['language'] ?? 'ENGLISH'] ?? 'en';
 
         if ($template) {
             if (is_readable($this->config['symphony']['template_path'] . '/' . $template . '.' . $language)) {
@@ -2385,7 +2455,7 @@ class Libilsws
             error_log("DEBUG_REGISTER {$json}", 0);
         }
 
-        // Send initial registration (and generate email)
+        // Send initial registration
         $requestOptions = [];
         $requestOptions['role'] = $role;
         $requestOptions['clientId'] = $clientId;
@@ -2394,34 +2464,41 @@ class Libilsws
         if (!empty($response['key'])) {
             $patronKey = $response['key'];
 
-            // If the barcode doesn't look like a real 14-digit barcode then change it to the patron key
-            if (empty($patron['barcode']) || !preg_match('/^\d{14}$/', (string) $patron['barcode'])) {
-                // Assign the patronKey from the initial registration to the update array
-                $patron['barcode'] = $patronKey;
-                if (!$this->changeBarcode($token, (string) $patronKey, (string) $patronKey, $requestOptions)) {
-                    throw new Exception('Unable to set barcode to patron key');
+            try {
+                // If the barcode doesn't look like a real 14-digit barcode then change it to the patron key
+                if (empty($patron['barcode']) || !preg_match('/^\d{14}$/', (string) $patron['barcode'])) {
+                    $patron['barcode'] = $patronKey;
+                    if (!$this->changeBarcode($token, (string) $patronKey, (string) $patronKey, $requestOptions)) {
+                        throw new Exception('Unable to set barcode to patron key');
+                    }
                 }
-            }
 
-            if (!empty($patron['phoneList'])) {
-                if (!$this->updatePhoneList($patron['phoneList'], $token, (string) $patronKey, $requestOptions)) {
-                    throw new Exception('SMS phone list update failed');
+                if (!empty($patron['phoneList'])) {
+                    if (!$this->updatePhoneList($patron['phoneList'], $token, (string) $patronKey, $requestOptions)) {
+                        throw new Exception('SMS phone list update failed');
+                    }
                 }
-            }
 
-            if ($template && $this->validate('EMAIL', $patron['EMAIL'], 'e')) {
-                if (!$subject) {
-                    $subject = !empty($this->config['smtp']['smtp_default_subject']) ? $this->config['smtp']['smtp_default_subject'] : '';
+                if ($template && $this->validate('EMAIL', $patron['EMAIL'] ?? '', 'e')) {
+                    if (!$subject) {
+                        $subject = !empty($this->config['smtp']['smtp_default_subject']) ? $this->config['smtp']['smtp_default_subject'] : '';
+                    }
+                    if (!$this->emailTemplate(
+                        $patron,
+                        $this->config['smtp']['smtp_from'],
+                        $patron['EMAIL'],
+                        $subject,
+                        $template
+                    )) {
+                        throw new Exception('Email to patron failed');
+                    }
                 }
-                if (!$this->emailTemplate(
-                    $patron,
-                    $this->config['smtp']['smtp_from'],
-                    $patron['EMAIL'],
-                    $subject,
-                    $template
-                )) {
-                    throw new Exception('Email to patron failed');
-                }
+            } catch (Exception $e) {
+                // FIXED: Rollback the patron creation to prevent orphaned/corrupted records!
+                $this->deletePatron($token, (string) $patronKey);
+                
+                // Now re-throw the exception so the application knows the entire process failed cleanly
+                throw new Exception("Registration rolled back due to secondary failure: " . $e->getMessage());
             }
         }
 
@@ -2889,7 +2966,7 @@ class Libilsws
     {
         $lastName = substr($lastName, 0, 4);
         $firstName = substr($firstName, 0, 2);
-        $num = rand(1, 99999);
+        $num = random_int(1, 99999);
 
         // Extract the street name from the street address
         $words = preg_split('/\s+/', $street);
@@ -2918,49 +2995,60 @@ class Libilsws
     {
         $result = 0;
 
-        // Fill template
-        $loader = new \Twig\Loader\FilesystemLoader($this->config['symphony']['template_path']);
-        $twig = new \Twig\Environment($loader, ['cache' => $this->config['symphony']['template_cache']]);
+        // 1. Lazy Load Twig
+        if ($this->twig !== null) {
+            $twig = $this->twig;
+        } else {
+            // BC Fallback: Instantiate Twig the legacy way
+            $loader = new \Twig\Loader\FilesystemLoader($this->config['symphony']['template_path']);
+            $twig = new \Twig\Environment($loader, ['cache' => $this->config['symphony']['template_cache']]);
+        }
+
         $body = $twig->render($template, ['patron' => $patron]);
 
-        // Initialize mailer
-        $mail = new PHPMailer(true);
+        // 2. Lazy Load Mailer
+        $mail = $this->mailer !== null ? $this->mailer : new PHPMailer(true);
 
         try {
-            // Server settings
-            if ($this->config['debug']['smtp']) {
-                $mail->SMTPDebug = SMTP::DEBUG_SERVER; // Enable verbose debug output
+            // Only configure the mailer if we instantiated a fresh one internally.
+            // If it was injected, we assume the application already configured the SMTP settings.
+            if ($this->mailer === null) {
+                if ($this->config['debug']['smtp']) {
+                    $mail->SMTPDebug = SMTP::DEBUG_SERVER; 
+                }
+
+                $mail->isSMTP(); 
+                $mail->CharSet = 'UTF-8'; 
+                $mail->Encoding = 'base64'; 
+                $mail->Host = $this->config['smtp']['smtp_host']; 
+
+                if (!empty($this->config['smtp']['smtp_username']) && !empty($this->config['smtp']['smtp_password'])) {
+                    $mail->SMTPAuth = true; 
+                    $mail->Username = $this->config['smtp']['smtp_username']; 
+                    $mail->Password = $this->config['smtp']['smtp_password']; 
+                } else {
+                    $mail->SMTPAuth = false;
+                }
+
+                if (!empty($this->config['smtp']['smtp_protocol']) && $this->config['smtp']['smtp_protocol'] === 'tls') {
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; 
+                }
+
+                $mail->Port = $this->config['smtp']['smtp_port'];
             }
 
-            $mail->isSMTP(); // Send using SMTP
-            $mail->CharSet = 'UTF-8'; // Use unicode
-            $mail->Encoding = 'base64'; // Encode test in base64
+            // Set from address (overwrites injected defaults if explicitly passed)
+            $mail->setFrom($from, $this->config['smtp']['smtp_fromname'] ?? '');
 
-            $mail->Host = $this->config['smtp']['smtp_host']; // Set the SMTP server to send through
-
-            // If we've got email account credentials, use them
-            if (!empty($this->config['smtp']['smtp_username']) && !empty($this->config['smtp']['smtp_password'])) {
-                $mail->SMTPAuth = true; // Enable SMTP authentication
-                $mail->Username = $this->config['smtp']['smtp_username']; // SMTP username
-                $mail->Password = $this->config['smtp']['smtp_password']; // SMTP password
-            } else {
-                $mail->SMTPAuth = false;
-            }
-
-            if (!empty($this->config['smtp']['smtp_protocol']) && $this->config['smtp']['smtp_protocol'] === 'tls') {
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // Enable implicit TLS encryption
-            }
-
-            // TCP port to connect to. Use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
-            $mail->Port = $this->config['smtp']['smtp_port'];
-
-            // Set from address
-            $mail->setFrom($from, $this->config['smtp']['smtp_fromname']);
-
+            // Clear previous state in case an injected mailer is being reused
+            $mail->clearAllRecipients();
+            $mail->clearReplyTos();
+            $mail->clearAttachments();
+            $mail->clearCustomHeaders();
             // Set recipients
             $addresses = preg_split('/,/', $to);
-            foreach ($addresses as $address) {
-                $mail->addAddress(trim($address)); //Name is optional
+            foreach (array_filter($addresses) as $address) {
+                $mail->addAddress(trim($address)); 
             }
 
             // Reply-to
@@ -2968,14 +3056,14 @@ class Libilsws
                 $mail->addReplyTo($this->config['smtp']['smtp_replyto']);
             }
 
-            //Content
+            // Content
             if (!empty($this->config['smtp']['smtp_allowhtml']) && $this->config['smtp']['smtp_allowhtml'] === 'true') {
-                $mail->isHTML(true); //Set email format to HTML
+                $mail->isHTML(true); 
             }
 
             $mail->Subject = $subject;
             $mail->Body = $body;
-            $mail->AltBody = 'Welcome to Multnomah County Library. Your card number is ' . $patron['barcode'];
+            $mail->AltBody = 'Welcome to Multnomah County Library. Your card number is ' . ($patron['barcode'] ?? 'unknown');
 
             $mail->send();
             $result = 1;

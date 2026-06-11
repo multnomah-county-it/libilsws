@@ -3040,9 +3040,11 @@ class Libilsws
             // Set from address (overwrites injected defaults if explicitly passed)
             $mail->setFrom($from, $this->config['smtp']['smtp_fromname'] ?? '');
 
-            // Clear previous recipients in case an injected mailer is being reused
+            // Clear previous state in case an injected mailer is being reused
             $mail->clearAllRecipients();
-            
+            $mail->clearReplyTos();
+            $mail->clearAttachments();
+            $mail->clearCustomHeaders();
             // Set recipients
             $addresses = preg_split('/,/', $to);
             foreach (array_filter($addresses) as $address) {

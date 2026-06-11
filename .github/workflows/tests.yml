@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@aa1fe473f9c687b6fb896056d771232c0bc41161
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, xml, json, curl

@@ -19,5 +19,5 @@ $template = $argv[5];
 $ilsws = new Libilsws('./libilsws.yaml');
 
 // Change barcode returns 1 for success or 0 for failure
-$response = $ilsws->emailTemplate($patron, $to, $from, $subject, $template);
+$response = $ilsws->emailTemplate($patron, $from, $to, $subject, $template);
 echo "{$response}\n";

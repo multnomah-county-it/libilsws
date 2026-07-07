@@ -142,4 +142,46 @@ YAML;
         $this->assertEquals('OR', $attributes['state']);
         $this->assertEquals('John Doe', $attributes['displayName']);
     }
+
+    public function testErrorMessageParsesJsonAndStatusCodes(): void
+    {
+        // Trigger autoloader to load src/Libilsws.php where APIException is defined
+        $ilsws = new Libilsws($this->dummyYamlPath);
+        $exception = new \Libilsws\APIException();
+
+        // 1. Test parsing of valid JSON error format from SirsiDynix API
+        $jsonError = json_encode([
+            'messageList' => [
+                ['message' => 'The patron barcode is already in use.']
+            ]
+        ]);
+        $result = $exception->errorMessage($jsonError, 400);
+        $this->assertEquals('HTTP 400: Bad Request - The patron barcode is already in use.', $result);
+
+        // 2. Test plain text fallback when JSON is invalid
+        $plainError = 'Raw database connection timeout';
+        $result2 = $exception->errorMessage($plainError, 500);
+        $this->assertEquals('HTTP 500: SirsiDynix Web Services unavailable - Raw database connection timeout', $result2);
+
+        // 3. Test empty input fallback with unauthorized code
+        $result3 = $exception->errorMessage('', 401);
+        $this->assertEquals('HTTP 401: Unauthorized - ', $result3);
+    }
+
+    public function testGetExpirationCalculatesDatesCorrectly(): void
+    {
+        $ilsws = new Libilsws($this->dummyYamlPath);
+
+        // 1. Test null returns null
+        $this->assertNull($ilsws->getExpiration(null));
+
+        // 2. Test 0 returns null
+        $this->assertNull($ilsws->getExpiration(0));
+
+        // 3. Test positive number of days calculates future date correctly
+        $today = date('Y-m-d');
+        $expectedFutureDate = date('Y-m-d', strtotime($today . " + 30 day"));
+        $this->assertEquals($expectedFutureDate, $ilsws->getExpiration(30));
+    }
 }
+

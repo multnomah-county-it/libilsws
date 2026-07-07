@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Libilsws\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Libilsws\DataHandler;
 
 class DataHandlerTest extends TestCase
@@ -17,18 +18,14 @@ class DataHandlerTest extends TestCase
         $this->dh = new DataHandler();
     }
 
-    /**
-     * @dataProvider validationRuleProvider
-     */
+    #[DataProvider('validationRuleProvider')]
     public function testValidate($value, string $rule, int $expectedResult): void
     {
         $result = $this->dh->validate($value, $rule);
         $this->assertSame($expectedResult, $result, "Failed on rule '{$rule}' with value '" . print_r($value, true) . "'");
     }
 
-    /**
-     * @dataProvider dateValidationProvider
-     */
+    #[DataProvider('dateValidationProvider')]
     public function testValidateDate(string $inputDate, string $format, string $expectedOutput): void
     {
         $result = $this->dh->validateDate($inputDate, $format);

@@ -48,24 +48,18 @@ class APIException extends Exception
             $error = $errMessage['messageList'][0]['message'];
         }
 
-        switch ($code) {
-            case 400:
-                $message = "HTTP {$code}: Bad Request - {$error}";
-                break;
-            case 401:
-                $message = "HTTP {$code}: Unauthorized - {$error}";
-                break;
-            case 403:
-                $message = "HTTP {$code}: Forbidden - {$error}";
-                break;
-            case 404:
-                $message = "HTTP {$code}: Not Found - {$error}";
-                break;
-            case (preg_match('/^5\d\d$/', (string) $code) ? true : false):
-                $message = "HTTP {$code}: SirsiDynix Web Services unavailable - {$error}";
-                break;
-            default:
-                $message = "HTTP {$code}: {$error}";
+        if ($code === 400) {
+            $message = "HTTP {$code}: Bad Request - {$error}";
+        } elseif ($code === 401) {
+            $message = "HTTP {$code}: Unauthorized - {$error}";
+        } elseif ($code === 403) {
+            $message = "HTTP {$code}: Forbidden - {$error}";
+        } elseif ($code === 404) {
+            $message = "HTTP {$code}: Not Found - {$error}";
+        } elseif ($code >= 500 && $code <= 599) {
+            $message = "HTTP {$code}: SirsiDynix Web Services unavailable - {$error}";
+        } else {
+            $message = "HTTP {$code}: {$error}";
         }
 
         return $message;

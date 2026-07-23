@@ -113,6 +113,12 @@ YAML;
                             'code' => ['key' => 'CITY/STATE'],
                             'data' => 'Portland, OR'
                         ]
+                    ],
+                    [
+                        'fields' => [
+                            'code' => ['key' => 'ZIP'],
+                            'data' => '97209'
+                        ]
                     ]
                 ]
             ]
@@ -140,6 +146,7 @@ YAML;
         $this->assertEquals('johndoe@example.com', $attributes['email']);
         $this->assertEquals('Portland', $attributes['city']);
         $this->assertEquals('OR', $attributes['state']);
+        $this->assertEquals('97209', $attributes['zip']);
         $this->assertEquals('John Doe', $attributes['displayName']);
     }
 

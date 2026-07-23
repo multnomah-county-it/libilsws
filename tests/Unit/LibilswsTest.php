@@ -190,5 +190,94 @@ YAML;
         $expectedFutureDate = date('Y-m-d', strtotime($today . " + 30 day"));
         $this->assertEquals($expectedFutureDate, $ilsws->getExpiration(30));
     }
+
+    public function testUpdatePatronPreservesAddressFieldsFromGetPatronAttributes(): void
+    {
+        $sampleYamlContent = file_get_contents(__DIR__ . '/../../libilsws.yaml.sample');
+        $sampleYamlContent = str_replace(
+            ['HOSTNAME', 'PORT', 'WEBAPP_NAME'],
+            ['api.example.com', '443', 'symws'],
+            $sampleYamlContent
+        );
+        $tempYamlPath = sys_get_temp_dir() . '/test_sample_' . bin2hex(random_bytes(8)) . '.yaml';
+        file_put_contents($tempYamlPath, $sampleYamlContent);
+
+        try {
+            $ilswsMock = $this->getMockBuilder(Libilsws::class)
+                ->setConstructorArgs([$tempYamlPath])
+                ->onlyMethods(['sendGet', 'sendQuery'])
+                ->getMock();
+
+            $ilswsMock->method('sendGet')->willReturn([
+                'fields' => [
+                    ['name' => 'library', 'type' => 'resource', 'uri' => '/policy/library'],
+                    ['name' => 'profile', 'type' => 'resource', 'uri' => '/policy/patronProfile'],
+                    ['name' => 'language', 'type' => 'resource', 'uri' => '/policy/patronLanguage'],
+                    ['name' => 'firstName', 'type' => 'string', 'min' => 1, 'max' => 40],
+                    ['name' => 'middleName', 'type' => 'string', 'min' => 0, 'max' => 40],
+                    ['name' => 'lastName', 'type' => 'string', 'min' => 1, 'max' => 40],
+                    ['name' => 'birthDate', 'type' => 'date'],
+                    ['name' => 'category01', 'type' => 'resource', 'uri' => '/policy/patronCategory01'],
+                    ['name' => 'category02', 'type' => 'resource', 'uri' => '/policy/patronCategory02'],
+                    ['name' => 'category03', 'type' => 'resource', 'uri' => '/policy/patronCategory03'],
+                    ['name' => 'category05', 'type' => 'resource', 'uri' => '/policy/patronCategory05'],
+                    ['name' => 'category06', 'type' => 'resource', 'uri' => '/policy/patronCategory06'],
+                    ['name' => 'category11', 'type' => 'string', 'min' => 0, 'max' => 10],
+                    ['name' => 'category12', 'type' => 'string', 'min' => 0, 'max' => 10],
+                    ['name' => 'category13', 'type' => 'string', 'min' => 0, 'max' => 10],
+                ]
+            ]);
+
+            $fakeToken = '12345678-1234-1234-1234-123456789012';
+            $patronKey = '1234567';
+
+            // Input shaped like getPatronAttributes() output
+            $patronInput = [
+                'firstName' => 'John',
+                'lastName' => 'Doe',
+                'city' => 'Portland',
+                'state' => 'OR',
+                'zip' => '97209',
+                'email' => 'johndoe@example.com',
+                'telephone' => '215-534-6820',
+                'category02' => 'TEXT',
+                'profile' => 'ONLINE',
+            ];
+
+            // Handle sendQuery calls for updatePatron
+            $ilswsMock->expects($this->once())
+                ->method('sendQuery')
+                ->willReturnCallback(function ($url, $token, $data = null, $method = 'GET') use ($patronKey) {
+                    if (str_contains($url, '/policy/patron/description')) {
+                        return ['fields' => []];
+                    }
+
+                    if (str_contains($url, "/user/patron/key/{$patronKey}") && $method === 'PUT') {
+                        $parsedData = json_decode($data, true);
+                        $address1 = $parsedData['fields']['address1'] ?? [];
+
+                        $zipField = current(array_filter($address1, fn($item) => ($item['fields']['code']['key'] ?? null) === 'ZIP'));
+                        $cityStateField = current(array_filter($address1, fn($item) => ($item['fields']['code']['key'] ?? null) === 'CITY/STATE'));
+
+                        $this->assertNotEmpty($zipField, 'ZIP field should be present in address1');
+                        $this->assertEquals('97209', $zipField['fields']['data'] ?? null);
+                        $this->assertNotEmpty($cityStateField, 'CITY/STATE field should be present in address1');
+                        $this->assertEquals('Portland, OR', $cityStateField['fields']['data'] ?? null);
+
+                        return ['resource' => '/user/patron', 'key' => $patronKey];
+                    }
+
+                    return [];
+                });
+
+            $response = $ilswsMock->updatePatron($patronInput, $fakeToken, $patronKey, 1);
+            $this->assertEquals($patronKey, $response['key']);
+        } finally {
+            if (file_exists($tempYamlPath)) {
+                unlink($tempYamlPath);
+            }
+        }
+    }
 }
+
 

@@ -1957,6 +1957,22 @@ class Libilsws
             }
         }
 
+        if (empty($patron['ZIP'])) {
+            if (isset($patron['zip'])) {
+                $patron['ZIP'] = $patron['zip'];
+            } elseif (isset($patron['postal_code'])) {
+                $patron['ZIP'] = $patron['postal_code'];
+            }
+        }
+
+        if (empty($patron['CITY/STATE'])) {
+            if (isset($patron['city_state'])) {
+                $patron['CITY/STATE'] = $patron['city_state'];
+            } elseif (isset($patron['city']) && isset($patron['state'])) {
+                $patron['CITY/STATE'] = $patron['city'] . ', ' . $patron['state'];
+            }
+        }
+
         return $patron;
     }
 
@@ -2397,7 +2413,7 @@ class Libilsws
         $this->validate('template', $template, 'r:#^([a-zA-Z0-9\-_]{1,40})(\.)(html|text)(\.)(twig)$#');
 
         $subject = !empty($options['subject']) ? $options['subject'] : '';
-        $this->validate('subject', $subject, 's:20');
+        $this->validate('subject', $subject, 's:128');
 
         $response = [];
 

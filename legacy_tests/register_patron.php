@@ -58,3 +58,10 @@ $options['subject'] = 'Welcome to our library!';
 
 $response = $ilsws->registerPatron($patron, $token, $addrNum, $options);
 print_r($response);
+
+if (isset($response['key'])) {
+    echo "\nRetrieving patron attributes for key {$response['key']}...\n";
+    $attributes = $ilsws->getPatronAttributes($token, $response['key']);
+    print_r($attributes);
+}
+

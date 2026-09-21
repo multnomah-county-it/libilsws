@@ -2389,12 +2389,15 @@ class Libilsws
 
     /**
      * Register a new patron and send welcome email to patron. Defaults to
-     * English, but supports alternate language templates.
+     * English, but supports alternate language templates. Omit the template
+     * option to register the patron without sending an email, e.g. when the
+     * calling application sends its own notification.
      *
      * @param array $patron Associative array containing patron data.
      * @param string|null $token The session token returned by ILSWS.
      * @param int|null $addrNum Optional Address number to update (1, 2, or 3, defaults to 1).
      * @param array $options Associative array of options (role, clientId, template, subject).
+     *                       An empty or missing template skips the welcome email.
      * @return array Associative array containing response from ILSWS.
      * @throws Exception If validation fails, barcode cannot be set, SMS update fails, or email fails.
      */
@@ -2410,7 +2413,9 @@ class Libilsws
         $this->validate('clientId', $clientId, 'r:#^[A-Za-z]{4,20}$#');
 
         $template = !empty($options['template']) ? $options['template'] : '';
-        $this->validate('template', $template, 'r:#^([a-zA-Z0-9\-_]{1,40})(\.)(html|text)(\.)(twig)$#');
+        if ($template) {
+            $this->validate('template', $template, 'r:#^([a-zA-Z0-9\-_]{1,40})(\.)(html|text)(\.)(twig)$#');
+        }
 
         $subject = !empty($options['subject']) ? $options['subject'] : '';
         $this->validate('subject', $subject, 's:128');

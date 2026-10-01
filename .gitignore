@@ -1,5 +1,8 @@
 /vendor/
 composer-setup.php
-libilsws.yaml
+libilsws.yaml*
+!libilsws.yaml.sample
 php_errors.log
 /templates/cache/*
+.DS_Store
+.phpunit.cache/

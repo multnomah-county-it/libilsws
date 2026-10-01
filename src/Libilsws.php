@@ -2411,9 +2411,8 @@ class Libilsws
 
         $clientId = !empty($options['clientId']) ? $options['clientId'] : $this->config['ilsws']['clientId'];
         $this->validate('clientId', $clientId, 'r:#^[A-Za-z]{4,20}$#');
-
-        $template = !empty($options['template']) ? $options['template'] : '';
-        if ($template) {
+        $template = $options['template'] ?? '';
+        if ($template !== '') {
             $this->validate('template', $template, 'r:#^([a-zA-Z0-9\-_]{1,40})(\.)(html|text)(\.)(twig)$#');
         }
 

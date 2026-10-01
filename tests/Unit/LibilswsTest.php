@@ -343,4 +343,21 @@ YAML;
             ['role' => 'STAFF', 'clientId' => 'TestClient', 'template' => 'not a template']
         );
     }
+
+    public function testRegisterPatronRejectsZeroTemplate(): void
+    {
+        $ilsws = $this->registerPatronMock();
+        $ilsws->expects($this->never())->method('sendQuery');
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Invalid template');
+
+        $ilsws->registerPatron(
+            ['lastName' => 'Example Org', 'firstName' => 'Pat', 'street' => '1 Main St', 'EMAIL' => 'org@example.com'],
+            str_repeat('a', 36),
+            1,
+            ['role' => 'STAFF', 'clientId' => 'TestClient', 'template' => '0']
+        );
+    }
 }
+

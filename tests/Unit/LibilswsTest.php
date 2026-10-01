@@ -6,6 +6,7 @@ namespace Libilsws\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Libilsws\Libilsws;
+use Symfony\Component\Yaml\Yaml;
 class LibilswsTest extends TestCase
 {
     private string $dummyYamlPath;
@@ -277,6 +278,86 @@ YAML;
                 unlink($tempYamlPath);
             }
         }
+    }
+
+    /**
+     * Builds a Libilsws mock whose Symphony calls succeed without network access.
+     */
+    private function registerPatronMock(): Libilsws
+    {
+        $config = Yaml::parseFile($this->dummyYamlPath);
+        $config['debug']['fields'] = false;
+        $config['symphony']['new_fields'] = [
+            'lastName' => ['required' => true],
+            'firstName' => ['required' => false],
+            'street' => ['required' => false],
+            'EMAIL' => ['required' => false, 'type' => 'address'],
+        ];
+        file_put_contents($this->dummyYamlPath, Yaml::dump($config, 4));
+
+        $mock = $this->getMockBuilder(Libilsws::class)
+            ->setConstructorArgs([$this->dummyYamlPath])
+            ->onlyMethods(['describePatron', 'sendQuery', 'changeBarcode', 'emailTemplate', 'deletePatron'])
+            ->getMock();
+
+        $mock->method('describePatron')->willReturn(['fields' => [
+            ['name' => 'lastName', 'type' => 'string', 'min' => 1, 'max' => 128],
+            ['name' => 'firstName', 'type' => 'string', 'min' => 1, 'max' => 128],
+            ['name' => 'street', 'type' => 'string', 'min' => 1, 'max' => 128],
+            ['name' => 'EMAIL', 'type' => 'string', 'min' => 1, 'max' => 128],
+        ]]);
+        $mock->method('sendQuery')->willReturn(['key' => '123456']);
+        $mock->method('changeBarcode')->willReturn(1);
+
+        return $mock;
+    }
+
+    public function testRegisterPatronWithoutTemplateSkipsEmail(): void
+    {
+        $ilsws = $this->registerPatronMock();
+        $ilsws->expects($this->never())->method('emailTemplate');
+        $ilsws->expects($this->never())->method('deletePatron');
+
+        $response = $ilsws->registerPatron(
+            ['lastName' => 'Example Org', 'firstName' => 'Pat', 'street' => '1 Main St', 'EMAIL' => 'org@example.com'],
+            str_repeat('a', 36),
+            1,
+            ['role' => 'STAFF', 'clientId' => 'TestClient']
+        );
+
+        $this->assertSame('123456', $response['key']);
+    }
+
+    public function testRegisterPatronRejectsMalformedTemplate(): void
+    {
+        $ilsws = $this->registerPatronMock();
+        $ilsws->expects($this->never())->method('sendQuery');
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Invalid template');
+
+        $ilsws->registerPatron(
+            ['lastName' => 'Example Org', 'firstName' => 'Pat', 'street' => '1 Main St', 'EMAIL' => 'org@example.com'],
+            str_repeat('a', 36),
+            1,
+            ['role' => 'STAFF', 'clientId' => 'TestClient', 'template' => 'not a template']
+        );
+    }
+
+    public function testRegisterPatronRejectsZeroTemplate(): void
+    {
+        $ilsws = $this->registerPatronMock();
+        $ilsws->expects($this->never())->method('sendQuery');
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Invalid template');
+
+        $ilsws->registerPatron(
+            ['lastName' => 'Example Org', 'firstName' => 'Pat', 'street' => '1 Main St', 'EMAIL' => 'org@example.com'],
+            str_repeat('a', 36),
+            1,
+            ['role' => 'STAFF', 'clientId' => 'TestClient', 'template' => '0']
+        );
     }
 }
 

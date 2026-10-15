@@ -350,8 +350,6 @@ class Libilsws
             
             $response = json_decode((string) $json, true);
             $token = $response['sessionToken'];
-
-            curl_close($ch);
         } catch (APIException $e) {
             $this->handleException($e->errorMessage($this->error, $this->code));
 
@@ -436,8 +434,6 @@ class Libilsws
                 }
                 throw new APIException($this->error);
             }
-
-            curl_close($ch);
         } catch (APIException $e) {
             $this->handleException($e->errorMessage($this->error, $this->code));
 
@@ -534,8 +530,6 @@ class Libilsws
                 }
                 throw new APIException($this->error);
             }
-
-            curl_close($ch);
         } catch (APIException $e) {
             $this->handleException($e->errorMessage($this->error, $this->code));
 

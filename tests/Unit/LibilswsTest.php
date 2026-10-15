@@ -359,6 +359,11 @@ YAML;
             ['role' => 'STAFF', 'clientId' => 'TestClient', 'template' => '0']
         );
     }
+
+    public function testLibilswsDoesNotUseDeprecatedCurlClose(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../../src/Libilsws.php');
+        $this->assertNotFalse($source);
+        $this->assertDoesNotMatchRegularExpression('/\bcurl_close\s*\(/', $source);
+    }
 }
-
-
